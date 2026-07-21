@@ -224,7 +224,6 @@ type DataStateReasonsAreClosed = Expect<
     | "profile-updated"
     | "profile-replaced"
     | "environment-changed"
-    | "settings-updated"
     | "default-profiles-created"
     | "fallback-profiles-created"
     | "state-reloaded"
@@ -233,6 +232,8 @@ type DataStateReasonsAreClosed = Expect<
 
 const bus: TypedEventBus = eventBus;
 const dataCoordinatorState = createDataCoordinatorState();
+// @ts-expect-error PreferencesService, not DataCoordinator, owns settings state.
+dataCoordinatorState.settings;
 const preferencesSettings = createPreferencesState().settings;
 const keyBrowserViewState: KeyBrowserViewStateSnapshot = {
   authorityEpoch: 1,
@@ -443,7 +444,6 @@ bus.emit("data:state-changed", {
     currentEnvironment: "space",
     currentProfileData: null,
     profiles: {},
-    settings: {},
     metadata: { lastModified: null, version: "1.0.0" },
   },
 });

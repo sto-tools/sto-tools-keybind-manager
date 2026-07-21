@@ -52,7 +52,7 @@ const dataService = new DataService({
   // Initialize the compatibility late-join owner.
   dataService.init();
 
-  // Create DataCoordinator - the single source of truth for data operations
+  // Create DataCoordinator - the single source of truth for profile data operations
   const dataCoordinator = new DataCoordinator({
     eventBus,
     storage: storageService,

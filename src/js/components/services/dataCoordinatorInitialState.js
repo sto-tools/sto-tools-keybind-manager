@@ -69,7 +69,6 @@ async function loadInitialCoordinatorState(coordinator) {
       currentProfile: data.currentProfile || null,
       currentEnvironment: "space",
       profiles: structuredClone(data.profiles || {}),
-      settings: structuredClone(data.settings || {}),
       metadata: { lastModified: data.lastModified, version: "1.0.0" },
     };
 

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
+import PreferencesService from "../../src/js/components/services/PreferencesService.js";
 import StorageService from "../../src/js/components/services/StorageService.js";
 import eventBus from "../../src/js/core/eventBus.js";
 import { createLocalStorageFixture } from "../fixtures/core/index.js";
@@ -40,6 +41,7 @@ describe("Persistence failure state integration", () => {
   let localStorageFixture;
   let storage;
   let coordinator;
+  let preferences;
 
   beforeEach(async () => {
     localStorageFixture = createLocalStorageFixture({
@@ -55,9 +57,12 @@ describe("Persistence failure state integration", () => {
 
     storage.init();
     await coordinator.init();
+    preferences = new PreferencesService({ eventBus, storage });
+    preferences.init();
   });
 
   afterEach(() => {
+    preferences?.destroy();
     coordinator?.destroy();
     storage?.destroy();
     eventBus.clear();
@@ -85,18 +90,20 @@ describe("Persistence failure state integration", () => {
     expect(profileUpdated).not.toHaveBeenCalled();
   });
 
-  it("keeps settings unchanged and silent after quota failure", async () => {
-    const stateChanged = vi.fn();
-    eventBus.on("data:state-changed", stateChanged);
-    const before = structuredClone(coordinator.state.settings);
+  it("keeps PreferencesService and durable settings unchanged after quota failure", async () => {
+    const saved = vi.fn();
+    const changed = vi.fn();
+    eventBus.on("preferences:saved", saved);
+    eventBus.on("preferences:changed", changed);
+    const before = preferences.getCurrentState();
 
-    await expect(coordinator.updateSettings({ theme: "dark" })).rejects.toThrow(
-      "storage_write_failed",
-    );
+    await expect(preferences.setSetting("theme", "dark")).resolves.toBe(false);
 
-    expect(coordinator.state.settings).toEqual(before);
+    expect(preferences.getCurrentState()).toEqual(before);
     expect(localStorage.getItem("sto_keybind_settings")).toBeNull();
-    expect(stateChanged).not.toHaveBeenCalled();
+    expect(storage.getAllData().settings).toEqual(root.settings);
+    expect(saved).not.toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled();
   });
 
   it("keeps profile state and the storage cache intact after delete failure", async () => {

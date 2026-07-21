@@ -111,7 +111,7 @@ export default class ProfileUI extends UIComponentBase {
     });
 
     this.addEventListener("data:state-changed", ({ reason, state }) => {
-      if (reason === "environment-changed" || reason === "settings-updated") {
+      if (reason === "environment-changed") {
         return;
       }
 

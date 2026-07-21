@@ -33,11 +33,6 @@ const storageWrites = {
   async deleteProfile(storage, profileId, i18n) {
     requireSuccess(await storage.deleteProfile(profileId), i18n);
   },
-
-  /** @param {import('./serviceTypes.js').Storage} storage @param {Record<string, unknown>} settings @param {import('./serviceTypes.js').I18n | null | undefined} i18n */
-  async settings(storage, settings, i18n) {
-    requireSuccess(await storage.saveSettings(settings), i18n);
-  },
 };
 
 export default storageWrites;

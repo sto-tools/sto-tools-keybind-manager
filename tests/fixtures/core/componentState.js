@@ -47,7 +47,6 @@ export function createDataCoordinatorState(overrides = {}) {
       (currentProfile && currentProfileData
         ? { [currentProfile]: currentProfileData }
         : {}),
-    settings: overrides.settings ?? {},
     metadata: {
       lastModified: null,
       version: "1.0.0",

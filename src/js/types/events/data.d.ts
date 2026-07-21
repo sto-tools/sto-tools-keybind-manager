@@ -12,7 +12,6 @@ export type DataStateChangeReason =
   | "profile-updated"
   | "profile-replaced"
   | "environment-changed"
-  | "settings-updated"
   | "default-profiles-created"
   | "fallback-profiles-created"
   | "state-reloaded";

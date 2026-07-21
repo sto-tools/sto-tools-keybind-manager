@@ -90,7 +90,6 @@ describe("DataCoordinator lifecycle generation", () => {
     fixture.eventBusFixture.clearEventHistory();
     fixture.storage.saveAllData.mockClear();
     fixture.storage.saveProfile.mockClear();
-    fixture.storage.saveSettings.mockClear();
   });
 
   afterEach(() => {
@@ -198,11 +197,6 @@ describe("DataCoordinator lifecycle generation", () => {
       (owner) => owner.renameProfile("alpha", "Renamed"),
     ],
     ["profile delete", "saveAllData", (owner) => owner.deleteProfile("beta")],
-    [
-      "settings update",
-      "saveSettings",
-      (owner) => owner.updateSettings({ compactView: true }),
-    ],
     [
       "default profile batch",
       "saveAllData",

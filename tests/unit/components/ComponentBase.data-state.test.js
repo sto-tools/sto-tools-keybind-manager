@@ -55,7 +55,6 @@ function snapshot(
     currentEnvironment: environment,
     currentProfileData,
     profiles: id && currentProfileData ? { [id]: currentProfileData } : {},
-    settings: { marker: `settings-${revision}` },
     metadata: { lastModified: `revision-${revision}` },
   });
 }
@@ -73,8 +72,6 @@ describe("ComponentBase DataCoordinator state cache", () => {
 
   it("atomically replaces a detached complete late-join snapshot", () => {
     const initial = snapshot(1, "captain", "ground");
-    const extension = { density: "compact" };
-    initial.settings.extension = extension;
     const initialProfile = initial.currentProfileData;
     if (!initialProfile) throw new Error("Expected current profile fixture");
     const coordinator = new DataCoordinator(eventBus, initial);
@@ -110,16 +107,12 @@ describe("ComponentBase DataCoordinator state cache", () => {
 
     initialProfile.builds?.ground?.keys?.G?.push("producer-mutation");
     initial.profiles.captain.name = "Producer mutation";
-    extension.density = "producer-mutation";
 
     expect(consumer.cache.keys.G).toEqual([
       "captain-ground",
       "compatibility mutation",
     ]);
     expect(consumer.cache.dataState?.profiles.captain.name).toBeUndefined();
-    expect(consumer.cache.dataState?.settings.extension).toEqual({
-      density: "compact",
-    });
   });
 
   it("replaces complete live state without retaining omitted fields", () => {
@@ -130,7 +123,6 @@ describe("ComponentBase DataCoordinator state cache", () => {
     consumer.init();
 
     const first = snapshot(1, "first");
-    first.settings.staleExtension = true;
     first.profiles.staleProfile = profile("stale-profile");
     eventBus.emit("data:state-changed", {
       reason: "initial-load",
@@ -144,9 +136,6 @@ describe("ComponentBase DataCoordinator state cache", () => {
     });
 
     expect(consumer.cache.dataState).toEqual(second);
-    expect(consumer.cache.dataState?.settings).not.toHaveProperty(
-      "staleExtension",
-    );
     expect(consumer.cache.dataState?.profiles).not.toHaveProperty(
       "staleProfile",
     );

@@ -265,7 +265,7 @@ describe("ProfileUI accepted data state", () => {
     expect(showToast).toHaveBeenCalledWith("deleted", "success");
   });
 
-  it("re-registers its profile-state listener and skips unrelated revisions", async () => {
+  it("re-registers its profile-state listener and skips environment-only revisions", async () => {
     mountProfileControls();
     fixture = createEventBusFixture();
     ui = new ProfileUI({
@@ -297,11 +297,7 @@ describe("ProfileUI accepted data state", () => {
       reason: "environment-changed",
       state: state(2, { currentEnvironment: "ground" }),
     });
-    fixture.eventBus.emit("data:state-changed", {
-      reason: "settings-updated",
-      state: state(3, { settings: { theme: "dark" } }),
-    });
-    expect(ui.cache.dataState?.revision).toBe(3);
+    expect(ui.cache.dataState?.revision).toBe(2);
     expect(renderProfiles).not.toHaveBeenCalled();
 
     ui.destroy();
@@ -310,7 +306,7 @@ describe("ProfileUI accepted data state", () => {
     const renamed = profile("alpha", "Alpha Renamed");
     fixture.eventBus.emit("data:state-changed", {
       reason: "profile-renamed",
-      state: state(4, {
+      state: state(3, {
         currentProfileData: renamed,
         profiles: { alpha: renamed },
       }),

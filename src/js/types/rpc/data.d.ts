@@ -4,7 +4,6 @@ import type {
   ProfileOperations,
   ProfileUpdateResult,
   RequiredRpc,
-  Settings,
 } from "./base.js";
 
 export type ProfileCreatedResult = {
@@ -24,11 +23,6 @@ export type ProfileSwitchResult = {
 export type EnvironmentUpdateResult = {
   success: true;
   environment: string;
-};
-
-export type SettingsUpdateResult = {
-  success: true;
-  settings: Settings;
 };
 
 export type DefaultDataLoadResult =

@@ -392,7 +392,7 @@ type RemovedShowAllKeysQuery = RpcRequest<"key:show-all">;
 type NoParameterId = RpcRequest<"parameter-command:generate-id">;
 // @ts-expect-error Environment mutation is a direct DataCoordinator action.
 type RemovedEnvironmentAction = RpcRequest<"data:set-environment">;
-// @ts-expect-error Settings mutation is a direct DataCoordinator action.
+// @ts-expect-error Settings mutations are owned by PreferencesService.
 type RemovedSettingsAction = RpcRequest<"data:update-settings">;
 // @ts-expect-error Built-in profile loading is called directly by its UI flow.
 type RemovedDefaultDataAction = RpcRequest<"data:load-default-data">;
@@ -816,7 +816,7 @@ async function exerciseCoreApi() {
   request(eventBus, "data:get-settings");
   // @ts-expect-error Environment mutation is a direct DataCoordinator action.
   request(eventBus, "data:set-environment", { environment: "ground" });
-  // @ts-expect-error Settings mutation is a direct DataCoordinator action.
+  // @ts-expect-error Settings mutations are owned by PreferencesService.
   request(eventBus, "data:update-settings", { settings: { theme: "dark" } });
   // @ts-expect-error Built-in profile loading is not an application RPC.
   request(eventBus, "data:load-default-data");
@@ -880,7 +880,7 @@ async function exerciseCoreApi() {
     success: true,
     environment: "ground",
   }));
-  // @ts-expect-error Direct settings mutation cannot regain a responder.
+  // @ts-expect-error Preferences settings cannot regain a DataCoordinator responder.
   respond(eventBus, "data:update-settings", () => ({
     success: true,
     settings: {},

@@ -81,7 +81,6 @@
  * @property {string} currentEnvironment
  * @property {string} [currentBindset]
  * @property {Record<string, ProfileData>} profiles
- * @property {Record<string, unknown>} settings
  * @property {CoordinatorMetadata} metadata
  *
  * @typedef {Object} CommandImportSource

@@ -30,7 +30,6 @@ describe("DataCoordinator persistence failure gating", () => {
       captain: structuredClone(profile),
       first_officer: { ...structuredClone(profile), name: "First Officer" },
     };
-    coordinator.state.settings = { theme: "default", autoSave: true };
     fixture.eventBusFixture.clearEventHistory();
   });
 
@@ -119,22 +118,6 @@ describe("DataCoordinator persistence failure gating", () => {
     expect(coordinator.state.profiles.captain.currentEnvironment).toBe("space");
     expect(fixture.getEventHistory()).not.toContainEqual(
       expect.objectContaining({ event: "environment:changed" }),
-    );
-  });
-
-  it("does not commit or broadcast settings when persistence fails", async () => {
-    fixture.storage.saveSettings.mockReturnValueOnce(false);
-
-    await expect(coordinator.updateSettings({ theme: "dark" })).rejects.toThrow(
-      "storage_write_failed",
-    );
-
-    expect(coordinator.state.settings).toEqual({
-      theme: "default",
-      autoSave: true,
-    });
-    expect(fixture.getEventHistory()).not.toContainEqual(
-      expect.objectContaining({ event: "data:state-changed" }),
     );
   });
 });

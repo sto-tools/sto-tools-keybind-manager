@@ -208,10 +208,12 @@ describe("VFXManagerService", () => {
     const unrelatedCommit = createDataCoordinatorState({
       authorityEpoch: 30,
       revision: 3,
-      currentProfileData: profileWithVFX("FX_A", true),
-      settings: { theme: "light" },
+      currentProfileData: {
+        ...profileWithVFX("FX_A", true),
+        description: "Unrelated profile metadata",
+      },
     });
-    await emitDataState(unrelatedCommit, "settings-updated");
+    await emitDataState(unrelatedCommit, "profile-updated");
     expect(service._acceptedVFXStateSignature).toBe(acceptedSignature);
     expect(Array.from(service.selectedEffects.space)).toEqual(["FX_A"]);
     expect(service.showPlayerSay).toBe(true);

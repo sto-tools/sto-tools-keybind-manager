@@ -63,6 +63,7 @@ describe("DataCoordinator Service", () => {
       ]) {
         expect(mockEventBus.hasListeners(`rpc:${topic}`)).toBe(false);
       }
+      expect(dataCoordinator).not.toHaveProperty("updateSettings");
     });
 
     it("should initialize with empty state", () => {
@@ -70,7 +71,6 @@ describe("DataCoordinator Service", () => {
         currentProfile: null,
         currentEnvironment: "space",
         profiles: {},
-        settings: {},
         metadata: {
           lastModified: null,
           version: "1.0.0",
@@ -78,7 +78,8 @@ describe("DataCoordinator Service", () => {
       });
     });
 
-    it("should load initial state from storage", async () => {
+    it("loads profile state without adopting embedded root settings", async () => {
+      const embeddedSettings = { theme: "dark" };
       const mockData = {
         currentProfile: "test-profile",
         profiles: {
@@ -87,7 +88,7 @@ describe("DataCoordinator Service", () => {
             description: "Test Description",
           },
         },
-        settings: { theme: "dark" },
+        settings: embeddedSettings,
       };
 
       mockStorage.getAllData.mockReturnValue(mockData);
@@ -102,7 +103,8 @@ describe("DataCoordinator Service", () => {
         description: "Test Description",
         migrationVersion: "2.1.1",
       });
-      expect(dataCoordinator.state.settings).toEqual(mockData.settings);
+      expect(dataCoordinator.state).not.toHaveProperty("settings");
+      expect(mockData.settings).toBe(embeddedSettings);
     });
 
     it("should set first profile as current if none specified", async () => {
@@ -141,7 +143,6 @@ describe("DataCoordinator Service", () => {
         currentEnvironment: "space",
         currentProfileData: null,
         profiles: {},
-        settings: {},
         metadata: {
           lastModified: null,
           version: "1.0.0",
@@ -319,28 +320,15 @@ describe("DataCoordinator Service", () => {
     });
   });
 
-  describe("Settings Management", () => {
-    it("includes detached settings in its complete state snapshot", () => {
-      dataCoordinator.state.settings = { theme: "dark", language: "en" };
-
-      const snapshot = dataCoordinator.getCurrentState();
-
-      expect(snapshot.settings).toEqual({ theme: "dark", language: "en" });
-      expect(snapshot.settings).not.toBe(dataCoordinator.state.settings);
-    });
-
-    it("should update settings", async () => {
-      const newSettings = { theme: "light", language: "es" };
-
-      const result = await dataCoordinator.updateSettings(newSettings);
-
-      expect(result.success).toBe(true);
-      expect(dataCoordinator.state.settings).toEqual(newSettings);
-    });
-  });
-
   describe("Storage Operations", () => {
-    it("should save data to storage on profile update", async () => {
+    it("saves profile updates without replacing embedded root settings", async () => {
+      const embeddedSettings = { theme: "root-only", legacy: true };
+      const durableRoot = {
+        currentProfile: "test-profile",
+        profiles: { "test-profile": { name: "Test Profile" } },
+        settings: embeddedSettings,
+      };
+      mockStorage.getAllData.mockReturnValue(durableRoot);
       dataCoordinator.state.profiles["test-profile"] = { name: "Test Profile" };
 
       await dataCoordinator.updateProfile("test-profile", {
@@ -354,8 +342,10 @@ describe("DataCoordinator Service", () => {
               description: "Updated",
             }),
           }),
+          settings: embeddedSettings,
         }),
       );
+      expect(mockStorage.saveSettings).not.toHaveBeenCalled();
     });
 
     it("should reload state from storage", async () => {
@@ -392,7 +382,8 @@ describe("DataCoordinator Service", () => {
           ground: { keys: {} },
         },
       });
-      expect(dataCoordinator.state.settings).toEqual(newData.settings);
+      expect(dataCoordinator.state).not.toHaveProperty("settings");
+      expect(newData.settings).toEqual({ newSetting: "value" });
     });
   });
 

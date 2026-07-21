@@ -83,7 +83,6 @@ function createCoordinatorState() {
         builds: { space: { keys: {} }, ground: { keys: {} } },
       },
     },
-    settings: { theme: "dark", extension: { enabled: true } },
     metadata: {
       lastModified: "2026-07-16T00:00:00.000Z",
       version: "1.0.0",
@@ -121,9 +120,6 @@ describe("data-state projections", () => {
 
     expect(() => {
       snapshot.profiles.captain.name = "Mutated snapshot";
-    }).toThrow(TypeError);
-    expect(() => {
-      snapshot.settings.extension.enabled = false;
     }).toThrow(TypeError);
     expect(() => {
       snapshot.currentProfileData.keys.F1.push("FireTorps");

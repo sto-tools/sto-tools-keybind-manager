@@ -170,7 +170,6 @@ export function createDataStateSnapshot(
     currentEnvironment,
     currentProfileData,
     profiles,
-    settings: clone(state.settings || {}),
     metadata: clone(state.metadata || { lastModified: null, version: "1.0.0" }),
   });
 }

@@ -182,7 +182,7 @@ describe("DataCoordinator durable state ownership", () => {
     expect(coordinator.state.currentProfile).toBe("beta");
   });
 
-  it("detaches nested update and settings inputs and results from owner state", async () => {
+  it("detaches nested profile inputs and legacy event payloads from owner state", async () => {
     await initialize();
     clearEvents();
 
@@ -209,23 +209,5 @@ describe("DataCoordinator durable state ownership", () => {
       space: "F9",
     });
     expect(coordinator.getCurrentState().revision).toBe(profileRevision);
-
-    const settings = {
-      ui: { density: "compact" },
-      columns: ["command"],
-    };
-    const settingsResult = await coordinator.updateSettings(settings);
-    const settingsRevision = coordinator.getCurrentState().revision;
-
-    settings.ui.density = "comfortable";
-    settings.columns.push("description");
-    settingsResult.settings.ui.density = "result mutation";
-    settingsResult.settings.columns.push("result column");
-
-    expect(coordinator.state.settings).toMatchObject({
-      ui: { density: "compact" },
-      columns: ["command"],
-    });
-    expect(coordinator.getCurrentState().revision).toBe(settingsRevision);
   });
 });

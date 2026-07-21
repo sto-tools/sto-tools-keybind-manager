@@ -211,7 +211,7 @@ describe("DataCoordinator complete state snapshots", () => {
     expect(coordinator.state.profiles.alpha.description).toBeUndefined();
   });
 
-  it("publishes each profile/settings logical commit exactly once", async () => {
+  it("publishes each profile logical commit exactly once", async () => {
     await initialize();
 
     const expectOneReason = async (reason, action) => {
@@ -238,24 +238,20 @@ describe("DataCoordinator complete state snapshots", () => {
     await expectOneReason("profile-deleted", () =>
       coordinator.deleteProfile("gamma"),
     );
-    await expectOneReason("settings-updated", () =>
-      coordinator.updateSettings({ compactView: true }),
-    );
   });
 
   it("publishes complete reset and reload snapshots before legacy refreshes", async () => {
     await initialize();
     clearEvents();
 
-    fixture.eventBus.emit("storage:data-reset", {
-      data: {
-        currentProfile: null,
-        profiles: {},
-        settings: { language: "fr" },
-        version: "2.0.0",
-        lastModified: "2026-07-16T01:00:00.000Z",
-      },
-    });
+    const resetData = {
+      currentProfile: null,
+      profiles: {},
+      settings: { language: "fr" },
+      version: "2.0.0",
+      lastModified: "2026-07-16T01:00:00.000Z",
+    };
+    fixture.eventBus.emit("storage:data-reset", { data: resetData });
 
     let events = fixture.getEventHistory();
     expect(
@@ -272,24 +268,14 @@ describe("DataCoordinator complete state snapshots", () => {
         currentProfile: null,
         currentEnvironment: "space",
         profiles: {},
-        settings: { language: "fr" },
         metadata: {
           version: "2.0.0",
           lastModified: "2026-07-16T01:00:00.000Z",
         },
       },
     });
-
-    const resetPayload = {
-      settings: { nested: { language: "es" } },
-      version: "2.0.1",
-      lastModified: "2026-07-16T01:30:00.000Z",
-    };
-    fixture.eventBus.emit("storage:data-reset", { data: resetPayload });
-    resetPayload.settings.nested.language = "caller mutation";
-    expect(coordinator.state.settings).toEqual({
-      nested: { language: "es" },
-    });
+    resetData.settings.language = "caller mutation";
+    expect(coordinator.state).not.toHaveProperty("settings");
 
     clearEvents();
     fixture.storage.getAllData.mockReturnValueOnce({
@@ -487,7 +473,7 @@ describe("DataCoordinator complete state snapshots", () => {
     clearEvents();
     coordinator.destroy();
 
-    coordinator._publishState("settings-updated");
+    coordinator._publishState("profile-updated");
     await tick();
 
     expect(stateEvents()).toHaveLength(0);

@@ -400,20 +400,24 @@ describe("Application browser smoke", () => {
     expect(firstState?.currentProfile).toBeTruthy();
     expect(firstState?.currentProfileData?.id).toBe(firstState?.currentProfile);
     expect(firstState?.profiles).toBeTruthy();
-    expect(firstState?.settings).toBeTruthy();
+    expect(firstState).not.toHaveProperty("settings");
     expect(firstState?.metadata.version).toBeTruthy();
 
     expect(secondState?.revision).toBe(firstState?.revision);
     expect(secondState).toBe(firstState);
     expect(Object.isFrozen(firstState)).toBe(true);
     expect(Object.isFrozen(firstState?.profiles)).toBe(true);
-    expect(Object.isFrozen(firstState?.settings)).toBe(true);
 
     if (!firstState || !secondState) return;
+    const profileId = firstState.currentProfile;
+    if (!profileId) return;
+    expect(Object.isFrozen(firstState.profiles[profileId])).toBe(true);
     expect(() => {
-      firstState.settings.__browser_detachment_probe__ = true;
+      firstState.profiles[profileId].__browser_detachment_probe__ = true;
     }).toThrow(TypeError);
-    expect(secondState.settings.__browser_detachment_probe__).toBeUndefined();
+    expect(
+      secondState.profiles[profileId].__browser_detachment_probe__,
+    ).toBeUndefined();
   });
 
   it("rejects deeply invalid project data before the live import route writes", async () => {

@@ -117,7 +117,7 @@ async function exerciseComponentRpc() {
   component.request("data:get-settings");
   // @ts-expect-error Environment mutation is a direct DataCoordinator action.
   component.request("data:set-environment", { environment: "ground" });
-  // @ts-expect-error Settings mutation is a direct DataCoordinator action.
+  // @ts-expect-error Settings mutations are owned by PreferencesService.
   component.request("data:update-settings", { settings: { theme: "dark" } });
   // @ts-expect-error Built-in profile loading is called directly by its UI flow.
   component.request("data:load-default-data");
@@ -207,7 +207,7 @@ async function exerciseComponentRpc() {
     success: true,
     environment: "ground",
   }));
-  // @ts-expect-error Direct settings mutation cannot regain a responder.
+  // @ts-expect-error Preferences settings cannot regain a DataCoordinator responder.
   component.respond("data:update-settings", () => ({
     success: true,
     settings: {},

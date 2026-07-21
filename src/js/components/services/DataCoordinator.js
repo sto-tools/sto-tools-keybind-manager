@@ -40,7 +40,7 @@ const errMsg = (error) =>
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 
 /**
- * DataCoordinator - Single source of truth for all data operations
+ * DataCoordinator - Single source of truth for profile data operations
  *
  * Implements the broadcast/cache pattern:
  * - Services request data changes through this coordinator
@@ -153,7 +153,6 @@ export default class DataCoordinator extends ComponentBase {
       currentProfile: null,
       currentEnvironment: "space",
       profiles: {},
-      settings: {},
       metadata: { lastModified: null, version: "1.0.0" },
     };
     this._stateAuthorityEpoch = nextDataStateAuthorityEpoch();
@@ -185,7 +184,6 @@ export default class DataCoordinator extends ComponentBase {
       // Update our state to empty/reset state
       this.state.currentProfile = null;
       this.state.profiles = {};
-      this.state.settings = structuredClone(data?.settings || {});
       this.state.currentEnvironment = "space"; // Reset to default environment
       this.state.metadata = {
         lastModified: data?.lastModified,
@@ -847,36 +845,6 @@ export default class DataCoordinator extends ComponentBase {
     return { success: true, environment };
   }
 
-  // Update application settings
-  /**
-   * @param {Record<string, unknown> | null | undefined} settings
-   * @returns {Promise<import('../../types/rpc/data.js').SettingsUpdateResult>}
-   */
-  async updateSettings(settings) {
-    if (!settings) {
-      throw new Error("Settings are required");
-    }
-
-    const detachedSettings = structuredClone(settings);
-    const nextSettings = structuredClone({
-      ...this.state.settings,
-      ...detachedSettings,
-    });
-    const operation = this._captureOperationGeneration();
-
-    // Save to storage
-    await persist.settings(this.storage, nextSettings, this.i18n);
-    this._assertCurrentOperation(operation);
-
-    this.state.settings = nextSettings;
-
-    this.state.metadata.lastModified = new Date().toISOString();
-
-    this._publishState("settings-updated");
-
-    return { success: true, settings: structuredClone(this.state.settings) };
-  }
-
   // Load default data (called explicitly by user via "Load Default Data" button)
   /** @returns {Promise<import('../../types/rpc/data.js').DefaultDataLoadResult>} */
   async loadDefaultData() {
@@ -1196,7 +1164,6 @@ export default class DataCoordinator extends ComponentBase {
 
       const nextProfiles = structuredClone(allData.profiles || {});
       const nextCurrentProfile = allData.currentProfile || null;
-      const nextSettings = structuredClone(allData.settings || {});
 
       // Normalize any newly imported profiles
       const profilesNormalized = await this.normalizeAllProfiles(nextProfiles, {
@@ -1219,7 +1186,6 @@ export default class DataCoordinator extends ComponentBase {
       // Commit the fully normalized draft as one owner-state transition.
       this.state.profiles = nextProfiles;
       this.state.currentProfile = nextCurrentProfile;
-      this.state.settings = nextSettings;
       this.state.currentEnvironment = nextCurrentEnvironment;
       this.state.metadata = {
         lastModified: durableRoot.lastModified,

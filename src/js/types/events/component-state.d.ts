@@ -19,7 +19,6 @@ export interface DataCoordinatorStateSnapshot {
   currentEnvironment: string;
   currentProfileData: ProfileData | null;
   profiles: ProfileMap;
-  settings: Record<string, unknown>;
   metadata: {
     lastModified: string | null | undefined;
     version: string;

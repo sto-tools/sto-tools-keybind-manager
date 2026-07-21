@@ -172,12 +172,14 @@ describe("DataCoordinator state cache lifecycle", () => {
     expect(coordinator.state.profiles.alpha.name).toBe("alpha");
 
     first.destroy();
-    await coordinator.updateSettings({ compactView: true });
+    await coordinator.updateProfile("alpha", {
+      properties: { description: "Accepted update" },
+    });
 
     expect(first.cache.dataState.revision).toBe(1);
     expect(second.cache.dataState).toMatchObject({
       revision: 2,
-      settings: { compactView: true },
+      profiles: { alpha: { description: "Accepted update" } },
     });
   });
 });
