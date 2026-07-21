@@ -4,3 +4,4 @@
 export { createEventBusFixture } from "./eventBus.js";
 export { createLocalStorageFixture } from "./storage.js";
 export { createRequestResponseFixture } from "./requestResponse.js";
+export { createCommittedTreeFileSystem } from "./committedTreeFileSystem.js";

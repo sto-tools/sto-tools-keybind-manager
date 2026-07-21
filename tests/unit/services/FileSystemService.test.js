@@ -20,6 +20,7 @@ describe("FileSystemService", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     fixture.destroy();
   });
 
@@ -309,20 +310,11 @@ describe("FileSystemService", () => {
     const writeError = new Error("disk full");
     const abort = vi.fn().mockResolvedValue(undefined);
     const close = vi.fn();
-    const directory = {
-      kind: "directory",
-      name: "root",
-      getDirectoryHandle: vi.fn(),
-      getFileHandle: vi.fn().mockResolvedValue({
-        kind: "file",
-        name: "project.json",
-        createWritable: vi.fn().mockResolvedValue({
-          write: vi.fn().mockRejectedValue(writeError),
-          close,
-          abort,
-        }),
-      }),
-    };
+    const directory = createWritableDirectory({
+      write: vi.fn().mockRejectedValue(writeError),
+      close,
+      abort,
+    });
 
     await expect(
       fsService.writeFile(directory, "project.json", "content"),
@@ -330,7 +322,60 @@ describe("FileSystemService", () => {
     expect(abort).toHaveBeenCalledWith(writeError);
     expect(close).not.toHaveBeenCalled();
   });
+
+  it("aborts a writable and preserves the primary close failure", async () => {
+    const closeError = new Error("commit failed");
+    const abort = vi.fn().mockResolvedValue(undefined);
+    const write = vi.fn().mockResolvedValue(undefined);
+    const directory = createWritableDirectory({
+      write,
+      close: vi.fn().mockRejectedValue(closeError),
+      abort,
+    });
+
+    await expect(
+      fsService.writeFile(directory, "project.json", "content"),
+    ).rejects.toBe(closeError);
+    expect(write).toHaveBeenCalledWith("content");
+    expect(abort).toHaveBeenCalledWith(closeError);
+  });
+
+  it("preserves the primary failure when abort also rejects", async () => {
+    const writeError = new Error("disk full");
+    const abortError = new Error("abort failed");
+    const abort = vi.fn().mockRejectedValue(abortError);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const directory = createWritableDirectory({
+      write: vi.fn().mockRejectedValue(writeError),
+      close: vi.fn(),
+      abort,
+    });
+
+    await expect(
+      fsService.writeFile(directory, "project.json", "content"),
+    ).rejects.toBe(writeError);
+    expect(abort).toHaveBeenCalledWith(writeError);
+    expect(consoleError).toHaveBeenCalledWith(
+      "[FileSystemService] writable abort failed",
+      abortError,
+    );
+  });
 });
+
+function createWritableDirectory(writable) {
+  return {
+    kind: "directory",
+    name: "root",
+    getDirectoryHandle: vi.fn(),
+    getFileHandle: vi.fn().mockResolvedValue({
+      kind: "file",
+      name: "project.json",
+      createWritable: vi.fn().mockResolvedValue(writable),
+    }),
+  };
+}
 
 function createDatabaseDouble({
   failedOperation = null,

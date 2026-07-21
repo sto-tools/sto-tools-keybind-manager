@@ -1,0 +1,89 @@
+{
+  "initial": {
+    "commitOrder": [
+      "Fleet_Main/Fleet_Main_space.txt",
+      "Fleet_Main/Fleet_Main_ground.txt",
+      "Fleet_Main/Fleet_Main_aliases.txt",
+      "Collision_A/Collision_A_space.txt",
+      "Collision_A/Collision_A_aliases.txt",
+      "Collision_A/Collision_A_space.txt",
+      "Collision_A/Collision_A_aliases.txt",
+      "Rename_Me/Rename_Me_ground.txt",
+      "Rename_Me/Rename_Me_aliases.txt",
+      "Delete_Me/Delete_Me_space.txt",
+      "Delete_Me/Delete_Me_aliases.txt",
+      "Environment_Pilot/Environment_Pilot_space.txt",
+      "Environment_Pilot/Environment_Pilot_ground.txt",
+      "Environment_Pilot/Environment_Pilot_aliases.txt",
+      "project.json"
+    ],
+    "tree": [
+      "Collision_A/Collision_A_aliases.txt",
+      "Collision_A/Collision_A_space.txt",
+      "Delete_Me/Delete_Me_aliases.txt",
+      "Delete_Me/Delete_Me_space.txt",
+      "Environment_Pilot/Environment_Pilot_aliases.txt",
+      "Environment_Pilot/Environment_Pilot_ground.txt",
+      "Environment_Pilot/Environment_Pilot_space.txt",
+      "Fleet_Main/Fleet_Main_aliases.txt",
+      "Fleet_Main/Fleet_Main_ground.txt",
+      "Fleet_Main/Fleet_Main_space.txt",
+      "Rename_Me/Rename_Me_aliases.txt",
+      "Rename_Me/Rename_Me_ground.txt",
+      "project.json"
+    ]
+  },
+  "collision": {
+    "sourceOrder": ["collision-first", "collision-last"],
+    "spacePath": "Collision_A/Collision_A_space.txt",
+    "aliasPath": "Collision_A/Collision_A_aliases.txt",
+    "winner": "collision-last"
+  },
+  "successor": {
+    "commitOrder": [
+      "Fleet_Main/Fleet_Main_space.txt",
+      "Fleet_Main/Fleet_Main_ground.txt",
+      "Fleet_Main/Fleet_Main_aliases.txt",
+      "Collision_A/Collision_A_space.txt",
+      "Collision_A/Collision_A_aliases.txt",
+      "Collision_A/Collision_A_space.txt",
+      "Collision_A/Collision_A_aliases.txt",
+      "Renamed_Pilot/Renamed_Pilot_ground.txt",
+      "Renamed_Pilot/Renamed_Pilot_aliases.txt",
+      "Environment_Pilot/Environment_Pilot_space.txt",
+      "Environment_Pilot/Environment_Pilot_aliases.txt",
+      "project.json"
+    ],
+    "tree": [
+      "Collision_A/Collision_A_aliases.txt",
+      "Collision_A/Collision_A_space.txt",
+      "Delete_Me/Delete_Me_aliases.txt",
+      "Delete_Me/Delete_Me_space.txt",
+      "Environment_Pilot/Environment_Pilot_aliases.txt",
+      "Environment_Pilot/Environment_Pilot_ground.txt",
+      "Environment_Pilot/Environment_Pilot_space.txt",
+      "Fleet_Main/Fleet_Main_aliases.txt",
+      "Fleet_Main/Fleet_Main_ground.txt",
+      "Fleet_Main/Fleet_Main_space.txt",
+      "Rename_Me/Rename_Me_aliases.txt",
+      "Rename_Me/Rename_Me_ground.txt",
+      "Renamed_Pilot/Renamed_Pilot_aliases.txt",
+      "Renamed_Pilot/Renamed_Pilot_ground.txt",
+      "project.json"
+    ],
+    "stalePaths": [
+      "Delete_Me/Delete_Me_space.txt",
+      "Delete_Me/Delete_Me_aliases.txt",
+      "Rename_Me/Rename_Me_ground.txt",
+      "Rename_Me/Rename_Me_aliases.txt",
+      "Environment_Pilot/Environment_Pilot_ground.txt"
+    ]
+  },
+  "midProjectionFailure": {
+    "path": "Fleet_Main/Fleet_Main_ground.txt",
+    "committedBeforeFailure": ["Fleet_Main/Fleet_Main_space.txt"]
+  },
+  "finalProjectFailure": {
+    "path": "project.json"
+  }
+}
