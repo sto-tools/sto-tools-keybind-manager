@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import { observeCommandChainProjection } from "../fixtures/ui/commandChainProjection.js";
 
 const probeKey = "__command_customization_boundary_probe__";
 
@@ -68,6 +69,7 @@ describe("Command customization checked-bundle boundary", () => {
       custom: { nested: "preserve" },
     };
     const probeCommands = [trayCommand, siblingCommand];
+    const probeProjection = observeCommandChainProjection(bus, probeCommands);
     const stateChanged = vi.fn();
     const profileUpdated = vi.fn();
     const detachStateChanged = bus.on("data:state-changed", stateChanged);
@@ -117,9 +119,16 @@ describe("Command customization checked-bundle boundary", () => {
       await vi.waitFor(() => {
         expect(chainUi.cache.selectedKey).toBe(probeKey);
         expect(chainUi.cache.dataState).toBe(coordinator.getCurrentState());
+        expect(probeProjection.wasPublished()).toBe(true);
+        expect(document.getElementById("chainTitle")?.textContent).toContain(
+          probeKey,
+        );
         expect(getProbeCommands(coordinator, profileId, environment)).toEqual(
           probeCommands,
         );
+        expect(
+          document.querySelector('.command-item-row[data-index="0"]'),
+        ).not.toBe(probeProjection.predecessor());
         palindromicToggle = getToggle(".btn-palindromic-toggle");
         expect(palindromicToggle).toBeInstanceOf(HTMLButtonElement);
         expect(palindromicToggle?.classList).toContain("active");
@@ -136,6 +145,8 @@ describe("Command customization checked-bundle boundary", () => {
       profileUpdated.mockClear();
       saveProfileSpy = vi.spyOn(storage, "saveProfile").mockReturnValue(false);
 
+      expect(palindromicToggle.isConnected).toBe(true);
+      expect(palindromicToggle.disabled).toBe(false);
       palindromicToggle.click();
 
       await vi.waitFor(() => {
@@ -241,6 +252,7 @@ describe("Command customization checked-bundle boundary", () => {
       expect(placementToggle.isConnected).toBe(false);
     } finally {
       saveProfileSpy?.mockRestore();
+      probeProjection.detach();
       detachStateChanged();
       detachProfileUpdated();
       await request(bus, "bindset-selector:set-active-bindset", {

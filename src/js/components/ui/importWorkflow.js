@@ -121,12 +121,16 @@ export async function runImportWorkflow({
       }
     }
 
-    const result = await request("import:keybind-file", {
-      content,
-      profileId,
-      environment: importConfig.environment,
-      strategy,
-    });
+    const result = await request(
+      "import:keybind-file",
+      {
+        content,
+        profileId,
+        environment: importConfig.environment,
+        strategy,
+      },
+      0,
+    );
     return { status: "completed", importType: "keybinds", result };
   }
 
@@ -150,13 +154,17 @@ export async function runImportWorkflow({
       return { status: "cancelled", stage: "configuration" };
     }
 
-    const result = await request("import:kbf-file", {
-      content,
-      profileId,
-      environment: importConfig.environment,
-      strategy,
-      configuration,
-    });
+    const result = await request(
+      "import:kbf-file",
+      {
+        content,
+        profileId,
+        environment: importConfig.environment,
+        strategy,
+        configuration,
+      },
+      0,
+    );
     return { status: "completed", importType: "kbf", result };
   }
 
@@ -181,11 +189,15 @@ export async function runImportWorkflow({
       }
     }
 
-    const result = await request("import:alias-file", {
-      content,
-      profileId,
-      strategy,
-    });
+    const result = await request(
+      "import:alias-file",
+      {
+        content,
+        profileId,
+        strategy,
+      },
+      0,
+    );
     return { status: "completed", importType: "aliases", result };
   }
 

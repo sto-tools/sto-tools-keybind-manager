@@ -144,6 +144,7 @@ export const applicationGlobalAllowlist = deepFreeze({
     classification: "UI compatibility",
     purpose: "Shared confirmation capability for remaining fallback consumers.",
     consumers: [
+      "src/js/app.js",
       "src/js/components/services/dataCoordinatorDefaultUi.js",
       "src/js/components/services/syncFolderSelectionOrchestrator.js",
       "src/js/components/ui/AliasBrowserUI.js",
@@ -160,7 +161,7 @@ export const applicationGlobalAllowlist = deepFreeze({
   commandChainUI: {
     classification: "UI compatibility",
     purpose: "Checked-bundle command-chain inspection surface.",
-    consumers: ["browser diagnostics"],
+    consumers: ["src/js/app.js", "browser diagnostics"],
     compatibilityOwner: "app.js",
     removalGate: "Browser probes use typed state and action protocols.",
     writers: [writer("src/js/app.js", "commandChainUI")],
@@ -168,7 +169,7 @@ export const applicationGlobalAllowlist = deepFreeze({
   keyBrowserUI: {
     classification: "UI compatibility",
     purpose: "Checked-bundle key-browser state inspection surface.",
-    consumers: ["browser diagnostics"],
+    consumers: ["src/js/app.js", "browser diagnostics"],
     compatibilityOwner: "app.js",
     removalGate: "Browser probes observe typed key-browser state broadcasts.",
     writers: [writer("src/js/app.js", "keyBrowserUI")],
@@ -177,7 +178,11 @@ export const applicationGlobalAllowlist = deepFreeze({
     classification: "UI compatibility",
     purpose:
       "Checked-bundle key-browser readiness and protocol inspection surface.",
-    consumers: ["tests/browser-setup.js", "browser diagnostics"],
+    consumers: [
+      "src/js/app.js",
+      "tests/browser-setup.js",
+      "browser diagnostics",
+    ],
     compatibilityOwner: "app.js",
     removalGate: "Application readiness and probes use lifecycle broadcasts.",
     writers: [writer("src/js/app.js", "keyBrowserService")],

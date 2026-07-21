@@ -60,6 +60,38 @@ describe("CommandUI", () => {
     expect(commandUI.request).not.toHaveBeenCalled();
   });
 
+  it("waits without a transport deadline for a source import to settle", async () => {
+    document.body.innerHTML = `
+      <select id="importSourceSelect">
+        <option value="space:F1" selected>F1</option>
+      </select>
+      <input id="clearDestinationBeforeImport" type="checkbox" checked>
+    `;
+    commandUI.cache.selectedKey = "F2";
+    commandUI.cache.currentEnvironment = "space";
+    commandUI.modalManager.hide = vi.fn();
+    commandUI.request = vi.fn().mockResolvedValue({
+      success: true,
+      droppedCount: 0,
+      importedCount: 1,
+      sourceName: "F1",
+      sourceType: "space",
+    });
+
+    await commandUI.performImport();
+
+    expect(commandUI.request).toHaveBeenCalledExactlyOnceWith(
+      "command:import-from-source",
+      {
+        sourceValue: "space:F1",
+        targetKey: "F2",
+        clearDestination: true,
+        currentEnvironment: "space",
+      },
+      0,
+    );
+  });
+
   it("projects import sources and stabilization from a replacement authority", async () => {
     document.body.innerHTML = '<select id="importSourceSelect"></select>';
     const adoptProfile = (profile, { authorityEpoch, revision }) => {

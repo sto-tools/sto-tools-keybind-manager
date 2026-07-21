@@ -91,6 +91,41 @@ describe("AliasService", () => {
       expect(service.respond).toBeDefined();
       expect(service.request).toBeDefined();
     });
+
+    it("owns responders from init through destroy and same-instance re-init", () => {
+      const topics = [
+        "alias:add",
+        "alias:delete",
+        "alias:duplicate-with-name",
+        "alias:validate-name",
+      ];
+
+      service.destroy();
+      service = new AliasService({
+        eventBus: harness.eventBus,
+        i18n: harness.mockI18n,
+        ui: harness.mockUI,
+      });
+      for (const topic of topics) {
+        expect(harness.eventBus.hasListeners(`rpc:${topic}`)).toBe(false);
+      }
+
+      service.init();
+      for (const topic of topics) {
+        expect(harness.eventBus.hasListeners(`rpc:${topic}`)).toBe(true);
+      }
+
+      service.destroy();
+
+      for (const topic of topics) {
+        expect(harness.eventBus.hasListeners(`rpc:${topic}`)).toBe(false);
+      }
+
+      service.init();
+      for (const topic of topics) {
+        expect(harness.eventBus.hasListeners(`rpc:${topic}`)).toBe(true);
+      }
+    });
   });
 
   describe("Alias Creation", () => {

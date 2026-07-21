@@ -9,6 +9,7 @@
 // - Combo chord processing and validation
 
 import { STO_KEY_NAMES } from "../../../data/stoKeyNames.js";
+import { MAX_KBF_FILE_BYTES } from "../kbfLimits.js";
 import {
   createEmoteCycleAlias,
   createVisibleEmoteCycleAlias,
@@ -30,7 +31,7 @@ export class ActivityTranslator {
     this.options = {
       validateUtf8: true,
       strictMode: false, // Throw errors vs. collecting warnings
-      maxFileSize: 1024 * 1024, // 1MB default limit
+      maxFileSize: MAX_KBF_FILE_BYTES,
       ...options,
     };
 

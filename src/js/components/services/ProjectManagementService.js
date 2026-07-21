@@ -1,5 +1,16 @@
 import ComponentBase from "../ComponentBase.js";
 import { serializeProjectArtifact } from "./projectArtifact.js";
+import {
+  hasOwnDataField,
+  isDataRecord,
+  MAX_PROJECT_JSON_BYTES,
+} from "./jsonDataBoundary.js";
+import {
+  classifyDataReloadResult,
+  classifyProjectRestoreResult,
+  isProjectImportFailure,
+  materializeProjectImportSuccess,
+} from "./projectRestoreResult.js";
 
 /** @type {{ settings?: { version?: string } }} */
 const STO_DATA =
@@ -9,6 +20,83 @@ const STO_DATA =
 /** @param {unknown} error */
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Lifecycle cancellation is a stable internal code, not user-facing copy.
+ * Other reasons are diagnostic text supplied by the failing boundary.
+ * @param {import('./serviceTypes.js').I18n | null} i18n
+ * @param {string} reason
+ */
+function getRestoreReloadFailureReason(i18n, reason) {
+  return reason === "operation_cancelled"
+    ? (i18n?.t("failed_to_load_profile_data") ?? "failed_to_load_profile_data")
+    : reason;
+}
+
+/** @param {import('./serviceTypes.js').I18n | null} i18n */
+function getMalformedRestoreReason(i18n) {
+  const error =
+    i18n?.t("failed_to_load_profile_data") ?? "failed_to_load_profile_data";
+  return i18n?.t("import_failed", { error }) ?? "import_failed";
+}
+
+/**
+ * @param {string} path
+ * @returns {{ success: false, error: 'invalid_project_file', params: { path: string } }}
+ */
+function invalidRestoreRequest(path) {
+  return {
+    success: false,
+    error: "invalid_project_file",
+    params: { path },
+  };
+}
+
+/**
+ * Decode the public RPC envelope without invoking inherited or accessor code.
+ * @param {unknown} payload
+ * @returns {{ success: true, content: string, fileName: string | undefined } | ReturnType<typeof invalidRestoreRequest>}
+ */
+function decodeRestoreRequest(payload) {
+  /** @type {Record<string, unknown>} */
+  let record;
+  /** @type {string} */
+  let content;
+  try {
+    if (!isDataRecord(payload) || !hasOwnDataField(payload, "content")) {
+      return invalidRestoreRequest("$");
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(payload, "content");
+    if (
+      !descriptor ||
+      !("value" in descriptor) ||
+      typeof descriptor.value !== "string"
+    ) {
+      return invalidRestoreRequest("$");
+    }
+    record = payload;
+    content = descriptor.value;
+  } catch {
+    return invalidRestoreRequest("$");
+  }
+
+  try {
+    if (!hasOwnDataField(record, "fileName")) {
+      return { success: true, content, fileName: undefined };
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(record, "fileName");
+    if (!descriptor || !("value" in descriptor)) {
+      return invalidRestoreRequest("$.fileName");
+    }
+    const fileName = descriptor.value;
+    if (fileName !== undefined && typeof fileName !== "string") {
+      return invalidRestoreRequest("$.fileName");
+    }
+    return { success: true, content, fileName };
+  } catch {
+    return invalidRestoreRequest("$.fileName");
+  }
 }
 
 /**
@@ -60,21 +148,19 @@ export default class ProjectManagementService extends ComponentBase {
 
     // Expose a unified restore endpoint for other services (e.g., SyncService)
     this._responseDetachFunctions.push(
-      this.respond(
-        "project:restore-from-content",
-        async (
+      this.respond("project:restore-from-content", async (payload) => {
+        const request = decodeRestoreRequest(payload);
+        if (!request.success) return request;
+        const { content, fileName } = request;
+        console.log(
+          "[ProjectManagementService] request project:restore-from-content",
           {
-            content,
             fileName,
-          } = /** @type {{ content?: string, fileName?: string }} */ ({}),
-        ) => {
-          console.log(
-            "[ProjectManagementService] request project:restore-from-content",
-            { fileName, size: content?.length },
-          );
-          return await this.restoreFromProjectContent(content, fileName);
-        },
-      ),
+            size: typeof content === "string" ? content.length : undefined,
+          },
+        );
+        return await this.restoreFromProjectContent(content, fileName);
+      }),
     );
   }
 
@@ -139,6 +225,13 @@ export default class ProjectManagementService extends ComponentBase {
               return;
             }
 
+            if (file.size > MAX_PROJECT_JSON_BYTES) {
+              const outcome = invalidRestoreRequest("$");
+              this.notifyRestoreOutcome(outcome);
+              resolve(outcome);
+              return;
+            }
+
             const text = await file.text();
             console.log(
               "[ProjectManagementService] restoreApplicationState: file selected",
@@ -148,19 +241,19 @@ export default class ProjectManagementService extends ComponentBase {
               text,
               file.name,
             );
+            this.notifyRestoreOutcome(outcome);
             resolve(outcome);
           } catch (error) {
             console.error(
               "[ProjectManagementService] restoreApplicationState failed:",
               error,
             );
-            this.ui?.showToast(
-              this.i18n?.t("backup_restore_failed", {
-                error: getErrorMessage(error),
-              }) ?? getErrorMessage(error),
-              "error",
-            );
-            resolve({ success: false, error: getErrorMessage(error) });
+            const outcome = {
+              success: false,
+              error: getErrorMessage(error),
+            };
+            this.notifyRestoreReadFailure(error);
+            resolve(outcome);
           }
         };
 
@@ -175,107 +268,162 @@ export default class ProjectManagementService extends ComponentBase {
         "[ProjectManagementService] restoreApplicationState failed:",
         error,
       );
+      this.notifyRestoreReadFailure(error);
       return { success: false, error: getErrorMessage(error) };
+    }
+  }
+
+  /** @param {unknown} restoreError */
+  notifyRestoreReadFailure(restoreError) {
+    try {
+      const error = getErrorMessage(restoreError);
+      this.ui?.showToast(
+        this.i18n?.t("backup_restore_failed", { error }) ?? error,
+        "error",
+      );
+    } catch (notificationError) {
+      console.error(
+        "[ProjectManagementService] restore notification failed:",
+        notificationError,
+      );
+    }
+  }
+
+  /**
+   * The direct file-chooser flow owns its user notification. RPC consumers
+   * provide their own context-specific feedback.
+   * @param {import('../../types/rpc/application.js').ProjectRestoreResult} outcome
+   */
+  notifyRestoreOutcome(outcome) {
+    try {
+      const result = classifyProjectRestoreResult(outcome);
+      if (result.kind === "success") {
+        this.ui?.showToast(
+          this.i18n?.t("backup_restored_successfully") ??
+            "backup_restored_successfully",
+          "success",
+        );
+        return;
+      }
+
+      const reason =
+        result.kind === "malformed"
+          ? getMalformedRestoreReason(this.i18n)
+          : (result.reason ??
+            this.i18n?.t(result.error, result.params) ??
+            result.error);
+      this.ui?.showToast(
+        this.i18n?.t("backup_restore_failed", { error: reason }) ?? reason,
+        "error",
+      );
+    } catch (notificationError) {
+      console.error(
+        "[ProjectManagementService] restore notification failed:",
+        notificationError,
+      );
     }
   }
 
   // Unified restore helper – used by both UI file-chooser and SyncService
   /**
-   * @param {string | undefined} text
+   * @param {unknown} text
    * @param {string} [fileName]
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'project:restore-from-content'>>}
    */
   async restoreFromProjectContent(text, fileName = "project.json") {
-    try {
-      console.log(
-        "[ProjectManagementService] restoreFromProjectContent: begin",
-        { fileName, size: text?.length },
-      );
+    console.log("[ProjectManagementService] restoreFromProjectContent: begin", {
+      fileName,
+      size: typeof text === "string" ? text.length : undefined,
+    });
 
-      // Import via ImportService - let ImportService handle JSON parsing and validation
-      console.log(
-        "[ProjectManagementService] About to call ImportService with content length:",
-        text?.length,
-      );
-      if (typeof text !== "string") {
-        throw new Error("invalid_project_file");
-      }
-      const result = await this.request("import:project-file", {
-        content: text,
-      });
-      const failure = result.success ? null : result;
-      const failureParams =
-        failure && "params" in failure ? failure.params : undefined;
-      console.log("[ProjectManagementService] import:project-file result", {
-        success: result.success,
-        error: failure?.error,
-        params: failureParams,
-      });
-      if (!result.success) {
-        const errorMessage = result.error || "import_failed";
-        const reason =
-          failureParams &&
-          "reason" in failureParams &&
-          typeof failureParams.reason === "string"
-            ? failureParams.reason
-            : "";
-        const fullMessage = reason
-          ? `${errorMessage}: ${reason}`
-          : errorMessage;
-        throw new Error(fullMessage);
-      }
-
-      // Force DataCoordinator to reload its state from storage
-      try {
-        const reload = await this.request("data:reload-state");
-        console.log(
-          "[ProjectManagementService] data:reload-state done",
-          reload,
-        );
-      } catch {
-        // Reload is best-effort; the imported data remains available in storage.
-      }
-
-      // If there's a currentProfile in the imported data, switch to it
-      if (result.currentProfile) {
-        try {
-          const sw = await this.request("data:switch-profile", {
-            profileId: result.currentProfile,
-          });
-          console.log(
-            "[ProjectManagementService] data:switch-profile done",
-            sw,
-          );
-        } catch (error) {
-          console.warn(
-            "Could not switch to imported current profile:",
-            getErrorMessage(error),
-          );
-        }
-      }
-
-      this.ui?.showToast(
-        this.i18n?.t("backup_restored_successfully") ??
-          "backup_restored_successfully",
-        "success",
-      );
-
-      console.log(
-        "[ProjectManagementService] restoreFromProjectContent: success",
-      );
-
+    if (typeof text !== "string") {
       return {
-        success: true,
-        currentProfile: result.currentProfile,
-        imported: result.imported,
+        success: false,
+        error: "invalid_project_file",
+        params: { path: "$" },
       };
-    } catch (error) {
-      console.error(
-        "[ProjectManagementService] restoreFromProjectContent: failed",
-        error,
-      );
-      return { success: false, error: getErrorMessage(error) };
     }
+
+    // ImportService owns parsing, validation, and durable storage writes.
+    const importResponderAvailable =
+      this.eventBus?.hasListeners("rpc:import:project-file") === true;
+    let result;
+    try {
+      result = await this.request("import:project-file", { content: text }, 0);
+    } catch (error) {
+      return {
+        success: false,
+        error: "project_restore_import_failed",
+        params: { reason: getErrorMessage(error) },
+        durable: importResponderAvailable ? "indeterminate" : false,
+      };
+    }
+    if (isProjectImportFailure(result)) {
+      console.log("[ProjectManagementService] import result: failure");
+      return result;
+    }
+    const importSuccess = materializeProjectImportSuccess(result);
+    if (!importSuccess) {
+      // A malformed reply proves that a responder ran but cannot acknowledge
+      // how far it progressed. Never replay the artifact from this state.
+      const durability = "indeterminate";
+      console.log("[ProjectManagementService] import result: malformed", {
+        durability,
+      });
+      return {
+        success: false,
+        error: "project_restore_import_failed",
+        params: {
+          reason: getMalformedRestoreReason(this.i18n),
+        },
+        durable: durability,
+      };
+    }
+    console.log("[ProjectManagementService] import result: success");
+
+    /**
+     * @param {string} reason
+     * @returns {Extract<import('../../types/rpc/application.js').ProjectRestoreResult, { error: 'project_restore_reload_failed' }>}
+     */
+    const reloadFailure = (reason) => ({
+      success: false,
+      error: "project_restore_reload_failed",
+      params: { reason },
+      durable: true,
+      currentProfile: importSuccess.currentProfile,
+      imported: importSuccess.imported,
+    });
+
+    try {
+      const reload = await this.request("data:reload-state", undefined, 0);
+      console.log("[ProjectManagementService] data:reload-state done", reload);
+      const reloadResult = classifyDataReloadResult(reload);
+      if (reloadResult.kind === "failure") {
+        return reloadFailure(
+          getRestoreReloadFailureReason(this.i18n, reloadResult.error),
+        );
+      }
+      if (reloadResult.kind === "malformed") {
+        return reloadFailure(
+          this.i18n?.t("failed_to_load_profile_data") ??
+            "failed_to_load_profile_data",
+        );
+      }
+    } catch (error) {
+      return reloadFailure(
+        getRestoreReloadFailureReason(this.i18n, getErrorMessage(error)),
+      );
+    }
+
+    console.log(
+      "[ProjectManagementService] restoreFromProjectContent: success",
+    );
+
+    return {
+      success: true,
+      currentProfile: importSuccess.currentProfile,
+      imported: importSuccess.imported,
+    };
   }
 
   // High-level helpers (trimmed to backup/restore only)

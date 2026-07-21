@@ -88,6 +88,7 @@ describe("importWorkflow", () => {
           environment: "space",
           strategy: expected,
         },
+        0,
       );
       expect(callbacks.showOverwriteConfirmation).not.toHaveBeenCalled();
     },
@@ -109,12 +110,16 @@ describe("importWorkflow", () => {
       0,
       "ground",
     );
-    expect(callbacks.request).toHaveBeenCalledWith("import:keybind-file", {
-      content: "keybinds-content",
-      profileId: "captain",
-      environment: "ground",
-      strategy: "overwrite_all",
-    });
+    expect(callbacks.request).toHaveBeenCalledWith(
+      "import:keybind-file",
+      {
+        content: "keybinds-content",
+        profileId: "captain",
+        environment: "ground",
+        strategy: "overwrite_all",
+      },
+      0,
+    );
   });
 
   it("preserves alias mode as the environment prompt default", async () => {
@@ -131,12 +136,16 @@ describe("importWorkflow", () => {
       "alias",
       "keybinds",
     );
-    expect(callbacks.request).toHaveBeenCalledWith("import:keybind-file", {
-      content: "keybinds-content",
-      profileId: "captain",
-      environment: "ground",
-      strategy: "merge_keep",
-    });
+    expect(callbacks.request).toHaveBeenCalledWith(
+      "import:keybind-file",
+      {
+        content: "keybinds-content",
+        profileId: "captain",
+        environment: "ground",
+        strategy: "merge_keep",
+      },
+      0,
+    );
   });
 
   it.each([
@@ -199,6 +208,7 @@ describe("importWorkflow", () => {
           profileId: "captain",
           strategy: expected,
         },
+        0,
       );
       expect(callbacks.showOverwriteConfirmation).not.toHaveBeenCalled();
     },
@@ -216,11 +226,15 @@ describe("importWorkflow", () => {
       2,
       0,
     );
-    expect(callbacks.request).toHaveBeenCalledWith("import:alias-file", {
-      content: "aliases-content",
-      profileId: "captain",
-      strategy: "overwrite_all",
-    });
+    expect(callbacks.request).toHaveBeenCalledWith(
+      "import:alias-file",
+      {
+        content: "aliases-content",
+        profileId: "captain",
+        strategy: "overwrite_all",
+      },
+      0,
+    );
   });
 
   it.each([
@@ -289,6 +303,7 @@ describe("importWorkflow", () => {
           strategy: "merge_overwrite",
           configuration,
         },
+        0,
       ],
     ]);
     expect(callbacks.promptEnhancedBindsetSelection).toHaveBeenCalledWith(
@@ -346,13 +361,17 @@ describe("importWorkflow", () => {
       importType: "kbf",
       result: failure,
     });
-    expect(callbacks.request).toHaveBeenLastCalledWith("import:kbf-file", {
-      content: "kbf-content",
-      profileId: "captain",
-      environment: "ground",
-      strategy: "merge_keep",
-      configuration: invalidConfiguration,
-    });
+    expect(callbacks.request).toHaveBeenLastCalledWith(
+      "import:kbf-file",
+      {
+        content: "kbf-content",
+        profileId: "captain",
+        environment: "ground",
+        strategy: "merge_keep",
+        configuration: invalidConfiguration,
+      },
+      0,
+    );
   });
 
   it("rejects unsupported import types before invoking a callback", async () => {

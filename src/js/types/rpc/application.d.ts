@@ -1,4 +1,5 @@
 import type { OptionalRpc, RequiredRpc } from "./base.js";
+import type { ProjectImportResult } from "./import-export.js";
 
 export type { EditingContext } from "../events/base.js";
 
@@ -27,15 +28,32 @@ export type SyncProjectResult =
       params: { error: string };
     };
 
+export type ProjectRestoreResult =
+  | {
+      success: true;
+      currentProfile: string | null;
+      imported: { profiles: number; settings: boolean };
+    }
+  | Extract<ProjectImportResult, { success: false }>
+  | {
+      success: false;
+      error: "project_restore_import_failed";
+      params: { reason: string };
+      durable: false | "indeterminate";
+    }
+  | {
+      success: false;
+      error: "project_restore_reload_failed";
+      params: { reason: string };
+      imported: { profiles: number; settings: boolean };
+      currentProfile: string | null;
+      durable: true;
+    };
+
 export interface ApplicationRpcProtocol {
-  "project:restore-from-content": OptionalRpc<
-    { content?: string; fileName?: string },
-    | {
-        success: true;
-        currentProfile: string | null;
-        imported: { profiles: number; settings: boolean };
-      }
-    | { success: false; error: string }
+  "project:restore-from-content": RequiredRpc<
+    { content: string; fileName?: string },
+    ProjectRestoreResult
   >;
   "selection:select-alias": RequiredRpc<
     {

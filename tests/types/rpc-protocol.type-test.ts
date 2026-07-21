@@ -17,7 +17,10 @@ import type {
   ExtensionPreferenceKey,
   KeyViewMode,
 } from "../../src/js/types/events/base.js";
-import type { SyncProjectResult } from "../../src/js/types/rpc/application.js";
+import type {
+  ProjectRestoreResult,
+  SyncProjectResult,
+} from "../../src/js/types/rpc/application.js";
 import type {
   KeybindImportResult,
   ProjectImportResult,
@@ -154,6 +157,15 @@ const nullableKBFImportRequest: RpcRequest<"import:kbf-file"> = {
 void nullableKBFImportRequest;
 type SyncProjectResultIsExact = Expect<
   Equal<RpcResult<"sync:sync-project">, SyncProjectResult>
+>;
+type ProjectRestoreRequestIsExact = Expect<
+  Equal<
+    RpcRequest<"project:restore-from-content">,
+    { content: string; fileName?: string }
+  >
+>;
+type ProjectRestoreResultIsExact = Expect<
+  Equal<RpcResult<"project:restore-from-content">, ProjectRestoreResult>
 >;
 type SyncLoadFailure = Extract<SyncDirectoryLoadResult, { success: false }>;
 type SyncLoadExcludesSelectionCompensationFailure = Expect<
@@ -546,13 +558,69 @@ async function exerciseCoreApi() {
     groupType: "other",
   });
 
-  const restoreResult = await request(eventBus, "project:restore-from-content");
+  const restoreResult = await request(
+    eventBus,
+    "project:restore-from-content",
+    { content: '{"type":"project","data":{}}', fileName: "project.json" },
+  );
+  void request(eventBus, "project:restore-from-content", {
+    content: "{}",
+    fileName: undefined,
+  });
   if (restoreResult.success) {
     const importedProfiles: number = restoreResult.imported.profiles;
     void importedProfiles;
+  } else if (restoreResult.error === "project_restore_reload_failed") {
+    const reason: string = restoreResult.params.reason;
+    const durable: true = restoreResult.durable;
+    const currentProfile: string | null = restoreResult.currentProfile;
+    const importedSettings: boolean = restoreResult.imported.settings;
+    void reason;
+    void durable;
+    void currentProfile;
+    void importedSettings;
+  } else if (restoreResult.error === "project_restore_import_failed") {
+    const reason: string = restoreResult.params.reason;
+    const durable: false | "indeterminate" = restoreResult.durable;
+    void reason;
+    void durable;
+  } else if (restoreResult.error === "storage_write_failed") {
+    const partial: boolean = restoreResult.partial;
+    const committedProfiles: string[] = restoreResult.committed.profiles;
+    void partial;
+    void committedProfiles;
   }
-  // @ts-expect-error Optional payloads are still validated when supplied.
+  // @ts-expect-error Restore content is required.
+  request(eventBus, "project:restore-from-content");
+  // @ts-expect-error Restore payloads cannot omit content.
+  request(eventBus, "project:restore-from-content", {
+    fileName: "project.json",
+  });
+  // @ts-expect-error Restore content must be raw text.
   request(eventBus, "project:restore-from-content", { content: 42 });
+  // @ts-expect-error Restore fileName cannot be null when supplied.
+  request(eventBus, "project:restore-from-content", {
+    content: "{}",
+    fileName: null,
+  });
+  // @ts-expect-error Restore fileName must be text when supplied.
+  request(eventBus, "project:restore-from-content", {
+    content: "{}",
+    fileName: 42,
+  });
+  // @ts-expect-error Restore fileName cannot be an object.
+  request(eventBus, "project:restore-from-content", {
+    content: "{}",
+    fileName: {},
+  });
+
+  const indeterminateRestore: ProjectRestoreResult = {
+    success: false,
+    error: "project_restore_import_failed",
+    params: { reason: "storage receipt could not be decoded" },
+    durable: "indeterminate",
+  };
+  void indeterminateRestore;
 
   const importResult = await request(eventBus, "import:project-file", {
     content: '{"type":"project","data":{}}',

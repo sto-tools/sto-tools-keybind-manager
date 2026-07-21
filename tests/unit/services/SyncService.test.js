@@ -10,6 +10,7 @@ vi.mock("i18next", () => ({
 import SyncService from "../../../src/js/components/services/SyncService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
+import { createProjectRestoreSuccess } from "../../fixtures/services/projectRestore.js";
 import { addSyncTransitionMethods } from "../../fixtures/services/syncFileSystem.js";
 
 function createHandle(name) {
@@ -369,6 +370,7 @@ describe("SyncService", () => {
         expect(service.invokeRequest).toHaveBeenCalledWith(
           "export:sync-to-folder",
           { dirHandle: handle },
+          0,
         );
         expect(uiMock.showToast).toHaveBeenCalledWith(
           "project_synced_successfully",
@@ -475,7 +477,7 @@ describe("SyncService", () => {
 
         const req = vi.fn().mockImplementation(async (topic) => {
           if (topic === "project:restore-from-content")
-            return { success: true };
+            return createProjectRestoreSuccess();
           if (topic === "export:sync-to-folder")
             throw new Error("should not export when importing");
           return undefined;
@@ -492,8 +494,8 @@ describe("SyncService", () => {
         await Promise.resolve();
         await new Promise((r) => setTimeout(r, 0));
         expect(logSpy).toHaveBeenCalledWith(
-          "[SyncService] project:restore-from-content result",
-          { success: true },
+          "[SyncService] project restore outcome",
+          "success",
         );
         logSpy.mockRestore();
       });

@@ -42,9 +42,10 @@ export async function importProjectToStorage(storage, content, options = {}) {
   let committedSettings = false;
   let committedProject = false;
   /**
-   * Report only persistence stages that returned successfully. A throwing
-   * storage adapter may have mutated state before throwing, but that outcome
-   * cannot be known reliably at this boundary.
+   * Report only persistence stages that returned successfully. A false-returning
+   * or throwing storage adapter may have mutated state before failing, but that
+   * outcome cannot be known reliably at this boundary. Consequently, an empty
+   * committed summary is not a no-write acknowledgement.
    * @param {{ operation: "profile", profileId: string } | { operation: "settings" | "project" }} params
    * @returns {Extract<import('../../types/rpc/import-export.js').ProjectImportResult, { success: false, error: "storage_write_failed" }>}
    */

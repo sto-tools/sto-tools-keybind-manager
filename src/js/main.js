@@ -59,6 +59,15 @@ const dataService = new DataService({
     i18n: i18next,
   });
   dataCoordinator.init();
+  try {
+    await dataCoordinator.initialStateReady;
+  } catch (error) {
+    console.error("DataCoordinator initialization failed:", error);
+    for (const component of [dataCoordinator, dataService, storageService]) {
+      if (typeof component.destroy === "function") component.destroy();
+    }
+    return;
+  }
 
   // Get settings from the new StorageService and update language if needed
   const settings = storageService.getSettings();

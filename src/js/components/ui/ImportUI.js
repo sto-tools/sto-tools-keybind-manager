@@ -1,6 +1,7 @@
 import UIComponentBase from "../UIComponentBase.js";
 import { getSnapshotProfile } from "../services/dataState.js";
 import { MAX_STO_TEXT_IMPORT_BYTES } from "../services/textImportBoundary.js";
+import { MAX_KBF_FILE_BYTES } from "../../lib/kbf/kbfLimits.js";
 import ImportDecisionModalSession from "./importDecisionModalSession.js";
 import ImportFileSession from "./importFileSession.js";
 import { projectImportResultToast } from "./importResultMessages.js";
@@ -112,10 +113,14 @@ export default class ImportUI extends UIComponentBase {
     this.decisionModalSession.cancelActiveSession();
     this.kbfImportSession.cancelActiveSession();
     const tooLargeErrorKey =
-      type === "keybinds" ? "keybind_file_too_large" : "alias_file_too_large";
+      type === "keybinds"
+        ? "keybind_file_too_large"
+        : type === "aliases"
+          ? "alias_file_too_large"
+          : "kbf_file_too_large";
     this.importFileSession.open({
       type,
-      maxBytes: MAX_STO_TEXT_IMPORT_BYTES,
+      maxBytes: type === "kbf" ? MAX_KBF_FILE_BYTES : MAX_STO_TEXT_IMPORT_BYTES,
       tooLargeErrorKey,
       captureContext: () => this.captureImportContext(),
       runWorkflow: ({ content, context, signal, isCurrent }) =>
@@ -155,17 +160,17 @@ export default class ImportUI extends UIComponentBase {
   runAcceptedImport(type, content, context, signal, isCurrent) {
     const canContinue = () => isCurrent() && !signal.aborted;
     const rawRequest =
-      /** @type {(topic: string, payload?: unknown) => Promise<unknown>} */ (
+      /** @type {(topic: string, payload?: unknown, timeout?: number) => Promise<unknown>} */ (
         /** @type {unknown} */ (this.request.bind(this))
       );
-    /** @param {string} topic @param {unknown} [payload] */
-    const guardedRequest = async (topic, payload) => {
+    /** @param {string} topic @param {unknown} [payload] @param {number} [timeout] */
+    const guardedRequest = async (topic, payload, timeout) => {
       if (!canContinue()) {
         const error = new Error("Import file session was superseded");
         error.name = "AbortError";
         throw error;
       }
-      return rawRequest(topic, payload);
+      return rawRequest(topic, payload, timeout);
     };
     const request =
       /** @type {import('../../types/rpc/transport.js').RpcRequester} */ (

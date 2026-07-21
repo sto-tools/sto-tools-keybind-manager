@@ -55,18 +55,22 @@ export interface RpcRequester {
   <K extends RpcRequiredTopic>(
     topic: K,
     payload: RpcRequest<K>,
+    timeout?: number,
   ): Promise<RpcResult<K>>;
   <K extends RpcOptionalTopic>(
     topic: K,
     payload?: RpcRequest<K>,
+    timeout?: number,
   ): Promise<RpcResult<K>>;
   <K extends RpcNoPayloadTopic>(
     topic: K,
     payload?: RpcEmptyPayload,
+    timeout?: number,
   ): Promise<RpcResult<K>>;
   <Request, Result>(
     topic: DynamicRpcTopic<Request, Result>,
     payload: Request,
+    timeout?: number,
   ): Promise<Result>;
 }
 

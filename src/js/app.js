@@ -53,6 +53,8 @@ import { SyncUI } from "./components/sync/index.js";
 import { STOCommandParser } from "./lib/STOCommandParser.js";
 import ImportService from "./components/services/ImportService.js";
 import ParameterCommandService from "./components/services/ParameterCommandService.js";
+import OwnedComponentStack from "./core/ownedComponentStack.js";
+import { checkAndShowWelcomeMessage } from "./core/welcomeMessage.js";
 
 export default class STOToolsKeybindManager {
   /**
@@ -69,8 +71,8 @@ export default class STOToolsKeybindManager {
     this.ui = ui;
     this.syncService = syncService;
     this.store = store;
-    this.eventListeners = new Map();
     this.autoSyncManager = null; // created later when dependencies available
+    this.ownedComponents = new OwnedComponentStack(this);
 
     this.profileUI = null;
     this.aliasService = null;
@@ -89,6 +91,7 @@ export default class STOToolsKeybindManager {
     this.confirmDialogUI = null;
     this.inputDialogUI = null;
 
+    this.importService = null;
     this.projectManagementService = null;
   }
 
@@ -146,15 +149,19 @@ export default class STOToolsKeybindManager {
   }
 
   async init() {
+    if (this.initialized) return;
+
     const storageService = this.storageService;
     const stoUI = this.ui;
+    const create = this.ownedComponents.create.bind(this.ownedComponents);
+    let welcomeAttempt = null;
 
     try {
       if (!this.i18n || !storageService || !stoUI || !this.syncService) {
         throw new Error("Required dependencies not loaded");
       }
 
-      this.modalManagerService = new ModalManagerService({
+      this.modalManagerService = create(ModalManagerService, {
         eventBus,
         i18n: this.i18n,
       });
@@ -162,19 +169,19 @@ export default class STOToolsKeybindManager {
 
       const modalManager = this.modalManagerService;
 
-      this.stoCommandParser = new STOCommandParser(eventBus);
+      this.stoCommandParser = create(STOCommandParser, eventBus);
 
-      this.selectionService = new SelectionService({ eventBus });
+      this.selectionService = create(SelectionService, { eventBus });
       this.selectionService.init();
 
       // Modal dialog components - create early so they can be injected into other components
-      this.confirmDialogUI = new ConfirmDialogUI({
+      this.confirmDialogUI = create(ConfirmDialogUI, {
         eventBus,
         modalManager,
         i18n: this.i18n,
       });
 
-      this.inputDialogUI = new InputDialogUI({
+      this.inputDialogUI = create(InputDialogUI, {
         eventBus,
         modalManager,
         i18n: this.i18n,
@@ -183,7 +190,7 @@ export default class STOToolsKeybindManager {
       // Retain the confirmation compatibility surface for remaining consumers.
       window.confirmDialog = this.confirmDialogUI;
 
-      this.profileUI = new ProfileUI({
+      this.profileUI = create(ProfileUI, {
         eventBus,
         ui: stoUI,
         modalManager,
@@ -192,7 +199,7 @@ export default class STOToolsKeybindManager {
         i18n: this.i18n,
       });
 
-      this.aliasService = new AliasService({
+      this.aliasService = create(AliasService, {
         eventBus,
         i18n: this.i18n,
         ui: stoUI,
@@ -200,12 +207,12 @@ export default class STOToolsKeybindManager {
 
       await this.aliasService.init();
 
-      this.aliasBrowserService = new AliasBrowserService({
+      this.aliasBrowserService = create(AliasBrowserService, {
         ui: stoUI,
         eventBus,
       });
 
-      this.aliasBrowserUI = new AliasBrowserUI({
+      this.aliasBrowserUI = create(AliasBrowserUI, {
         eventBus,
         modalManager,
         confirmDialog: this.confirmDialogUI,
@@ -213,13 +220,13 @@ export default class STOToolsKeybindManager {
         i18n: this.i18n,
       });
 
-      this.keyBrowserService = new KeyBrowserService({
+      this.keyBrowserService = create(KeyBrowserService, {
         eventBus,
         i18n: this.i18n,
         localStorage,
       });
 
-      this.keyBrowserUI = new KeyBrowserUI({
+      this.keyBrowserUI = create(KeyBrowserUI, {
         eventBus,
         document,
         modalManager,
@@ -230,7 +237,7 @@ export default class STOToolsKeybindManager {
 
       //this.keyBrowserUI.init()
 
-      this.keyService = new KeyService({
+      this.keyService = create(KeyService, {
         eventBus,
         i18n: this.i18n,
         ui: stoUI,
@@ -238,7 +245,7 @@ export default class STOToolsKeybindManager {
 
       this.keyService.init();
 
-      this.importService = new ImportService({
+      this.importService = create(ImportService, {
         storage: storageService,
         eventBus,
         i18n: this.i18n,
@@ -247,7 +254,17 @@ export default class STOToolsKeybindManager {
 
       this.importService.init();
 
-      this.exportService = new ExportService({
+      this.projectManagementService = create(ProjectManagementService, {
+        storage: storageService,
+        ui: stoUI,
+        app: this,
+        eventBus,
+        i18n: this.i18n,
+      });
+
+      this.projectManagementService.init();
+
+      this.exportService = create(ExportService, {
         storage: storageService,
         eventBus,
         i18n: this.i18n,
@@ -255,13 +272,13 @@ export default class STOToolsKeybindManager {
 
       this.exportService.init();
 
-      this.keyCaptureService = new KeyCaptureService({
+      this.keyCaptureService = create(KeyCaptureService, {
         eventBus,
         i18n: this.i18n,
       });
       this.keyCaptureService.init();
 
-      this.keyCaptureUI = new KeyCaptureUI({
+      this.keyCaptureUI = create(KeyCaptureUI, {
         eventBus,
         modalManager,
         document,
@@ -269,7 +286,7 @@ export default class STOToolsKeybindManager {
       });
       this.keyCaptureUI.init();
 
-      this.commandService = new CommandService({
+      this.commandService = create(CommandService, {
         storage: storageService,
         eventBus,
         i18n: this.i18n,
@@ -278,19 +295,19 @@ export default class STOToolsKeybindManager {
 
       this.commandService.init();
 
-      this.commandLibraryService = new CommandLibraryService({
+      this.commandLibraryService = create(CommandLibraryService, {
         eventBus,
         i18n: this.i18n,
         ui: stoUI,
         modalManager,
       });
 
-      this.commandPresentationService = new CommandPresentationService({
+      this.commandPresentationService = create(CommandPresentationService, {
         eventBus,
         localStorage: window.localStorage,
       });
 
-      this.commandLibraryUI = new CommandLibraryUI({
+      this.commandLibraryUI = create(CommandLibraryUI, {
         service: this.commandLibraryService,
         eventBus,
         ui: stoUI,
@@ -299,22 +316,22 @@ export default class STOToolsKeybindManager {
         i18n: this.i18n,
       });
 
-      this.commandChainService = new CommandChainService({
+      this.commandChainService = create(CommandChainService, {
         eventBus,
         i18n: this.i18n,
       });
-      this.commandChainUI = new CommandChainUI({
+      this.commandChainUI = create(CommandChainUI, {
         eventBus,
         ui: stoUI,
         document,
         i18n: this.i18n,
       });
 
-      this.parameterCommandService = new ParameterCommandService({
+      this.parameterCommandService = create(ParameterCommandService, {
         eventBus,
       });
 
-      this.parameterCommandUI = new ParameterCommandUI({
+      this.parameterCommandUI = create(ParameterCommandUI, {
         eventBus,
         modalManager,
         i18n: this.i18n,
@@ -322,7 +339,7 @@ export default class STOToolsKeybindManager {
         document,
       });
 
-      this.commandUI = new CommandUI({
+      this.commandUI = create(CommandUI, {
         eventBus,
         ui: stoUI,
         modalManager,
@@ -331,43 +348,43 @@ export default class STOToolsKeybindManager {
         i18n: this.i18n,
       });
 
-      this.headerMenuUI = new HeaderMenuUI({
+      this.headerMenuUI = create(HeaderMenuUI, {
         eventBus,
         confirmDialog: this.confirmDialogUI,
         document,
         i18n: this.i18n,
       });
 
-      this.headerToolbarUI = new HeaderToolbarUI({
+      this.headerToolbarUI = create(HeaderToolbarUI, {
         eventBus,
         document,
       });
 
-      this.syncUI = new SyncUI({
+      this.syncUI = create(SyncUI, {
         eventBus,
         ui: stoUI,
       });
 
-      this.aboutModalUI = new AboutModalUI({
+      this.aboutModalUI = create(AboutModalUI, {
         eventBus,
         document,
       });
 
-      this.interfaceModeService = new InterfaceModeService({
+      this.interfaceModeService = create(InterfaceModeService, {
         eventBus,
         storage: storageService,
         app: this,
       });
 
-      this.interfaceModeUI = new InterfaceModeUI({
+      this.interfaceModeUI = create(InterfaceModeUI, {
         eventBus,
         ui: stoUI,
         profileUI: this.profileUI,
         document,
       });
 
-      this.vfxManagerService = new VFXManagerService(eventBus, this.i18n);
-      this.vfxManagerUI = new VFXManagerUI({
+      this.vfxManagerService = create(VFXManagerService, eventBus, this.i18n);
+      this.vfxManagerUI = create(VFXManagerUI, {
         eventBus,
         modalManager,
         i18n: this.i18n,
@@ -375,12 +392,12 @@ export default class STOToolsKeybindManager {
       this.vfxManagerService.init();
       this.vfxManagerUI.init();
 
-      this.preferencesService = new PreferencesService({
+      this.preferencesService = create(PreferencesService, {
         storage: storageService,
         eventBus,
         i18n: this.i18n,
       });
-      this.preferencesUI = new PreferencesUI({ eventBus, ui: stoUI });
+      this.preferencesUI = create(PreferencesUI, { eventBus, ui: stoUI });
       this.preferencesManager = this.preferencesUI;
       this.preferencesService.init();
       this.preferencesUI.init();
@@ -398,7 +415,7 @@ export default class STOToolsKeybindManager {
       this.commandUI.init();
       this.parameterCommandUI.init();
 
-      this.autoSyncManager = new AutoSync({
+      this.autoSyncManager = create(AutoSync, {
         eventBus,
         storage: storageService,
         syncManager: this.syncService,
@@ -420,33 +437,7 @@ export default class STOToolsKeybindManager {
 
       this.profileUI.updateProfileInfo();
 
-      this.checkAndShowWelcomeMessage();
-
-      stoUI.showToast(
-        this.i18n.t("sto_tools_keybind_manager_loaded_successfully"),
-        "success",
-      );
-
-      this.initialized = true;
-
-      eventBus.emit("sto-app-ready", { app: this });
-
-      window.commandChainUI = this.commandChainUI;
-
-      window.keyBrowserUI = this.keyBrowserUI;
-      window.keyBrowserService = this.keyBrowserService;
-
-      this.projectManagementService = new ProjectManagementService({
-        storage: storageService,
-        ui: stoUI,
-        app: this,
-        eventBus,
-        i18n: this.i18n,
-      });
-
-      this.projectManagementService.init();
-
-      this.importUI = new ImportUI({
+      this.importUI = create(ImportUI, {
         eventBus,
         document,
         i18n: this.i18n,
@@ -467,8 +458,8 @@ export default class STOToolsKeybindManager {
         "./components/ui/BindsetSelectorUI.js"
       );
 
-      this.bindsetService = new BindsetService({ eventBus });
-      this.bindsetManagerUI = new BindsetManagerUI({
+      this.bindsetService = create(BindsetService, { eventBus });
+      this.bindsetManagerUI = create(BindsetManagerUI, {
         eventBus,
         i18n: this.i18n,
         confirmDialog: this.confirmDialogUI,
@@ -477,8 +468,10 @@ export default class STOToolsKeybindManager {
       this.bindsetService.init();
       this.bindsetManagerUI.init();
 
-      this.bindsetSelectorService = new BindsetSelectorService({ eventBus });
-      this.bindsetSelectorUI = new BindsetSelectorUI({
+      this.bindsetSelectorService = create(BindsetSelectorService, {
+        eventBus,
+      });
+      this.bindsetSelectorUI = create(BindsetSelectorUI, {
         eventBus,
         confirmDialog: this.confirmDialogUI,
         document,
@@ -486,7 +479,44 @@ export default class STOToolsKeybindManager {
       });
       this.bindsetSelectorService.init();
       this.bindsetSelectorUI.init();
+
+      window.commandChainUI = this.commandChainUI;
+      window.keyBrowserUI = this.keyBrowserUI;
+      window.keyBrowserService = this.keyBrowserService;
+
+      welcomeAttempt = this.checkAndShowWelcomeMessage();
+
+      stoUI.showToast(
+        this.i18n.t("sto_tools_keybind_manager_loaded_successfully"),
+        "success",
+      );
+
+      this.initialized = true;
+      eventBus.emit("sto-app-ready", { app: this });
+      welcomeAttempt?.commit();
     } catch (error) {
+      try {
+        welcomeAttempt?.rollback();
+      } catch (rollbackError) {
+        console.error("Failed to roll back first-run welcome:", rollbackError);
+      }
+
+      if (window.confirmDialog === this.confirmDialogUI) {
+        window.confirmDialog = undefined;
+      }
+      if (window.commandChainUI === this.commandChainUI) {
+        window.commandChainUI = undefined;
+      }
+      if (window.keyBrowserUI === this.keyBrowserUI) {
+        window.keyBrowserUI = undefined;
+      }
+      if (window.keyBrowserService === this.keyBrowserService) {
+        window.keyBrowserService = undefined;
+      }
+      this.initialized = false;
+
+      await this.ownedComponents.destroyAll();
+
       if (stoUI?.showToast) {
         stoUI.showToast(this.i18n.t("failed_to_load_application"), "error");
       }
@@ -499,15 +529,7 @@ export default class STOToolsKeybindManager {
     return `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
-  // Welcome message functionality (moved from welcome mixin)
-  isFirstTime() {
-    return !localStorage.getItem("sto_keybind_manager_visited");
-  }
-
   checkAndShowWelcomeMessage() {
-    if (this.isFirstTime()) {
-      localStorage.setItem("sto_keybind_manager_visited", "true");
-      this.modalManagerService?.show("aboutModal");
-    }
+    return checkAndShowWelcomeMessage(localStorage, this.modalManagerService);
   }
 }

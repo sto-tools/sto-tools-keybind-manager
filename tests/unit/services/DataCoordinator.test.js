@@ -41,6 +41,7 @@ describe("DataCoordinator Service", () => {
 
   afterEach(() => {
     fixture.destroy();
+    localStorage.removeItem("sto_keybind_manager_visited");
     vi.clearAllMocks();
   });
 
@@ -91,10 +92,8 @@ describe("DataCoordinator Service", () => {
 
       mockStorage.getAllData.mockReturnValue(mockData);
 
-      await dataCoordinator.init();
-
-      // Wait for async operations to complete
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      dataCoordinator.init();
+      await dataCoordinator.initialStateReady;
 
       expect(dataCoordinator.state.currentProfile).toBe("test-profile");
       expect(dataCoordinator.state.profiles).not.toBe(mockData.profiles);
@@ -118,10 +117,8 @@ describe("DataCoordinator Service", () => {
 
       mockStorage.getAllData.mockReturnValue(mockData);
 
-      await dataCoordinator.init();
-
-      // Wait for async operations to complete
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      dataCoordinator.init();
+      await dataCoordinator.initialStateReady;
 
       expect(dataCoordinator.state.currentProfile).toBe("profile1");
       expect(mockStorage.saveAllData).toHaveBeenCalledWith(
@@ -362,6 +359,10 @@ describe("DataCoordinator Service", () => {
     });
 
     it("should reload state from storage", async () => {
+      localStorage.setItem("sto_keybind_manager_visited", "true");
+      dataCoordinator.init();
+      await dataCoordinator.initialStateReady;
+
       const newData = {
         currentProfile: "reloaded-profile",
         profiles: { "reloaded-profile": { name: "Reloaded" } },

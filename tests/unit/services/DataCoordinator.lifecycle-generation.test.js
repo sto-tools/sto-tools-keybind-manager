@@ -126,7 +126,11 @@ describe("DataCoordinator lifecycle generation", () => {
 
     await expect(result).rejects.toThrow();
     expect(coordinator.state).toEqual(stateBefore);
-    expect(coordinator.getCurrentState()).toBe(snapshotBefore);
+    expect(coordinator.getCurrentState()).toEqual({
+      ...snapshotBefore,
+      ready: false,
+    });
+    expect(coordinator.getCurrentState()).not.toBe(snapshotBefore);
     expect(emittedMutations()).toEqual([]);
   }
 
@@ -267,7 +271,11 @@ describe("DataCoordinator lifecycle generation", () => {
     await expect(result).rejects.toThrow("operation_cancelled");
     expect(staleProfiles).toEqual(profilesBefore);
     expect(coordinator.state).toEqual(stateBefore);
-    expect(coordinator.getCurrentState()).toBe(snapshotBefore);
+    expect(coordinator.getCurrentState()).toEqual({
+      ...snapshotBefore,
+      ready: false,
+    });
+    expect(coordinator.getCurrentState()).not.toBe(snapshotBefore);
     expect(emittedMutations()).toEqual([]);
   });
 

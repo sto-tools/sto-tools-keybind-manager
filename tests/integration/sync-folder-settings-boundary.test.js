@@ -5,6 +5,7 @@ import StorageService from "../../src/js/components/services/StorageService.js";
 import SyncService from "../../src/js/components/services/SyncService.js";
 import eventBus from "../../src/js/core/eventBus.js";
 import { createLocalStorageFixture } from "../fixtures/core/index.js";
+import { createProjectRestoreSuccess } from "../fixtures/services/projectRestore.js";
 import { addSyncTransitionMethods } from "../fixtures/services/syncFileSystem.js";
 
 function createHandle(projectContent = null, name = "Fleet Builds") {
@@ -104,7 +105,9 @@ describe("sync folder settings owner integration", () => {
     });
     const confirm = vi.fn().mockReturnValueOnce(importDecision);
     vi.stubGlobal("confirmDialog", { confirm });
-    sync.invokeRequest = vi.fn().mockResolvedValue({ success: true });
+    sync.invokeRequest = vi
+      .fn()
+      .mockResolvedValue(createProjectRestoreSuccess());
     const publicationOrder = [];
     let cacheAtFolderSet;
     eventBus.on("preferences:loaded", () => {
@@ -161,6 +164,7 @@ describe("sync folder settings owner integration", () => {
     expect(sync.invokeRequest).toHaveBeenCalledWith(
       "project:restore-from-content",
       { content: projectContent, fileName: "project.json" },
+      0,
     );
     expect(sync.pendingSyncAction).toBeNull();
     expect(sync.awaitingSyncDecisionApply).toBe(false);
@@ -256,9 +260,11 @@ describe("sync folder settings owner integration", () => {
     await firstSaved;
 
     expect(sync.invokeRequest).toHaveBeenCalledOnce();
-    expect(sync.invokeRequest).toHaveBeenCalledWith("export:sync-to-folder", {
-      dirHandle: handle,
-    });
+    expect(sync.invokeRequest).toHaveBeenCalledWith(
+      "export:sync-to-folder",
+      { dirHandle: handle },
+      0,
+    );
     expect(sync.pendingSyncAction).toBeNull();
     expect(sync.awaitingSyncDecisionApply).toBe(false);
   });

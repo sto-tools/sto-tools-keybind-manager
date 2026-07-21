@@ -12,6 +12,7 @@ import {
   isValidBase64,
   isArrayBuffer,
 } from "./decoderUtils.js";
+import { MAX_KBF_FILE_BYTES } from "../kbfLimits.js";
 
 /** @param {unknown} content @returns {number | null} */
 function getInputByteLength(content) {
@@ -36,7 +37,7 @@ export class KBFDecoder {
     this.options = {
       validateUtf8: true,
       strictMode: false,
-      maxFileSize: 1024 * 1024,
+      maxFileSize: MAX_KBF_FILE_BYTES,
       ...options,
     };
 

@@ -28,6 +28,6 @@ export default class SyncUI extends UIComponentBase {
   async performSync(source = "manual") {
     this.ui?.showToast?.(i18next.t("syncing"), "info");
     // Pass the source context to sync service
-    await this.request("sync:sync-project", { source });
+    await this.request("sync:sync-project", { source }, 0);
   }
 }

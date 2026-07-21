@@ -75,6 +75,7 @@ export type ProjectImportResult =
         | { operation: "profile"; profileId: string }
         | { operation: "settings" | "project" };
       partial: boolean;
+      /** Successfully acknowledged import stages; an empty summary does not prove that the failed storage call made no durable change. */
       committed: {
         profiles: string[];
         settings: boolean;

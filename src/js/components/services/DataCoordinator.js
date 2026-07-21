@@ -11,7 +11,10 @@ import builtInDefaultProfiles, {
 } from "../../data/defaultProfiles.js";
 import { registerDataCoordinatorResponders } from "./dataCoordinatorResponders.js";
 import { handleLoadDefaultDataUi } from "./dataCoordinatorDefaultUi.js";
-import { loadInitialCoordinatorState } from "./dataCoordinatorInitialState.js";
+import {
+  beginInitialCoordinatorStateLoad,
+  initializeDataCoordinatorState,
+} from "./dataCoordinatorInitialState.js";
 import {
   createClonedProfileDraft,
   createDefaultProfileDraft,
@@ -22,10 +25,12 @@ import {
 } from "./profileConstruction.js";
 import { planProfileNormalizations } from "./profileNormalizationPlan.js";
 import { applyProfileOperations } from "./profileOperations.js";
+import { profileStateChange } from "./dataStateChange.js";
 import {
-  createDataStateChangedPayload,
-  profileStateChange,
-} from "./dataStateChange.js";
+  publishCurrentCoordinatorProfile,
+  publishDataCoordinatorState,
+  publishReloadedCoordinatorState,
+} from "./dataCoordinatorPublication.js";
 
 /** @param {unknown} error */
 const errMsg = (error) =>
@@ -153,6 +158,10 @@ export default class DataCoordinator extends ComponentBase {
     };
     this._stateAuthorityEpoch = nextDataStateAuthorityEpoch();
     this._lifecycleGeneration = 0;
+    /** @type {Promise<void>} */
+    this.initialStateReady = Promise.resolve();
+    this._initialStateTail = Promise.resolve();
+    this.initialStateSettled = this._initialStateTail;
     this._stateReady = false;
     this._stateRevision = 0;
     /** @type {import('../../types/events/component-state.js').DataCoordinatorStateSnapshot | null} */
@@ -162,24 +171,10 @@ export default class DataCoordinator extends ComponentBase {
     this._responseDetachFunctions = [];
 
     // Late-join support is handled by ComponentBase automatically
-
-    this.setupRequestHandlers();
   }
 
-  async onInit() {
-    console.log(`[${this.componentName}] Initializing...`);
-    const operation = this._captureOperationGeneration();
-
-    this.setupRequestHandlers();
-
-    // Set up event listeners
-    this.setupEventListeners();
-
-    // Load initial state from storage
-    await this.loadInitialState();
-    if (!this._isCurrentOperation(operation)) return;
-
-    console.log(`[${this.componentName}] Initialization complete`);
+  onInit() {
+    initializeDataCoordinatorState(this);
   }
 
   setupEventListeners() {
@@ -256,11 +251,9 @@ export default class DataCoordinator extends ComponentBase {
     );
   }
 
-  /**
-   * Load initial state from storage
-   */
-  async loadInitialState() {
-    await loadInitialCoordinatorState(this);
+  /** Queue an initial storage load through the lifecycle-owned barrier. */
+  loadInitialState() {
+    return beginInitialCoordinatorStateLoad(this);
   }
 
   /**
@@ -292,17 +285,7 @@ export default class DataCoordinator extends ComponentBase {
    * @returns {import('../../types/events/component-state.js').DataCoordinatorStateSnapshot | null}
    */
   _publishState(reason, details = {}) {
-    if (!this._stateReady || this.destroyed) return null;
-
-    this._stateRevision += 1;
-    this._currentStateSnapshot = null;
-    const state = this.getCurrentState();
-    this.emit(
-      "data:state-changed",
-      createDataStateChangedPayload(reason, state, details),
-      { synchronous: true },
-    );
-    return state;
+    return publishDataCoordinatorState(this, reason, details).state;
   }
 
   /**
@@ -1042,7 +1025,10 @@ export default class DataCoordinator extends ComponentBase {
         durableRoot.version || nextRoot.version || this.state.metadata.version,
     };
 
-    this._publishState("default-profiles-created");
+    const publications = [
+      publishDataCoordinatorState(this, "default-profiles-created").settled,
+    ];
+    this._assertCurrentOperation(operation);
 
     console.log(
       `[${this.componentName}] Created ${Object.keys(profiles).length} built-in default profiles`,
@@ -1054,35 +1040,22 @@ export default class DataCoordinator extends ComponentBase {
       this.state.currentProfile &&
       this.state.profiles[this.state.currentProfile]
     ) {
-      const activatedProfile = this.state.profiles[this.state.currentProfile];
-      const virtualProfile = createVirtualProfile(
-        this.state.currentProfile,
-        activatedProfile,
-        this.state.currentEnvironment,
-      );
-
       console.log(
         `[${this.componentName}] Emitting profile:switched for initial profile activation: ${this.state.currentProfile}`,
       );
 
-      this.emit(
-        "profile:switched",
-        {
-          fromProfile: null,
-          toProfile: this.state.currentProfile,
-          profileId: this.state.currentProfile,
-          profile: virtualProfile,
-          environment: this.state.currentEnvironment,
-          timestamp: Date.now(),
-        },
-        { synchronous: true },
-      );
+      const profilePublication = publishCurrentCoordinatorProfile(this);
+      if (profilePublication) publications.push(profilePublication);
+      this._assertCurrentOperation(operation);
     } else if (profileActivated) {
       // Profile activation was attempted but profile data is not ready
       console.log(
         `[${this.componentName}] Profile activation attempted but profile data not ready, delaying profile:switched broadcast`,
       );
     }
+
+    await Promise.all(publications);
+    this._assertCurrentOperation(operation);
   }
 
   // Create minimal fallback profiles when built-in definitions are unavailable.
@@ -1128,7 +1101,10 @@ export default class DataCoordinator extends ComponentBase {
         durableRoot.version || nextRoot.version || this.state.metadata.version,
     };
 
-    this._publishState("fallback-profiles-created");
+    const publications = [
+      publishDataCoordinatorState(this, "fallback-profiles-created").settled,
+    ];
+    this._assertCurrentOperation(operation);
 
     console.log(
       `[${this.componentName}] Created ${Object.keys(fallbackProfiles).length} fallback profiles`,
@@ -1136,30 +1112,17 @@ export default class DataCoordinator extends ComponentBase {
 
     // If we activated a profile for the first time, emit profile:switched event
     if (profileActivated && this.state.currentProfile) {
-      const activatedProfile = this.state.profiles[this.state.currentProfile];
-      const virtualProfile = createVirtualProfile(
-        this.state.currentProfile,
-        activatedProfile,
-        this.state.currentEnvironment,
-      );
-
       console.log(
         `[${this.componentName}] Emitting profile:switched for initial fallback profile activation: ${this.state.currentProfile}`,
       );
 
-      this.emit(
-        "profile:switched",
-        {
-          fromProfile: null,
-          toProfile: this.state.currentProfile,
-          profileId: this.state.currentProfile,
-          profile: virtualProfile,
-          environment: this.state.currentEnvironment,
-          timestamp: Date.now(),
-        },
-        { synchronous: true },
-      );
+      const profilePublication = publishCurrentCoordinatorProfile(this);
+      if (profilePublication) publications.push(profilePublication);
+      this._assertCurrentOperation(operation);
     }
+
+    await Promise.all(publications);
+    this._assertCurrentOperation(operation);
   }
 
   // Normalize all profiles to use canonical string commands
@@ -1219,9 +1182,15 @@ export default class DataCoordinator extends ComponentBase {
   /** @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:reload-state'>>} */
   async reloadState() {
     console.log(`[${this.componentName}] Reloading state from storage...`);
+    if (!this.initialized || this.destroyed) {
+      return { success: false, error: "operation_cancelled" };
+    }
     const operation = this._captureOperationGeneration();
 
     try {
+      await this.initialStateReady;
+      this._assertCurrentOperation(operation);
+
       // Get fresh data from storage
       const allData = this.storage.getAllData();
 
@@ -1257,59 +1226,25 @@ export default class DataCoordinator extends ComponentBase {
         version: durableRoot.version || "1.0.0",
       };
 
-      this._publishState("state-reloaded");
-
-      console.log(
-        `[${this.componentName}] State reloaded. Current profile: ${this.state.currentProfile}, Environment: ${this.state.currentEnvironment}`,
+      const publicationsSettled = publishReloadedCoordinatorState(
+        this,
+        operation,
       );
 
-      // Refresh the retained compatibility projections after publishing the
-      // complete authoritative state snapshot.
-
-      // 1. If we have a current profile, emit profile:switched to refresh profile-specific UI
-      if (
-        this.state.currentProfile &&
-        this.state.profiles[this.state.currentProfile]
-      ) {
-        const currentProfile = this.state.profiles[this.state.currentProfile];
-        const virtualProfile = createVirtualProfile(
-          this.state.currentProfile,
-          currentProfile,
-          this.state.currentEnvironment,
-        );
-
-        this.emit(
-          "profile:switched",
-          {
-            fromProfile: null, // We don't know the previous profile after reload
-            toProfile: this.state.currentProfile,
-            profileId: this.state.currentProfile,
-            profile: structuredClone(virtualProfile),
-            environment: this.state.currentEnvironment,
-            timestamp: Date.now(),
-          },
-          { synchronous: true },
-        );
-      }
-
-      // 2. Emit environment change synchronously to refresh environment-specific UI
-      this.emit(
-        "environment:changed",
-        {
-          fromEnvironment: null, // We don't know the previous environment after reload
-          toEnvironment: this.state.currentEnvironment,
-          environment: this.state.currentEnvironment,
-          timestamp: Date.now(),
-        },
-        { synchronous: true },
-      );
-
-      return {
-        success: true,
+      const result = {
+        success: /** @type {const} */ (true),
         profiles: Object.keys(this.state.profiles).length,
         currentProfile: this.state.currentProfile,
         environment: this.state.currentEnvironment,
       };
+
+      // Invoke every compatibility publication in its historical order before
+      // awaiting them together. This preserves event ordering without making
+      // one topic's listener latency delay invocation of the next topic.
+      await publicationsSettled;
+      this._assertCurrentOperation(operation);
+
+      return result;
     } catch (error) {
       if (!this._isCurrentOperation(operation)) {
         return { success: false, error: "operation_cancelled" };
@@ -1321,6 +1256,8 @@ export default class DataCoordinator extends ComponentBase {
 
   onDestroy() {
     this._lifecycleGeneration += 1;
+    this._stateReady = false;
+    this._currentStateSnapshot = null;
     for (const detach of this._responseDetachFunctions) detach();
     this._responseDetachFunctions = [];
   }

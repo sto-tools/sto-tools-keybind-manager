@@ -80,8 +80,15 @@ async function exerciseComponentRpc() {
     commandString: "FirePhasers",
   });
   parsed.commands;
+  await component.request(
+    "parser:parse-command-string",
+    { commandString: "FirePhasers" },
+    0,
+  );
 
   await component.request("parser:clear-cache");
+  await component.request("parser:clear-cache", undefined, 0);
+  await component.request("sync:sync-project", undefined, 0);
   const nextViewMode = await component.request("key:cycle-view-mode");
   nextViewMode.toUpperCase();
   const categoryCollapsed = await component.request(
@@ -278,6 +285,7 @@ declare const dynamicRpc: DynamicRpcTopic<
   { accepted: boolean }
 >;
 component.request(dynamicRpc, { sequence: 1 });
+component.request(dynamicRpc, { sequence: 1 }, 0);
 component.respond(dynamicRpc, ({ sequence }) => ({ accepted: sequence > 0 }));
 // @ts-expect-error Branded RPC topics retain their request contract.
 component.request(dynamicRpc, { sequence: "one" });

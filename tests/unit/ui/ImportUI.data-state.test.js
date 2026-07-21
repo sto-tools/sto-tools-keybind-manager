@@ -5,6 +5,7 @@ import { buildKBFErrorMessage } from "../../../src/js/components/ui/importResult
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
 import { MAX_STO_TEXT_IMPORT_BYTES } from "../../../src/js/components/services/textImportBoundary.js";
+import { MAX_KBF_FILE_BYTES } from "../../../src/js/lib/kbf/kbfLimits.js";
 import en from "../../../src/i18n/en.json";
 
 const kbfParseErrorKeys = [
@@ -130,12 +131,16 @@ describe("ImportUI accepted data state", () => {
     await changeHandler();
 
     await vi.waitFor(() => {
-      expect(ui.request).toHaveBeenCalledWith("import:keybind-file", {
-        content: 'F1 "FireAll"',
-        profileId: "alpha",
-        environment: "ground",
-        strategy: "overwrite_all",
-      });
+      expect(ui.request).toHaveBeenCalledWith(
+        "import:keybind-file",
+        {
+          content: 'F1 "FireAll"',
+          profileId: "alpha",
+          environment: "ground",
+          strategy: "overwrite_all",
+        },
+        0,
+      );
     });
     expect(ui.promptEnvironment).toHaveBeenCalledWith("alias", "keybinds");
     expect(ui.showOverwriteConfirmation).toHaveBeenCalledWith(
@@ -187,11 +192,15 @@ describe("ImportUI accepted data state", () => {
     await changeHandler();
 
     await vi.waitFor(() => {
-      expect(ui.request).toHaveBeenCalledWith("import:alias-file", {
-        content: 'alias Fire "FireAll"',
-        profileId: null,
-        strategy: "overwrite_all",
-      });
+      expect(ui.request).toHaveBeenCalledWith(
+        "import:alias-file",
+        {
+          content: 'alias Fire "FireAll"',
+          profileId: null,
+          strategy: "overwrite_all",
+        },
+        0,
+      );
     });
     expect(ui.showOverwriteConfirmation).not.toHaveBeenCalled();
   });
@@ -276,17 +285,15 @@ describe("ImportUI accepted data state", () => {
   );
 
   it.each([
-    ["keybinds", "keybind_file_too_large"],
-    ["aliases", "alias_file_too_large"],
+    ["keybinds", "keybind_file_too_large", MAX_STO_TEXT_IMPORT_BYTES],
+    ["aliases", "alias_file_too_large", MAX_STO_TEXT_IMPORT_BYTES],
+    ["kbf", "kbf_file_too_large", MAX_KBF_FILE_BYTES],
   ])(
     "rejects an oversized %s file before reading or prompting",
-    async (type, errorKey) => {
+    async (type, errorKey, maxBytes) => {
       fixture = createEventBusFixture();
       let changeHandler;
-      const file = new File(
-        ["x".repeat(MAX_STO_TEXT_IMPORT_BYTES + 1)],
-        "oversized.txt",
-      );
+      const file = new File(["x".repeat(maxBytes + 1)], "oversized.txt");
       const input = {
         type: "",
         accept: "",
@@ -319,7 +326,7 @@ describe("ImportUI accepted data state", () => {
       await changeHandler();
 
       expect(showToast).toHaveBeenCalledWith(
-        `${errorKey}:${file.size}:${MAX_STO_TEXT_IMPORT_BYTES}`,
+        `${errorKey}:${file.size}:${maxBytes}`,
         "error",
       );
       expect(ui.promptEnvironment).not.toHaveBeenCalled();

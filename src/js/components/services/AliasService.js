@@ -15,9 +15,14 @@ export default class AliasService extends ComponentBase {
     this.componentName = "AliasService";
     this.i18n = i18n;
     this.ui = ui;
+    /** @type {Array<() => void>} */
+    this._responseDetachFunctions = [];
+  }
 
-    if (this.eventBus) {
-      // Register request/response endpoints for alias operations
+  setupRequestHandlers() {
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+
+    this._responseDetachFunctions.push(
       this.respond(
         "alias:add",
         (
@@ -26,12 +31,12 @@ export default class AliasService extends ComponentBase {
             description,
           } = /** @type {{ name?: string, description?: string }} */ ({}),
         ) => this.addAlias(name, description),
-      );
+      ),
       this.respond(
         "alias:delete",
         ({ name } = /** @type {{ name?: string }} */ ({})) =>
           this.deleteAlias(name),
-      );
+      ),
       this.respond(
         "alias:duplicate-with-name",
         (
@@ -40,13 +45,18 @@ export default class AliasService extends ComponentBase {
             newName,
           } = /** @type {{ sourceName?: string, newName?: string }} */ ({}),
         ) => this.duplicateAliasWithName(sourceName, newName),
-      );
+      ),
       this.respond(
         "alias:validate-name",
         ({ name } = /** @type {{ name?: string }} */ ({})) =>
           this.isValidAliasName(name),
-      );
-    }
+      ),
+    );
+  }
+
+  onDestroy() {
+    for (const detach of this._responseDetachFunctions) detach();
+    this._responseDetachFunctions = [];
   }
 
   /** @returns {import('./serviceTypes.js').ServiceCache} */
@@ -58,6 +68,7 @@ export default class AliasService extends ComponentBase {
   }
 
   onInit() {
+    this.setupRequestHandlers();
     this.setupEventListeners();
   }
 

@@ -168,6 +168,7 @@ describe("ImportFileSession", () => {
   it.each([
     ["keybinds", "keybind_file_too_large"],
     ["aliases", "alias_file_too_large"],
+    ["kbf", "kbf_file_too_large"],
   ])("rejects oversized %s input with its supplied error key", (type, key) => {
     const harness = createHarness();
     harness.open(type, { maxBytes: 4, tooLargeErrorKey: key });
@@ -185,18 +186,6 @@ describe("ImportFileSession", () => {
     expect(harness.createFileReader).not.toHaveBeenCalled();
     expect(harness.callbacks.captureContext).not.toHaveBeenCalled();
     expect(document.body.contains(input)).toBe(false);
-  });
-
-  it("lets KBF input bypass the plain-text size boundary", () => {
-    const harness = createHarness();
-    harness.open("kbf", { maxBytes: 1 });
-    const file = new File(["large"], "build.kbf");
-
-    select(harness.session, file);
-
-    expect(harness.callbacks.onTooLarge).not.toHaveBeenCalled();
-    expect(harness.createFileReader).toHaveBeenCalledTimes(1);
-    expect(harness.readers[0].readAsText).toHaveBeenCalledWith(file);
   });
 
   it("captures one accepted snapshot and projects the completed workflow", async () => {

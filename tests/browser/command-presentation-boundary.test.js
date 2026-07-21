@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
 import { generateBindToAliasName } from "../../src/js/lib/aliasNameValidator.js";
+import { observeCommandChainProjection } from "../fixtures/ui/commandChainProjection.js";
 
 let replySequence = 0;
 const probeKey = "__command_presentation_probe__";
@@ -108,6 +109,7 @@ describe("Command presentation checked-bundle boundary", () => {
         placement: "in-pivot-group",
       },
     ];
+    const probeProjection = observeCommandChainProjection(bus, probeCommands);
     const groupTypes = ["non-trayexec", "palindromic", "pivot"];
     const groupType =
       groupTypes.find(
@@ -177,12 +179,16 @@ describe("Command presentation checked-bundle boundary", () => {
       });
       await vi.waitFor(() => {
         expect(chainUi.cache.selectedKey).toBe(probeKey);
+        expect(probeProjection.wasPublished()).toBe(true);
         expect(document.getElementById("chainTitle")?.textContent).toContain(
           probeKey,
         );
         expect(document.querySelectorAll(".command-item-row")).toHaveLength(
           probeCommands.length,
         );
+        expect(
+          document.querySelector('.command-item-row[data-index="0"]'),
+        ).not.toBe(probeProjection.predecessor());
         expect(
           [...document.querySelectorAll(".command-text")].some(
             ({ textContent }) => textContent?.includes(markupCommand),
@@ -341,6 +347,7 @@ describe("Command presentation checked-bundle boundary", () => {
         revision: startingPresentationState.revision + 4,
       });
     } finally {
+      probeProjection.detach();
       chainRequest.mockRestore();
       detachToast();
       let currentState = await requestOwnerSnapshot(bus);

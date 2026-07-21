@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { MAX_KBF_FILE_BYTES } from "../../../src/js/lib/kbf/kbfLimits.js";
 import { KBFDecoder } from "../../../src/js/lib/kbf/parsers/KBFDecoder.js";
 
 const validKbfContent = btoa("KEYSET:Master;NAME:Master;");
@@ -30,6 +31,10 @@ const inputCases = [
 ];
 
 describe("KBFDecoder maxFileSize boundary", () => {
+  it("uses the shared KBF file-size limit by default", () => {
+    expect(new KBFDecoder().options.maxFileSize).toBe(MAX_KBF_FILE_BYTES);
+  });
+
   it.each(inputCases)(
     "allows $inputType input exactly at the configured limit",
     ({ content }) => {

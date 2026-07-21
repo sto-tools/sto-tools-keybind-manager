@@ -854,6 +854,7 @@ export default class ComponentBase {
    * @overload
    * @param {RequiredTopic} topic
    * @param {import('../types/rpc/transport.js').RpcRequest<RequiredTopic>} payload
+   * @param {number} [timeout] Milliseconds before rejection; `0` disables the transport timeout.
    * @returns {Promise<import('../types/rpc/transport.js').RpcResult<RequiredTopic>>}
    */
   /**
@@ -862,6 +863,7 @@ export default class ComponentBase {
    * @overload
    * @param {OptionalTopic} topic
    * @param {import('../types/rpc/transport.js').RpcRequest<OptionalTopic>} [payload]
+   * @param {number} [timeout] Milliseconds before rejection; `0` disables the transport timeout.
    * @returns {Promise<import('../types/rpc/transport.js').RpcResult<OptionalTopic>>}
    */
   /**
@@ -870,6 +872,7 @@ export default class ComponentBase {
    * @overload
    * @param {EmptyTopic} topic
    * @param {import('../types/rpc/transport.js').RpcRequest<EmptyTopic>} [payload]
+   * @param {number} [timeout] Milliseconds before rejection; `0` disables the transport timeout.
    * @returns {Promise<import('../types/rpc/transport.js').RpcResult<EmptyTopic>>}
    */
   /**
@@ -879,14 +882,16 @@ export default class ComponentBase {
    * @overload
    * @param {import('../types/rpc/transport.js').DynamicRpcTopic<Request, Result>} topic
    * @param {Request} payload
+   * @param {number} [timeout] Milliseconds before rejection; `0` disables the transport timeout.
    * @returns {Promise<Result>}
    */
   /**
    * @param {RpcReadyTopic | AnyDynamicRpcTopic} topic
    * @param {unknown} [payload]
+   * @param {number} [timeout]
    * @returns {Promise<unknown>}
    */
-  async request(topic, payload = {}) {
+  async request(topic, payload = {}, timeout) {
     if (typeof window !== "undefined") {
       console.log(`[${this.getComponentName()}] request → ${topic}`, payload);
     }
@@ -897,10 +902,10 @@ export default class ComponentBase {
       /** @type {unknown} */ (this.eventBus)
     );
     const rawRequest =
-      /** @type {(bus: CoreEventBus, topic: string, payload: unknown) => Promise<unknown>} */ (
+      /** @type {(bus: CoreEventBus, topic: string, payload: unknown, timeout?: number) => Promise<unknown>} */ (
         /** @type {unknown} */ (_cbRequest)
       );
-    return await rawRequest(eventBus, topic, payload);
+    return await rawRequest(eventBus, topic, payload, timeout);
   }
 
   /**

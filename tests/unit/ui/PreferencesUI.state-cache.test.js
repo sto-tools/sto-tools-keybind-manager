@@ -107,9 +107,11 @@ describe("PreferencesUI settings cache", () => {
       bindsetsEnabled: true,
     });
     expect(ui.pendingSettings).toEqual({});
-    expect(request.mock.calls.map(([topic]) => topic)).toEqual([
+    expect(request).toHaveBeenCalledExactlyOnceWith(
       "preferences:set-settings",
-    ]);
+      submittedSettings,
+      0,
+    );
     expect(
       fixture
         .getEventHistory()
@@ -175,10 +177,16 @@ describe("PreferencesUI settings cache", () => {
     detachHandlers.push(
       respond(fixture.eventBus, "preferences:save-settings", () => false),
     );
+    const request = vi.spyOn(ui, "request");
     fixture.eventBusFixture.clearEventHistory();
 
     await expect(ui.saveAllSettings(false)).resolves.toBe(false);
 
+    expect(request).toHaveBeenCalledExactlyOnceWith(
+      "preferences:save-settings",
+      undefined,
+      0,
+    );
     expect(fixture.eventBusFixture.getEventsOfType("modal:hide")).toHaveLength(
       0,
     );
@@ -197,9 +205,15 @@ describe("PreferencesUI settings cache", () => {
     detachHandlers.push(
       respond(fixture.eventBus, "preferences:set-setting", () => false),
     );
+    const request = vi.spyOn(ui, "request");
 
     await expect(ui.setSetting("autoSave", true)).resolves.toBe(false);
 
+    expect(request).toHaveBeenCalledExactlyOnceWith(
+      "preferences:set-setting",
+      { key: "autoSave", value: true },
+      0,
+    );
     expect(checkbox.checked).toBe(false);
     expect(ui.cache.preferences.autoSave).toBe(false);
   });

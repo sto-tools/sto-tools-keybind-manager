@@ -144,9 +144,11 @@ describe("InterfaceModeUI", () => {
     const spaceButton = document.querySelector('[data-mode="space"]');
     groundButton.click();
 
-    expect(mockRequest).toHaveBeenCalledWith("environment:switch", {
-      mode: "ground",
-    });
+    expect(mockRequest).toHaveBeenCalledWith(
+      "environment:switch",
+      { mode: "ground" },
+      0,
+    );
     expect(interfaceModeUI.currentMode).toBe("space");
     expect(spaceButton.classList.contains("active")).toBe(true);
     expect(groundButton.classList.contains("active")).toBe(false);
@@ -217,9 +219,11 @@ describe("InterfaceModeUI", () => {
 
     interfaceModeUI.currentMode = "ground";
 
-    expect(interfaceModeUI.request).toHaveBeenCalledWith("environment:switch", {
-      mode: "ground",
-    });
+    expect(interfaceModeUI.request).toHaveBeenCalledWith(
+      "environment:switch",
+      { mode: "ground" },
+      0,
+    );
     expect(interfaceModeUI.currentMode).toBe("space");
 
     settlement.resolve({ success: true, mode: "ground" });

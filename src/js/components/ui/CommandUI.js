@@ -560,12 +560,16 @@ export default class CommandUI extends UIComponentBase {
 
     try {
       // Delegate to CommandService for business logic
-      const result = await this.request("command:import-from-source", {
-        sourceValue,
-        targetKey,
-        clearDestination,
-        currentEnvironment: currentEnv,
-      });
+      const result = await this.request(
+        "command:import-from-source",
+        {
+          sourceValue,
+          targetKey,
+          clearDestination,
+          currentEnvironment: currentEnv,
+        },
+        0,
+      );
 
       // Handle success response
       if (result.success) {

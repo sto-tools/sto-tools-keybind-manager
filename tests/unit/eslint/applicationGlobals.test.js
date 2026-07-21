@@ -79,8 +79,18 @@ describe("application-global compatibility metadata", () => {
       "src/js/components/ui/InterfaceModeUI.js",
     ]);
     expect(applicationGlobalAllowlist.commandChainUI.consumers).toEqual([
+      "src/js/app.js",
       "browser diagnostics",
     ]);
+    expect(applicationGlobalAllowlist.confirmDialog.consumers).toContain(
+      "src/js/app.js",
+    );
+    expect(applicationGlobalAllowlist.keyBrowserUI.consumers).toContain(
+      "src/js/app.js",
+    );
+    expect(applicationGlobalAllowlist.keyBrowserService.consumers).toContain(
+      "src/js/app.js",
+    );
   });
 
   it.each([

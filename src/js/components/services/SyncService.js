@@ -37,8 +37,12 @@ export default class SyncService extends ComponentBase {
     this.pendingSyncAction = null;
     /** @type {{ content: string, fileName: string } | null} */
     this.deferredImportContent = null;
+    /** @type {{ currentProfile: string | null, imported: { profiles: number, settings: boolean } } | null} */
+    this.pendingRestoreActivationReceipt = null;
     this._syncDecisionGeneration = 0;
     this._syncDecisionApplyInFlight = false;
+    this._syncDecisionClaimed = false;
+    this._startupRestoreRetryConsumed = false;
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
     /** @type {ReturnType<typeof setTimeout> | null} */
@@ -59,6 +63,7 @@ export default class SyncService extends ComponentBase {
   }
 
   onInit() {
+    this._startupRestoreRetryConsumed = false;
     this.setupRequestHandlers();
     this.setupEventListeners();
   }
@@ -96,7 +101,7 @@ export default class SyncService extends ComponentBase {
       }
       this._modalCloseTimeout = setTimeout(() => {
         this._modalCloseTimeout = null;
-        if (this.awaitingSyncDecisionApply) {
+        if (this.awaitingSyncDecisionApply && !this._syncDecisionClaimed) {
           // Preferences were closed without save – invalidate the complete
           // decision, including content that must not reach sto-app-ready.
           this.clearPendingSyncDecision();
@@ -107,48 +112,32 @@ export default class SyncService extends ComponentBase {
       }, 0);
     });
 
-    // Handle deferred import once the app is fully initialized
-    this.addEventListener("sto-app-ready", async () => {
-      console.log(
-        "[SyncService] sto-app-ready received; checking deferred import",
-        { hasDeferred: !!this.deferredImportContent },
-      );
-      if (!this.deferredImportContent) return;
-      const { content, fileName } = this.deferredImportContent;
-      this.deferredImportContent = null;
-      try {
-        const result = await this.invokeRequest(
-          "project:restore-from-content",
-          { content, fileName },
-        );
-        console.log(
-          "[SyncService] deferred project:restore-from-content result",
-          result,
-        );
-        if (!result?.success) {
-          const errMsg = result?.error || "Unknown error";
-          this.ui?.showToast(
-            this.i18n.t("failed_to_import_project", { error: errMsg }),
-            "error",
-          );
-        }
-      } catch (e) {
-        this.ui?.showToast(
-          this.i18n.t("failed_to_import_project", {
-            error: getErrorMessage(e),
-          }),
-          "error",
-        );
+    // A restore selected before the project owner registered gets one startup
+    // retry. Later failures remain available for an explicit retry and never
+    // schedule themselves.
+    this.addEventListener("sto-app-ready", () => {
+      if (this._startupRestoreRetryConsumed) return;
+      this._startupRestoreRetryConsumed = true;
+      if (
+        this.pendingSyncAction !== "import" ||
+        (!this.deferredImportContent &&
+          !this.pendingRestoreActivationReceipt) ||
+        this._syncDecisionApplyInFlight
+      ) {
+        return;
       }
+      return this.applyPendingSyncDecision();
     });
   }
 
   clearPendingSyncDecision() {
     this._syncDecisionGeneration += 1;
     this._syncDecisionApplyInFlight = false;
+    this._syncDecisionClaimed = false;
     this.pendingSyncAction = null;
     this.awaitingSyncDecisionApply = false;
     this.deferredImportContent = null;
+    this.pendingRestoreActivationReceipt = null;
   }
 
   /**
@@ -158,9 +147,11 @@ export default class SyncService extends ComponentBase {
   stagePendingSyncDecision(action, deferredContent) {
     this._syncDecisionGeneration += 1;
     this._syncDecisionApplyInFlight = false;
+    this._syncDecisionClaimed = false;
     this.pendingSyncAction = action;
     this.awaitingSyncDecisionApply = action !== null;
     this.deferredImportContent = deferredContent;
+    this.pendingRestoreActivationReceipt = null;
   }
 
   async applyPendingSyncDecision() {
@@ -334,7 +325,11 @@ export default class SyncService extends ComponentBase {
     try {
       // Proceed with sync without interactive prompts
       // Use request/response system instead of global window.stoExport
-      await this.invokeRequest("export:sync-to-folder", { dirHandle: handle });
+      await this.invokeRequest(
+        "export:sync-to-folder",
+        { dirHandle: handle },
+        0,
+      );
       console.log("[SyncService] export:sync-to-folder completed");
 
       // Determine when to show success toast:

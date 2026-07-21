@@ -106,7 +106,7 @@ export default class InterfaceModeUI extends UIComponentBase {
   async handleModeButtonClick(mode) {
     try {
       // Use request-response pattern to switch environment
-      const result = await this.request("environment:switch", { mode });
+      const result = await this.request("environment:switch", { mode }, 0);
       if (!result.success) {
         console.error(
           "[InterfaceModeUI] Failed to switch environment:",
@@ -168,7 +168,7 @@ export default class InterfaceModeUI extends UIComponentBase {
     if (!isEnvironment(mode)) return;
     // The accepted environment broadcast owns the UI cache. Keep the currently
     // rendered mode unchanged when persistence rejects the requested switch.
-    this.request("environment:switch", { mode }).catch((error) => {
+    this.request("environment:switch", { mode }, 0).catch((error) => {
       console.error(
         "[InterfaceModeUI] Error switching environment via setter:",
         error,

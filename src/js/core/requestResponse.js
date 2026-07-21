@@ -51,7 +51,7 @@ function formatTopic(topic) {
  * @param {EventBus | undefined} bus
  * @param {KRequired} topic
  * @param {import("../types/rpc/index.js").RpcRequest<KRequired>} payload
- * @param {number} [timeout]
+ * @param {number} [timeout] - Milliseconds before rejection; `0` disables the transport timeout.
  * @returns {Promise<import("../types/rpc/index.js").RpcResult<KRequired>>}
  */
 /**
@@ -60,7 +60,7 @@ function formatTopic(topic) {
  * @param {EventBus | undefined} bus
  * @param {KOptional} topic
  * @param {import("../types/rpc/index.js").RpcRequest<KOptional>} [payload]
- * @param {number} [timeout]
+ * @param {number} [timeout] - Milliseconds before rejection; `0` disables the transport timeout.
  * @returns {Promise<import("../types/rpc/index.js").RpcResult<KOptional>>}
  */
 /**
@@ -69,7 +69,7 @@ function formatTopic(topic) {
  * @param {EventBus | undefined} bus
  * @param {KNone} topic
  * @param {RpcEmptyPayload} [payload]
- * @param {number} [timeout]
+ * @param {number} [timeout] - Milliseconds before rejection; `0` disables the transport timeout.
  * @returns {Promise<import("../types/rpc/index.js").RpcResult<KNone>>}
  */
 /**
@@ -78,14 +78,14 @@ function formatTopic(topic) {
  * @param {EventBus | undefined} bus
  * @param {import("../types/rpc/index.js").DynamicRpcTopic<Request, Result>} topic
  * @param {Request} payload
- * @param {number} [timeout]
+ * @param {number} [timeout] - Milliseconds before rejection; `0` disables the transport timeout.
  * @returns {Promise<Result>}
  */
 /**
  * @param {EventBus | null | undefined} bus - The event bus instance to use.
  * @param {string | null | undefined} topic - The request event topic.
  * @param {unknown} [payload] - The data to send with the request.
- * @param {number} [timeout=5000] - Time in milliseconds to wait before rejecting.
+ * @param {number} [timeout=5000] - Time in milliseconds to wait before rejecting; `0` disables the transport timeout.
  * @returns {Promise<unknown>}
  */
 function request(bus = eventBus, topic, payload, timeout = 5000) {
@@ -110,11 +110,15 @@ function request(bus = eventBus, topic, payload, timeout = 5000) {
   const replyTopic = `${topic}::reply::${requestId}`;
 
   return new Promise((resolve, reject) => {
-    // Timeout handling
-    const timeoutId = setTimeout(() => {
-      cleanup();
-      reject(new Error("Request timed out"));
-    }, timeout);
+    // Exactly zero is the explicit no-timeout contract. Positive values and
+    // omitted values retain the established timer behavior.
+    const timeoutId =
+      timeout === 0
+        ? null
+        : setTimeout(() => {
+            cleanup();
+            reject(new Error("Request timed out"));
+          }, timeout);
 
     // One-time response handler
     /** @param {RawRpcMessage | undefined} message */
@@ -128,7 +132,7 @@ function request(bus = eventBus, topic, payload, timeout = 5000) {
     }
 
     function cleanup() {
-      clearTimeout(timeoutId);
+      if (timeoutId !== null) clearTimeout(timeoutId);
       activeBus.off(replyTopic, onReply);
     }
 

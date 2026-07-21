@@ -306,7 +306,7 @@ export default class PreferencesUI extends UIComponentBase {
       // Merge pending changes with the latest published settings snapshot.
       const currentSettings = { ...this.cache.preferences };
       const newSettings = { ...currentSettings, ...this.pendingSettings };
-      ok = await this.request("preferences:set-settings", newSettings);
+      ok = await this.request("preferences:set-settings", newSettings, 0);
 
       // Keep pending UI intent when persistence rejects the mutation.
       if (!ok) return false;
@@ -401,7 +401,7 @@ export default class PreferencesUI extends UIComponentBase {
     // Use request/response instead of direct service call
     let updated;
     try {
-      updated = await this.request("preferences:set-setting", mutation);
+      updated = await this.request("preferences:set-setting", mutation, 0);
     } catch (error) {
       const currentValue = this.cache.preferences[key];
       if (isPreferenceValue(currentValue)) this.updateUI(key, currentValue);
@@ -416,7 +416,7 @@ export default class PreferencesUI extends UIComponentBase {
 
   async saveSettings() {
     // Use request/response instead of direct service call
-    const ok = await this.request("preferences:save-settings");
+    const ok = await this.request("preferences:save-settings", undefined, 0);
     return ok;
   }
 

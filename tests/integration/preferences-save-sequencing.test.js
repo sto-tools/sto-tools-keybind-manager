@@ -30,10 +30,12 @@ describe("preferences save sequencing", () => {
     if (modalManager && !modalManager.destroyed) modalManager.destroy();
     fixture?.destroy();
     document.body.replaceChildren();
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  it("finishes a delayed saved consumer before replying and closing the modal", async () => {
+  it("keeps a real save pending past the default deadline, then settles and exports once", async () => {
+    vi.useFakeTimers();
     const directoryHandle =
       /** @type {import("../../src/js/types/sync-boundary.js").SyncDirectoryHandle} */ (
         /** @type {unknown} */ ({
@@ -87,13 +89,13 @@ describe("preferences save sequencing", () => {
     preferencesUI.pendingSettings = { bindToAliasMode: true };
 
     const save = preferencesUI.saveAllSettings(false);
-    let settled = false;
+    let settlementCount = 0;
     void save.then(
       () => {
-        settled = true;
+        settlementCount += 1;
       },
       () => {
-        settled = true;
+        settlementCount += 1;
       },
     );
 
@@ -101,22 +103,23 @@ describe("preferences save sequencing", () => {
       expect(getDirectoryHandle).toHaveBeenCalledOnce();
     });
 
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(settled).toBe(false);
-      expect(document.getElementById("preferencesModal")?.classList).toContain(
-        "active",
-      );
-      expect(syncService.pendingSyncAction).toBe("overwrite");
-    } finally {
-      releaseDirectoryHandle(directoryHandle);
-    }
+    await vi.advanceTimersByTimeAsync(5_001);
+    expect(settlementCount).toBe(0);
+    expect(document.getElementById("preferencesModal")?.classList).toContain(
+      "active",
+    );
+    expect(syncService.pendingSyncAction).toBe("overwrite");
+    expect(syncService.invokeRequest).not.toHaveBeenCalled();
+
+    releaseDirectoryHandle(directoryHandle);
 
     await expect(save).resolves.toBe(true);
+    expect(settlementCount).toBe(1);
     expect(syncService.invokeRequest).toHaveBeenCalledOnce();
     expect(syncService.invokeRequest).toHaveBeenCalledWith(
       "export:sync-to-folder",
       { dirHandle: directoryHandle },
+      0,
     );
     expect(syncService.pendingSyncAction).toBeNull();
     expect(syncService.awaitingSyncDecisionApply).toBe(false);

@@ -133,8 +133,11 @@ describe("DataCoordinator lifecycle and state ownership", () => {
       );
     }
 
-    expect(coordinator.getCurrentState()).toBe(stateAtDestroy);
-    expect(coordinator.getCurrentState()).toEqual(expectedState);
+    expect(coordinator.getCurrentState()).not.toBe(stateAtDestroy);
+    expect(coordinator.getCurrentState()).toEqual({
+      ...expectedState,
+      ready: false,
+    });
     expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
     expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
     expect(fixture.storage.deleteProfile).not.toHaveBeenCalled();

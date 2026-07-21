@@ -1,8 +1,58 @@
 import { probeSyncProjectFile } from "./syncFolderBoundary.js";
+import {
+  classifyDataReloadResult,
+  classifyProjectRestoreResult,
+} from "./projectRestoreResult.js";
 
 /** @param {unknown} error */
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Materialize one user-facing failure detail from the typed restore result.
+ * Transport failures are handled by the surrounding catch path.
+ *
+ * @param {import('./SyncService.js').default} service
+ * @param {ReturnType<typeof classifyProjectRestoreResult>} result
+ */
+function getRestoreFailureDetail(service, result) {
+  if (result.kind === "malformed" || result.kind === "success") {
+    return service.i18n.t("import_failed", {
+      error: service.i18n.t("failed_to_load_profile_data"),
+    });
+  }
+  return result.reason ?? service.i18n.t(result.error, result.params);
+}
+
+/**
+ * @param {import('./SyncService.js').default} service
+ * @param {ReturnType<typeof classifyDataReloadResult>} result
+ */
+function getActivationFailureDetail(service, result) {
+  if (result.kind === "failure") {
+    return result.error === "operation_cancelled"
+      ? service.i18n.t("failed_to_load_profile_data")
+      : service.i18n.t(result.error);
+  }
+  return service.i18n.t("import_failed", {
+    error: service.i18n.t("failed_to_load_profile_data"),
+  });
+}
+
+/**
+ * A notification failure must not change whether durable restore work is
+ * terminal or retryable.
+ * @param {import('./SyncService.js').default} service
+ * @param {string} message
+ * @param {string} type
+ */
+function showRestoreToast(service, message, type) {
+  try {
+    service.ui?.showToast(message, type);
+  } catch (error) {
+    console.error("[SyncService] restore notification failed", error);
+  }
 }
 
 /**
@@ -71,41 +121,99 @@ export async function applyPendingSyncDecision(service) {
   const deferredContent = service.deferredImportContent
     ? { ...service.deferredImportContent }
     : null;
+  const activationReceipt = service.pendingRestoreActivationReceipt
+    ? {
+        currentProfile: service.pendingRestoreActivationReceipt.currentProfile,
+        imported: { ...service.pendingRestoreActivationReceipt.imported },
+      }
+    : null;
+  const retainedRestoreWork =
+    action === "import" &&
+    service._syncDecisionClaimed &&
+    (deferredContent !== null || activationReceipt !== null);
   service._syncDecisionApplyInFlight = true;
+  service._syncDecisionClaimed = true;
+  let retainDecision = false;
   const isCurrentDecision = () =>
     !service.destroyed &&
     service._syncDecisionApplyInFlight &&
     service._syncDecisionGeneration === decisionGeneration;
 
   try {
-    const loaded = await service.loadSyncFolderCapability();
-    if (!isCurrentDecision()) return;
-    if (!loaded.success) {
-      showDecisionFailure(service, action, loaded.error);
-      return;
-    }
-    if (loaded.state === "missing") {
-      showDecisionFailure(service, action, "no_sync_folder_selected");
-      return;
-    }
-    const permission = await service.checkSyncFolderPermission(
-      loaded.value.raw,
-    );
-    if (!isCurrentDecision()) return;
-    if (!permission.success) {
-      showDecisionFailure(
-        service,
-        action,
-        permission.error === "permission_denied"
-          ? "permission_denied_to_folder"
-          : "sync_folder_permission_check_failed",
+    /** @type {import('../../types/sync-boundary.js').SyncDirectoryCapability | null} */
+    let directory = null;
+    if (!retainedRestoreWork) {
+      const loaded = await service.loadSyncFolderCapability();
+      if (!isCurrentDecision()) return;
+      if (!loaded.success) {
+        showDecisionFailure(service, action, loaded.error);
+        return;
+      }
+      if (loaded.state === "missing") {
+        showDecisionFailure(service, action, "no_sync_folder_selected");
+        return;
+      }
+      const permission = await service.checkSyncFolderPermission(
+        loaded.value.raw,
       );
-      return;
+      if (!isCurrentDecision()) return;
+      if (!permission.success) {
+        showDecisionFailure(
+          service,
+          action,
+          permission.error === "permission_denied"
+            ? "permission_denied_to_folder"
+            : "sync_folder_permission_check_failed",
+        );
+        return;
+      }
+      directory = loaded.value;
     }
-    const handle = loaded.value.raw;
     console.log("[SyncService] applying pending action", { action });
 
     if (action === "import") {
+      if (activationReceipt) {
+        let reloadResult;
+        try {
+          const reload = await service.invokeRequest(
+            "data:reload-state",
+            undefined,
+            0,
+          );
+          if (!isCurrentDecision()) return;
+          reloadResult = classifyDataReloadResult(reload);
+        } catch (error) {
+          if (!isCurrentDecision()) return;
+          retainDecision = true;
+          showRestoreToast(
+            service,
+            service.i18n.t("failed_to_import_project", {
+              error: getErrorMessage(error),
+            }),
+            "error",
+          );
+          return;
+        }
+
+        if (reloadResult.kind === "success") {
+          showRestoreToast(
+            service,
+            service.i18n.t("project_imported_from_sync_folder"),
+            "success",
+          );
+        } else {
+          retainDecision = true;
+          showRestoreToast(
+            service,
+            service.i18n.t("failed_to_import_project", {
+              error: getActivationFailureDetail(service, reloadResult),
+            }),
+            "error",
+          );
+        }
+        return;
+      }
+
       try {
         // Prefer content captured with the claimed decision. Shared state may
         // now belong to a newer selection.
@@ -117,7 +225,8 @@ export async function applyPendingSyncDecision(service) {
           content = deferredContent.content;
           fileName = deferredContent.fileName || "project.json";
         } else {
-          const probe = await probeSyncProjectFile(loaded.value);
+          if (!directory) return;
+          const probe = await probeSyncProjectFile(directory);
           if (!isCurrentDecision()) return;
           if (!probe.success) {
             service.ui?.showToast(
@@ -136,37 +245,67 @@ export async function applyPendingSyncDecision(service) {
           fileName = probe.fileName;
         }
 
+        if (!isCurrentDecision()) return;
+        // Keep the exact validated artifact available until the restore has a
+        // terminal outcome. A retry must not re-read a file that may change.
+        service.deferredImportContent = { content, fileName };
+
+        // request() proves a missing listener before dispatch. Once a restore
+        // responder is present, a rejection or malformed reply cannot prove
+        // that the handler made no durable change.
+        const restoreResponderAvailable =
+          service.eventBus?.hasListeners("rpc:project:restore-from-content") ===
+          true;
+        let restoreResult;
         try {
           console.log("[SyncService] invoking project:restore-from-content", {
             size: content.length,
           });
-          const result = await service.invokeRequest(
+          restoreResult = await service.invokeRequest(
             "project:restore-from-content",
             { content, fileName },
+            0,
           );
+        } catch (error) {
           if (!isCurrentDecision()) return;
+          retainDecision = !restoreResponderAvailable;
+          showRestoreToast(
+            service,
+            service.i18n.t("failed_to_import_project", {
+              error: getErrorMessage(error),
+            }),
+            "error",
+          );
           console.log(
-            "[SyncService] project:restore-from-content result",
-            result,
+            retainDecision
+              ? "[SyncService] retained pre-dispatch import for explicit retry"
+              : "[SyncService] closed indeterminate restore rejection",
           );
-          if (!result?.success) {
-            const errMsg = result?.error || "Unknown error";
-            service.ui?.showToast(
-              service.i18n.t("failed_to_import_project", { error: errMsg }),
-              "error",
-            );
+          return;
+        }
+        if (!isCurrentDecision()) return;
+        const outcome = classifyProjectRestoreResult(restoreResult);
+        console.log("[SyncService] project restore outcome", outcome.kind);
+        if (outcome.kind === "success") {
+          showRestoreToast(
+            service,
+            service.i18n.t("project_imported_from_sync_folder"),
+            "success",
+          );
+        } else {
+          if (outcome.kind === "activation-retryable-failure") {
+            service.pendingRestoreActivationReceipt = outcome.receipt;
+            retainDecision = true;
           } else {
-            service.deferredImportContent = null;
-            service.ui?.showToast(
-              service.i18n.t("project_imported_from_sync_folder"),
-              "success",
-            );
+            retainDecision = outcome.kind === "retryable-failure";
           }
-        } catch {
-          if (!isCurrentDecision()) return;
-          // Handler may not be ready yet – defer until app is ready.
-          service.deferredImportContent = { content, fileName };
-          console.log("[SyncService] deferring import until sto-app-ready");
+          showRestoreToast(
+            service,
+            service.i18n.t("failed_to_import_project", {
+              error: getRestoreFailureDetail(service, outcome),
+            }),
+            "error",
+          );
         }
       } catch (error) {
         if (!isCurrentDecision()) return;
@@ -179,9 +318,12 @@ export async function applyPendingSyncDecision(service) {
       }
     } else {
       try {
-        await service.invokeRequest("export:sync-to-folder", {
-          dirHandle: handle,
-        });
+        if (!directory) return;
+        await service.invokeRequest(
+          "export:sync-to-folder",
+          { dirHandle: directory.raw },
+          0,
+        );
         if (!isCurrentDecision()) return;
         console.log("[SyncService] overwrite: export:sync-to-folder completed");
         service.ui?.showToast(
@@ -200,11 +342,13 @@ export async function applyPendingSyncDecision(service) {
     }
   } finally {
     if (isCurrentDecision()) {
-      service._syncDecisionGeneration += 1;
-      service._syncDecisionApplyInFlight = false;
-      service.pendingSyncAction = null;
-      service.awaitingSyncDecisionApply = false;
-      console.log("[SyncService] consumed pending sync decision");
+      if (action === "import" && retainDecision) {
+        service._syncDecisionApplyInFlight = false;
+        console.log("[SyncService] pending sync restore retained");
+      } else {
+        service.clearPendingSyncDecision();
+        console.log("[SyncService] consumed pending sync decision");
+      }
     }
   }
 }

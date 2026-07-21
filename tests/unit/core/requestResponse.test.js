@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import ComponentBase from "../../../src/js/components/ComponentBase.js";
 import eventBus from "../../../src/js/core/eventBus.js";
 import { request, respond } from "../../../src/js/core/requestResponse.js";
 
@@ -158,6 +159,50 @@ describe("requestResponse - Simple Implementation Tests", () => {
       await vi.advanceTimersByTimeAsync(25);
       await rejection;
 
+      expect(eventBus.hasListeners(requestEnvelope.replyTopic)).toBe(false);
+    });
+
+    it("keeps a zero-timeout component request live past the default window and cleans up after reply", async () => {
+      vi.useFakeTimers();
+      let requestEnvelope;
+      eventBus.on("rpc:parser:clear-cache", (message) => {
+        requestEnvelope = message;
+      });
+
+      const component = new ComponentBase(eventBus);
+      const pendingRequest = component.request(
+        "parser:clear-cache",
+        undefined,
+        0,
+      );
+      let settled = false;
+      void pendingRequest.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        },
+      );
+
+      expect(requestEnvelope).toEqual({
+        requestId: expect.any(String),
+        replyTopic: expect.stringMatching(/^parser:clear-cache::reply::/),
+        payload: {},
+      });
+      expect(eventBus.hasListeners(requestEnvelope.replyTopic)).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(5001);
+
+      expect(settled).toBe(false);
+      expect(eventBus.hasListeners(requestEnvelope.replyTopic)).toBe(true);
+
+      eventBus.emit(requestEnvelope.replyTopic, {
+        requestId: requestEnvelope.requestId,
+        data: { success: true },
+      });
+
+      await expect(pendingRequest).resolves.toEqual({ success: true });
       expect(eventBus.hasListeners(requestEnvelope.replyTopic)).toBe(false);
     });
 

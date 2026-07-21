@@ -690,6 +690,7 @@
   "invalid_alias_file_content": "The selected alias file is empty or invalid",
   "keybind_file_too_large": "The keybind file is too large ({{size}} bytes; maximum {{limit}} bytes)",
   "alias_file_too_large": "The alias file is too large ({{size}} bytes; maximum {{limit}} bytes)",
+  "kbf_file_too_large": "The KBF file is too large ({{size}} bytes; maximum {{limit}} bytes)",
   "import_keybind_line_unrecognized": "Line {{line}} has an unrecognized keybind format: {{source}}",
   "import_alias_line_unrecognized": "Line {{line}} has an unrecognized alias format: {{source}}",
   "import_keybind_name_unsafe": "Line {{line}} contains an unsafe key name: {{source}}",

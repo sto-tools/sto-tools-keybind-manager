@@ -15,6 +15,7 @@ import {
   decodeKBFTextField,
   parseKBFIntegerField,
 } from "../fieldValueBoundary.js";
+import { MAX_KBF_FILE_BYTES } from "../kbfLimits.js";
 
 /** @typedef {{ fieldName: string, value: string, hasColon: boolean, [field: string]: any }} KbfRecord */
 
@@ -28,7 +29,7 @@ export class FieldParser {
     this.options = {
       validateUtf8: true,
       strictMode: false, // Throw errors vs. collecting warnings
-      maxFileSize: 1024 * 1024, // 1MB default limit
+      maxFileSize: MAX_KBF_FILE_BYTES,
       ...options,
     };
 

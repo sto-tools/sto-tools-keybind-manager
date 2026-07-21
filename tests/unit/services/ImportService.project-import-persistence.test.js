@@ -21,7 +21,7 @@ describe("ImportService project import persistence progress", () => {
     fixture.destroy();
   });
 
-  it("reports no partial progress when the first profile write is rejected", async () => {
+  it("reports no acknowledged stage progress when the first profile write is rejected", async () => {
     fixture.storage.saveProfile.mockReturnValueOnce(false);
     const result = await service.importProjectFile(
       JSON.stringify({
@@ -94,7 +94,7 @@ describe("ImportService project import persistence progress", () => {
     },
   );
 
-  it("reports no partial progress when a settings-only write is rejected", async () => {
+  it("reports no acknowledged stage progress when a settings-only write is rejected", async () => {
     fixture.storage.saveSettings.mockReturnValueOnce(false);
     const result = await service.importProjectFile(
       JSON.stringify({
@@ -149,7 +149,7 @@ describe("ImportService project import persistence progress", () => {
     },
   );
 
-  it("reports no partial progress when the only project write is rejected", async () => {
+  it("reports no acknowledged stage progress when the only project write is rejected", async () => {
     fixture.storage.saveAllData.mockReturnValueOnce(false);
     const result = await service.importProjectFile(
       JSON.stringify({

@@ -242,7 +242,6 @@ export default class ImportFileSession {
 
     const { maxBytes, tooLargeErrorKey, onTooLarge } = session.options;
     if (
-      session.type !== "kbf" &&
       typeof maxBytes === "number" &&
       Number.isFinite(maxBytes) &&
       file.size > maxBytes

@@ -449,6 +449,20 @@ describe("STOCommandParser - RequestResponse Integration", () => {
     expect(parser.parseCache.size).toBe(0);
   });
 
+  it("releases and can re-register its constructor-time responders", () => {
+    parser.destroy();
+
+    expect(eventBus.hasListeners("rpc:parser:parse-command-string")).toBe(
+      false,
+    );
+    expect(eventBus.hasListeners("rpc:parser:clear-cache")).toBe(false);
+
+    parser.setupRequestHandlers();
+
+    expect(eventBus.hasListeners("rpc:parser:parse-command-string")).toBe(true);
+    expect(eventBus.hasListeners("rpc:parser:clear-cache")).toBe(true);
+  });
+
   it("should handle invalid commands through requestResponse gracefully", async () => {
     const result = await request(eventBus, "parser:parse-command-string", {
       commandString: "+TrayExecByTray abc 1",

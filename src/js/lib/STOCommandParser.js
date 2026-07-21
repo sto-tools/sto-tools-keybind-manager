@@ -64,6 +64,8 @@ export class STOCommandParser {
     // Initialize command signatures
     /** @type {Record<string, CommandSignature>} */
     this.signatures = this.initializeCommandSignatures();
+    /** @type {Array<() => void>} */
+    this.responseDetachers = [];
 
     // Setup request handlers if eventBus provided
     if (this.eventBus) {
@@ -73,19 +75,27 @@ export class STOCommandParser {
 
   setupRequestHandlers() {
     const bus = this.eventBus;
-    if (!bus) return;
+    if (!bus || this.responseDetachers.length > 0) return;
 
-    // Pure parsing operations (no application logic)
-    respond(bus, "parser:parse-command-string", ({ commandString, options }) =>
-      this.parseCommandString(commandString, options),
+    this.responseDetachers.push(
+      // Pure parsing operations (no application logic)
+      respond(
+        bus,
+        "parser:parse-command-string",
+        ({ commandString, options }) =>
+          this.parseCommandString(commandString, options),
+      ),
+      respond(bus, "parser:clear-cache", () => {
+        this.parseCache.clear();
+        this.hotPathCache.clear();
+        this.frequencyTracker.clear();
+        return { success: true };
+      }),
     );
+  }
 
-    respond(bus, "parser:clear-cache", () => {
-      this.parseCache.clear();
-      this.hotPathCache.clear();
-      this.frequencyTracker.clear();
-      return { success: true };
-    });
+  destroy() {
+    for (const detach of this.responseDetachers.splice(0).reverse()) detach();
   }
 
   /** @returns {Record<string, CommandSignature>} */

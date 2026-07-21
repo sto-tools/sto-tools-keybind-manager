@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import { observeCommandChainProjection } from "../fixtures/ui/commandChainProjection.js";
 
 const probeKey = "__command_editing_boundary_probe__";
 
@@ -54,6 +55,8 @@ describe("Command editing checked-bundle boundary", () => {
     const originalLanguage = window.i18next.language;
     const alternateLanguage = originalLanguage.startsWith("de") ? "en" : "de";
     const probeCommands = ['Target "Alpha"', "UncataloguedCommandForBoundary"];
+    const probeProjection = observeCommandChainProjection(bus, probeCommands);
+    let editedProjection = null;
     const editPayloads = [];
     const commandEditPayloads = [];
     const modalRegenerationPayloads = [];
@@ -100,8 +103,16 @@ describe("Command editing checked-bundle boundary", () => {
       await vi.waitFor(() => {
         expect(chainUi.cache.selectedKey).toBe(probeKey);
         expect(chainUi.cache.dataState).toBe(coordinator.getCurrentState());
+        expect(probeProjection.wasPublished()).toBe(true);
+        expect(document.getElementById("chainTitle")?.textContent).toContain(
+          probeKey,
+        );
+        expect(document.querySelectorAll(".command-item-row")).toHaveLength(
+          probeCommands.length,
+        );
         const row = document.querySelector('.command-item-row[data-index="0"]');
         expect(row).toBeInstanceOf(HTMLElement);
+        expect(row).not.toBe(probeProjection.predecessor());
         editButton = row?.querySelector(".btn-edit:not(.btn-placeholder)");
         expect(editButton).toBeInstanceOf(HTMLButtonElement);
       });
@@ -252,14 +263,18 @@ describe("Command editing checked-bundle boundary", () => {
         ).toBe('Target "Beta"');
       });
 
-      const save = document.getElementById("saveParameterCommandBtn");
-      expect(save).toBeInstanceOf(HTMLButtonElement);
-      save?.click();
-
       const expectedEditedCommands = [
         'Target "Beta"',
         "UncataloguedCommandForBoundary",
       ];
+      editedProjection = observeCommandChainProjection(
+        bus,
+        expectedEditedCommands,
+      );
+      const save = document.getElementById("saveParameterCommandBtn");
+      expect(save).toBeInstanceOf(HTMLButtonElement);
+      save?.click();
+
       await vi.waitFor(() => {
         const committedState = coordinator.getCurrentState();
         expect(committedState.revision).toBe(revisionBeforeEdit + 1);
@@ -303,6 +318,10 @@ describe("Command editing checked-bundle boundary", () => {
 
       let rawEditButton;
       await vi.waitFor(() => {
+        expect(editedProjection?.wasPublished()).toBe(true);
+        expect(
+          document.querySelector('.command-item-row[data-index="0"]'),
+        ).not.toBe(editedProjection?.predecessor());
         rawEditButton = document.querySelector(
           '.command-item-row[data-index="1"] .btn-edit:not(.btn-placeholder)',
         );
@@ -386,6 +405,8 @@ describe("Command editing checked-bundle boundary", () => {
         });
       }
       await window.i18next.changeLanguage(originalLanguage);
+      editedProjection?.detach();
+      probeProjection.detach();
       detachEditPayloadListener();
       detachCommandEditListener();
       detachModalRegenerationListener();
