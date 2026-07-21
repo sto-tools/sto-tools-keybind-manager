@@ -16,13 +16,15 @@ class PreferencesContractConsumer extends ComponentBase {
  */
 
 describe("PreferencesService", () => {
-  let fixture, service;
+  let fixture, service, localizeCommands;
 
   beforeEach(() => {
     fixture = createServiceFixture();
+    localizeCommands = vi.fn();
     service = new PreferencesService({
       storage: fixture.storage,
       eventBus: fixture.eventBus,
+      localizeCommands,
     });
     service.init();
   });
@@ -350,52 +352,42 @@ describe("PreferencesService", () => {
   });
 
   it("changeLanguage emits language:changed without showing toast", async () => {
-    const previousLocalizeCommandData = window.localizeCommandData;
-    const localizeCommandData = vi.fn();
-    window.localizeCommandData = localizeCommandData;
+    const i18n = {
+      language: "en",
+      changeLanguage: vi.fn(async () => {}),
+      t: (key) => key,
+    };
+    service.i18n = i18n;
     fixture.eventBusFixture.clearEventHistory();
 
-    try {
-      await expect(service.changeLanguage("de")).resolves.toBe(true);
+    await expect(service.changeLanguage("de")).resolves.toBe(true);
 
-      const languageEvents =
-        fixture.eventBusFixture.getEventsOfType("language:changed");
-      expect(languageEvents).toHaveLength(1);
-      expect(languageEvents[0].data).toEqual({ language: "de" });
-      expect(localizeCommandData).toHaveBeenCalledOnce();
+    const languageEvents =
+      fixture.eventBusFixture.getEventsOfType("language:changed");
+    expect(languageEvents).toHaveLength(1);
+    expect(languageEvents[0].data).toEqual({ language: "de" });
+    expect(localizeCommands).toHaveBeenCalledOnce();
+    expect(localizeCommands).toHaveBeenCalledWith(i18n);
 
-      const toastEvents = fixture.eventBusFixture.getEventsOfType("toast:show");
-      expect(toastEvents).toHaveLength(0);
-    } finally {
-      window.localizeCommandData = previousLocalizeCommandData;
-    }
+    const toastEvents = fixture.eventBusFixture.getEventsOfType("toast:show");
+    expect(toastEvents).toHaveLength(0);
   });
 
   it("does not localize or publish a language change when persistence returns false", async () => {
-    const previousLocalizeCommandData = window.localizeCommandData;
-    const localizeCommandData = vi.fn();
-    window.localizeCommandData = localizeCommandData;
     const before = service.getCurrentState();
     fixture.storage.saveSettings.mockReturnValueOnce(false);
     fixture.eventBusFixture.clearEventHistory();
 
-    try {
-      await expect(service.changeLanguage("de")).resolves.toBe(false);
+    await expect(service.changeLanguage("de")).resolves.toBe(false);
 
-      expect(service.getCurrentState()).toEqual(before);
-      expect(localizeCommandData).not.toHaveBeenCalled();
-      expect(
-        fixture.eventBusFixture.getEventsOfType("language:changed"),
-      ).toHaveLength(0);
-    } finally {
-      window.localizeCommandData = previousLocalizeCommandData;
-    }
+    expect(service.getCurrentState()).toEqual(before);
+    expect(localizeCommands).not.toHaveBeenCalled();
+    expect(
+      fixture.eventBusFixture.getEventsOfType("language:changed"),
+    ).toHaveLength(0);
   });
 
   it("does not localize or publish a language change when persistence throws", async () => {
-    const previousLocalizeCommandData = window.localizeCommandData;
-    const localizeCommandData = vi.fn();
-    window.localizeCommandData = localizeCommandData;
     const before = service.getCurrentState();
     const failure = new Error("settings unavailable");
     fixture.storage.saveSettings.mockImplementationOnce(() => {
@@ -403,17 +395,13 @@ describe("PreferencesService", () => {
     });
     fixture.eventBusFixture.clearEventHistory();
 
-    try {
-      await expect(service.changeLanguage("de")).rejects.toBe(failure);
+    await expect(service.changeLanguage("de")).rejects.toBe(failure);
 
-      expect(service.getCurrentState()).toEqual(before);
-      expect(localizeCommandData).not.toHaveBeenCalled();
-      expect(
-        fixture.eventBusFixture.getEventsOfType("language:changed"),
-      ).toHaveLength(0);
-    } finally {
-      window.localizeCommandData = previousLocalizeCommandData;
-    }
+    expect(service.getCurrentState()).toEqual(before);
+    expect(localizeCommands).not.toHaveBeenCalled();
+    expect(
+      fixture.eventBusFixture.getEventsOfType("language:changed"),
+    ).toHaveLength(0);
   });
 
   it.each([

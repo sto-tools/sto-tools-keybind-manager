@@ -5,11 +5,7 @@ import { projectVirtualVFXAliases } from "./vfxAliasProjection.js";
 import { getSnapshotProfile } from "./dataState.js";
 import { materializeSyncProject } from "./syncProjectMaterializer.js";
 import { planMirroredCommandSequence } from "./commandTransformationPlanner.js";
-
-/** @type {{ settings?: { version?: string } }} */
-const STO_DATA =
-  /** @type {import('./serviceTypes.js').AppWindow} */ (globalThis).STO_DATA ||
-  {};
+import { stoData } from "../../data.js";
 
 /**
  * ExportService – encapsulates all business-logic for exporting / importing
@@ -197,7 +193,7 @@ export default class ExportService extends ComponentBase {
 ; ================================================================
 ; ${this.translate("environment")} ${env.toUpperCase()}
 ; ${this.translate("generated")} ${timestamp}
-; ${this.translate("created_by")} STO Tools Keybind Manager v${STO_DATA?.settings?.version ?? "unknown"}
+; ${this.translate("created_by")} STO Tools Keybind Manager v${stoData.settings.version}
 ;
 ; ${this.translate("statistics")}:
 ; - ${this.translate("total_commands")}: ${keyCount}
@@ -588,7 +584,7 @@ export default class ExportService extends ComponentBase {
 ; ================================================================
 ; ${this.translate("environment")} Alias
 ; ${this.translate("generated")} ${timestamp}
-; ${this.translate("created_by")} STO Tools Keybind Manager v${STO_DATA?.settings?.version ?? "unknown"}
+; ${this.translate("created_by")} STO Tools Keybind Manager v${stoData.settings.version}
 ;
 ; Alias Statistics:
 ; - Total aliases: ${aliasCount}
@@ -616,7 +612,7 @@ export default class ExportService extends ComponentBase {
   /* ---------------------------------------------------------- */
   /** @param {unknown} dirHandle */
   async syncToFolder(dirHandle) {
-    return materializeSyncProject(this, dirHandle, STO_DATA?.settings?.version);
+    return materializeSyncProject(this, dirHandle, stoData.settings.version);
   }
 
   /**

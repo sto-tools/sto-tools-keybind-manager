@@ -9,47 +9,11 @@ function deepFreeze(value) {
 const writer = (file, propertyPath) => ({ file, path: propertyPath });
 
 export const applicationGlobalAllowlist = deepFreeze({
-  STO_DATA: {
-    classification: "static-data compatibility",
-    purpose: "Legacy aggregate data root used by version and export adapters.",
-    consumers: [
-      "src/js/main.js",
-      "src/js/components/services/ExportService.js",
-      "src/js/components/services/ProjectManagementService.js",
-    ],
-    compatibilityOwner: "data.js",
-    removalGate: "All remaining aggregate readers use typed module imports.",
-    writers: [writer("src/js/data.js", "STO_DATA")],
-  },
-  COMMANDS: {
-    classification: "static-data compatibility",
-    purpose: "Flattened command lookup retained for legacy validators.",
-    consumers: [
-      "src/js/components/services/validators/AliasMixedEnvironment.js",
-      "src/js/components/services/validators/CommandWarnRule.js",
-    ],
-    compatibilityOwner: "data.js",
-    removalGate: "The remaining validators import typed command projections.",
-    writers: [writer("src/js/data.js", "COMMANDS")],
-  },
-  localizeCommandData: {
-    classification: "static-data compatibility",
-    purpose: "In-place localization bridge for the shared command catalog.",
-    consumers: [
-      "src/js/main.js",
-      "src/js/components/services/PreferencesService.js",
-    ],
-    compatibilityOwner: "data.js",
-    removalGate:
-      "Catalog localization is owned by an injected localization service.",
-    writers: [writer("src/js/data.js", "localizeCommandData")],
-  },
   i18next: {
     classification: "localization compatibility",
     purpose:
       "Configured localization instance and development translation tracing.",
     consumers: [
-      "src/js/data.js",
       "src/js/dev/DevMonitor.js",
       "src/js/lib/STOCommandParser.js",
       "src/js/components/services/validators/CommandWarnRule.js",

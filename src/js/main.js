@@ -1,6 +1,6 @@
 import "./core/constants.js";
 import eventBus from "./core/eventBus.js";
-import "./data.js";
+import { localizeCommands, stoData } from "./data.js";
 import i18next from "i18next";
 import en from "../i18n/en.json";
 import de from "../i18n/de.json";
@@ -27,7 +27,7 @@ import devMonitor from "./dev/DevMonitor.js";
 // discover this compatibility state through component registration.
 const dataService = new DataService({
   eventBus,
-  data: typeof window !== "undefined" ? window.STO_DATA : null,
+  data: stoData,
 });
 
 (async () => {
@@ -42,7 +42,7 @@ const dataService = new DataService({
     },
   });
 
-  // Make i18next available globally for data.js and other modules that need it
+  // Retain the temporary localization compatibility bridge for audited consumers.
   window.i18next = i18next;
 
   // Create new StorageService component with i18n support
@@ -82,9 +82,7 @@ const dataService = new DataService({
     );
   }
 
-  if (window.localizeCommandData) {
-    window.localizeCommandData();
-  }
+  localizeCommands(i18next);
 
   /** @param {Document | Element | null} [root] */
   function applyTranslations(root = document) {

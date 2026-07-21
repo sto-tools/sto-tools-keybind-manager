@@ -975,7 +975,7 @@ export default class DataCoordinator extends ComponentBase {
       return;
     }
 
-    // Convert STO_DATA format to our storage format
+    // Convert the aggregate static-data format to our storage format
     /** @type {Record<string, import('./serviceTypes.js').ProfileData>} */
     const profiles = {};
     for (const [profileId, sourceProfile] of Object.entries(

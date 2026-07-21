@@ -25,6 +25,9 @@ describe("Application browser smoke", () => {
     expect(settingsButton?.title.trim()).not.toBe("");
     expect(window.eventBus?.hasListeners("rpc:key:add")).toBe(true);
     expect("stoKeybinds" in window).toBe(false);
+    expect("STO_DATA" in window).toBe(false);
+    expect("COMMANDS" in window).toBe(false);
+    expect("localizeCommandData" in window).toBe(false);
     expect(refineDilithium?.closest(".category")?.dataset.category).toBe(
       "system",
     );

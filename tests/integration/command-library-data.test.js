@@ -3,20 +3,23 @@ import {
   commandCategories,
   findCommandDefinition,
 } from "../../src/js/data/commandCatalog.js";
-import "../../src/js/data.js";
+import { stoData } from "../../src/js/data.js";
 
 describe("Integration: command library data", () => {
-  it("resolves Refine Dilithium through the shared global catalog", () => {
+  it("resolves Refine Dilithium through the shared module catalog", () => {
     const definition = findCommandDefinition(
       "gensendmessage inventory_root processdilithium",
     );
 
-    expect(window.STO_DATA.commands).toBe(commandCategories);
+    expect(stoData.commands).toBe(commandCategories);
     expect(definition).toMatchObject({
       categoryId: "system",
       commandId: "refine_dilithium",
       name: "Refine Dilithium",
       icon: "⛏️",
     });
+    expect(window).not.toHaveProperty("STO_DATA");
+    expect(window).not.toHaveProperty("COMMANDS");
+    expect(window).not.toHaveProperty("localizeCommandData");
   });
 });

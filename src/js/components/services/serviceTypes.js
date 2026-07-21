@@ -196,16 +196,14 @@
  * @property {Record<string, CommandCategory>} [commands]
  * @property {{ maxCommandsPerKey?: number, maxKeysPerProfile?: number }} [validation]
  * @property {Record<string, unknown>} [defaultProfiles]
+ * @property {{ version?: string }} [settings]
  *
  * @typedef {Window & typeof globalThis & {
- *   STO_DATA?: { settings?: { version?: string } },
  *   applyTranslations?: (root?: Document | Element | null) => void,
  *   confirmDialog?: ConfirmDialog,
  *   i18next?: I18n,
- *   localizeCommandData?: () => void,
  *   showDirectoryPicker?: () => Promise<unknown>,
- *   stoUI?: ToastUI,
- *   COMMANDS?: Record<string, CommandDefinition>
+ *   stoUI?: ToastUI
  * }} AppWindow
  */
 

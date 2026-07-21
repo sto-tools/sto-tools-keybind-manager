@@ -1,18 +1,12 @@
 import ValidatorBase from "./ValidatorBase.js";
-
-// Access flattened command definitions
-const appWindow =
-  typeof window === "undefined"
-    ? null
-    : /** @type {import('../serviceTypes.js').AppWindow} */ (window);
-const CMD_MAP = appWindow?.COMMANDS || {};
+import { flattenedCommands } from "../../../data.js";
 
 /** @param {string} cmdString */
 function getEnvironmentForCommand(cmdString) {
   if (!cmdString) return null;
   const token = cmdString.trim().split(/\s+/)[0].toLowerCase();
-  for (const key in CMD_MAP) {
-    const def = CMD_MAP[key];
+  for (const key in flattenedCommands) {
+    const def = flattenedCommands[key];
     if (def && def.command && def.command.toLowerCase() === token) {
       return def.environment || null;
     }

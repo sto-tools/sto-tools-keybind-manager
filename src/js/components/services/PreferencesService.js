@@ -1,4 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
+import { localizeCommands as defaultLocalizeCommands } from "../../data.js";
 import { extensionPreferenceKey } from "./preferenceKeys.js";
 import {
   hasValidKnownSettingValue,
@@ -69,12 +70,13 @@ const appWindow =
  * Pure logic / no DOM querying.  UI interactions live in PreferencesUI.
  */
 export default class PreferencesService extends ComponentBase {
-  /** @param {{ storage?: import('./serviceTypes.js').Storage, eventBus?: import('./serviceTypes.js').EventBus, i18n?: import('./serviceTypes.js').I18n }} [options] */
-  constructor({ storage, eventBus, i18n } = {}) {
+  /** @param {{ storage?: import('./serviceTypes.js').Storage, eventBus?: import('./serviceTypes.js').EventBus, i18n?: import('./serviceTypes.js').I18n, localizeCommands?: typeof defaultLocalizeCommands }} [options] */
+  constructor({ storage, eventBus, i18n, localizeCommands } = {}) {
     super(eventBus);
     this.componentName = "PreferencesService";
     this.storage = storage;
     this.i18n = i18n;
+    this.localizeCommands = localizeCommands ?? defaultLocalizeCommands;
 
     // Defaults
     /** @type {PreferencesSettings} */
@@ -458,9 +460,7 @@ export default class PreferencesService extends ComponentBase {
     if (!persisted) return false;
 
     // Re-localize command data with new language
-    if (appWindow?.localizeCommandData) {
-      appWindow.localizeCommandData();
-    }
+    this.localizeCommands(this.i18n);
 
     // Emit event for other components to re-render with new language
     this.emit("language:changed", { language: lang });

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import defaultProfiles, {
   getDefaultProfiles,
 } from "../../src/js/data/defaultProfiles.js";
-import "../../src/js/data.js";
+import { stoData } from "../../src/js/data.js";
 
 describe("default profile catalog", () => {
   it("pins the complete ordered built-in profile contract", () => {
@@ -17,7 +17,7 @@ describe("default profile catalog", () => {
     expect(fingerprint).toBe(
       "5108461a2b21812af97ecefe3cf85a2b9a4172171a4da6d74ad2370f8cbec502",
     );
-    expect(window.STO_DATA.defaultProfiles).toBe(defaultProfiles);
+    expect(stoData.defaultProfiles).toBe(defaultProfiles);
   });
 
   it("preserves the shallow validation contract without mutating its source", () => {

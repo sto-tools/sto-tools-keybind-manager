@@ -2,7 +2,7 @@ import ComponentBase from "../ComponentBase.js";
 import { getDefaultProfiles } from "../../data/defaultProfiles.js";
 
 /**
- * DataService - retirement-bound compatibility view over STO_DATA.
+ * DataService - retirement-bound compatibility view over module-owned data.
  * Runtime static-data consumers use direct module imports; this shell remains
  * a late-join snapshot owner until its protocol requirement is explicitly
  * retired.

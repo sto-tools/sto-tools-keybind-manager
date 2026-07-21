@@ -11,11 +11,7 @@ import {
   isProjectImportFailure,
   materializeProjectImportSuccess,
 } from "./projectRestoreResult.js";
-
-/** @type {{ settings?: { version?: string } }} */
-const STO_DATA =
-  /** @type {import('./serviceTypes.js').AppWindow} */ (globalThis).STO_DATA ||
-  {};
+import { stoData } from "../../data.js";
 
 /** @param {unknown} error */
 function getErrorMessage(error) {
@@ -175,7 +171,7 @@ export default class ProjectManagementService extends ComponentBase {
       const jsonContent = serializeProjectArtifact(
         data,
         this.storage.getSettings(),
-        { version: STO_DATA?.settings?.version, exported },
+        { version: stoData.settings.version, exported },
       );
       const blob = new Blob([jsonContent], { type: "application/json" });
       const url = URL.createObjectURL(blob);

@@ -25,17 +25,19 @@ describe("application-global read guard", () => {
         { enforceDeclaredReaders: true },
       ),
     ).toEqual([]);
+  });
 
+  it("rejects reads of the retired static-data globals", () => {
     expect(
-      verifyReads(
+      readMessageIds(
         `
           const data = window.STO_DATA;
+          void window.COMMANDS;
           window.localizeCommandData?.();
         `,
         "src/js/main.js",
-        { enforceDeclaredReaders: true },
       ),
-    ).toEqual([]);
+    ).toEqual(Array(3).fill("unallowlisted"));
   });
 
   it("rejects unknown and wrong-file reads through every global spelling", () => {
@@ -50,7 +52,12 @@ describe("application-global read guard", () => {
         `,
         "src/js/example.js",
       ),
-    ).toEqual(["unallowlisted", "unallowlisted", "wrongReader", "wrongReader"]);
+    ).toEqual([
+      "unallowlisted",
+      "unallowlisted",
+      "unallowlisted",
+      "wrongReader",
+    ]);
   });
 
   it("tracks immutable aliases and rejects dynamic reads", () => {
@@ -89,20 +96,20 @@ describe("application-global read guard", () => {
     expect(
       verifyReads(
         `
-          window.STO_DATA = {};
+          window.i18next = {};
           window.i18next.t = replacement;
           delete window.applyTranslations;
           window.location.hash = "probe";
           globalThis.requestAnimationFrame(callback);
         `,
-        "src/js/data.js",
+        "src/js/main.js",
       ),
     ).toEqual([]);
   });
 
   it("ratchets stale production reader metadata", () => {
     expect(
-      readMessageIds("export {};", "src/js/main.js", {
+      readMessageIds("export {};", "src/js/components/ui/CommandUI.js", {
         enforceDeclaredReaders: true,
       }),
     ).toEqual(["stale", "stale"]);
@@ -113,8 +120,10 @@ describe("application-global read guard", () => {
     expect(applicationGlobalAllowlist).not.toHaveProperty("inputDialog");
     expect(applicationGlobalAllowlist).not.toHaveProperty("stoKeybinds");
     expect(applicationGlobalAllowlist).not.toHaveProperty("VFX_EFFECTS");
-    expect(applicationGlobalAllowlist.STO_DATA.consumers).not.toContain(
-      "src/js/components/services/DataService.js",
+    expect(applicationGlobalAllowlist).not.toHaveProperty("STO_DATA");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("COMMANDS");
+    expect(applicationGlobalAllowlist).not.toHaveProperty(
+      "localizeCommandData",
     );
     expect(applicationGlobalAllowlist.commandChainUI.consumers).not.toContain(
       "src/js/components/ui/CommandLibraryUI.js",

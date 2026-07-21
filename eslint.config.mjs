@@ -11,7 +11,6 @@ const legacyMaxLineLimits = {
   "src/js/components/services/ParameterCommandService.js": 550,
   "src/js/components/ui/CommandChainUI.js": 854,
   "src/js/components/ui/CommandUI.js": 538,
-  "src/js/data.js": 292,
   "src/js/lib/kbf/parsers/KBFDecodePipeline.js": 915,
   "src/js/lib/kbf/translation/ActivityTranslator.js": 1767,
   "tests/unit/lib/ActivityTranslator.test.js": 3250,

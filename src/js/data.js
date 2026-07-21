@@ -277,11 +277,8 @@ const stoData = {
   vfxEffects,
 };
 
-// Make available globally
-window.STO_DATA = stoData;
-
 // Flatten all commands into a single object
-/** @type {NonNullable<Window['COMMANDS']>} */
+/** @type {Record<string, import('./components/services/serviceTypes.js').CommandDefinition & { category: string, key: string }>} */
 const flattenedCommands = {};
 Object.entries(stoData.commands).forEach(([categoryKey, category]) => {
   Object.entries(category.commands).forEach(([commandKey, command]) => {
@@ -292,11 +289,12 @@ Object.entries(stoData.commands).forEach(([categoryKey, category]) => {
     };
   });
 });
-window.COMMANDS = flattenedCommands;
 
 // Utility functions for data access
-window.localizeCommandData = function () {
-  const i18n = window.i18next;
+/**
+ * @param {{ t: (key: string) => string } | null | undefined} i18n
+ */
+function localizeCommands(i18n) {
   if (!i18n) return;
 
   Object.entries(stoData.commands).forEach(([catKey, category]) => {
@@ -315,4 +313,6 @@ window.localizeCommandData = function () {
       }
     });
   });
-};
+}
+
+export { flattenedCommands, localizeCommands, stoData };

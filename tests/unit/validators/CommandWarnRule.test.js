@@ -1,36 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, expect, it } from "vitest";
+
+import CommandWarnRule from "../../../src/js/components/services/validators/CommandWarnRule.js";
+import { flattenedCommands } from "../../../src/js/data.js";
 
 describe("CommandWarnRule", () => {
-  let originalCommands;
-
-  beforeEach(() => {
-    // Preserve existing global COMMANDS map
-    originalCommands = window.COMMANDS;
-
-    // Setup minimal COMMANDS map with warning
-    window.COMMANDS = {
-      fire_all: {
-        command: "FireAll",
-        name: "Fire All Weapons",
-        warning: "test_warning_key",
-      },
-    };
-
-    // Add translation key for the warning
-    if (global.i18next && typeof global.i18next.addResource === "function") {
-      global.i18next.addResource(
-        "en",
-        "translation",
-        "test_warning_key",
-        "Translated warning",
-      );
-    }
-  });
-
-  it("returns one warning issue per command with warning", async () => {
-    const { default: CommandWarnRule } = await import(
-      "../../../src/js/components/services/validators/CommandWarnRule.js"
-    );
+  it("returns one warning issue from the module-owned command projection", () => {
     const rule = new CommandWarnRule();
 
     const ctx = { commands: ["FireAll"] };
@@ -39,18 +13,12 @@ describe("CommandWarnRule", () => {
 
     expect(Array.isArray(issues)).toBe(true);
     expect(issues.length).toBe(1);
+    expect(flattenedCommands.fire_all.warning).toBe("spam_bar_warning");
     issues.forEach((issue) => {
       expect(issue.severity).toBe("warning");
-      expect(issue.defaultMessage).toMatch(/Translated warning/);
+      expect(issue.defaultMessage).toBe(
+        "Fire All Weapons - Not recommended on spam bars as it interferes with firing cycles",
+      );
     });
-  });
-
-  afterEach(() => {
-    // Restore original COMMANDS map
-    if (originalCommands !== undefined) {
-      window.COMMANDS = originalCommands;
-    } else {
-      delete window.COMMANDS;
-    }
   });
 });

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import ExportService from "../../src/js/components/services/ExportService.js";
 import ProjectManagementService from "../../src/js/components/services/ProjectManagementService.js";
 import { respond } from "../../src/js/core/requestResponse.js";
+import { stoData } from "../../src/js/data.js";
 import { createServiceFixture } from "../fixtures/index.js";
 
 const goldenProject = JSON.parse(
@@ -94,5 +95,8 @@ describe("project artifact producer parity", () => {
     const syncedProjectText = await fixture.fsReadText("project.json");
     expect(downloadedProjectText).toBe(syncedProjectText);
     expect(syncedProjectText).toBe(goldenProjectText);
+    expect(JSON.parse(syncedProjectText).version).toBe(
+      stoData.settings.version,
+    );
   });
 });

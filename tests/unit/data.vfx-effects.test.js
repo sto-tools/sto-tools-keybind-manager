@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import vfxEffects, {
   vfxEffects as namedVFXEffects,
 } from "../../src/js/data/vfxEffects.js";
-import "../../src/js/data.js";
+import { stoData } from "../../src/js/data.js";
 
 describe("VFX effects catalog", () => {
   it("pins the complete ordered catalog contract", () => {
@@ -21,8 +21,8 @@ describe("VFX effects catalog", () => {
     );
   });
 
-  it("shares the exact STO_DATA catalog without publishing a second global", () => {
-    expect(window.STO_DATA.vfxEffects).toBe(vfxEffects);
+  it("shares the exact aggregate catalog without publishing a global", () => {
+    expect(stoData.vfxEffects).toBe(vfxEffects);
     expect("VFX_EFFECTS" in window).toBe(false);
   });
 });

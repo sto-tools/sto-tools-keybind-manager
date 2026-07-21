@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ExportService from "../../../src/js/components/services/ExportService.js";
 import * as SyncService from "../../../src/js/components/services/SyncService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
+import { stoData } from "../../../src/js/data.js";
 import {
   createProfileDataFixture,
   createServiceFixture,
@@ -63,6 +64,9 @@ describe("ExportService", () => {
       environment: "space",
     });
     expect(txt).toContain("STO Keybind Configuration");
+    expect(txt).toContain(
+      `STO Tools Keybind Manager v${stoData.settings.version}`,
+    );
     expect(txt).toMatch(/F1\s+"FireAll"/);
   });
 

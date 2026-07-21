@@ -1,18 +1,18 @@
 import ValidatorBase from "./ValidatorBase.js";
+import { flattenedCommands } from "../../../data.js";
 
 const appWindow =
   typeof window === "undefined"
     ? null
     : /** @type {import('../serviceTypes.js').AppWindow} */ (window);
-const CMD_MAP = appWindow?.COMMANDS || {};
 
 /** @param {string} commandStr */
 function getCmdDefFromString(commandStr) {
   if (!commandStr) return null;
   const normalized = commandStr.trim().toLowerCase();
 
-  for (const key in CMD_MAP) {
-    const def = CMD_MAP[key];
+  for (const key in flattenedCommands) {
+    const def = flattenedCommands[key];
     if (!def || !def.command) continue;
     const defCmd = def.command.trim().toLowerCase();
 

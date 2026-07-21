@@ -33,7 +33,12 @@ vi.mock("../../src/js/core/eventBus.js", () => ({
   default: { emit: () => Promise.resolve() },
 }));
 
-vi.mock("../../src/js/data.js", () => ({}));
+vi.mock("../../src/js/data.js", () => ({
+  localizeCommands: () => {
+    bootstrap.operations.push("data:localize");
+  },
+  stoData: { commands: {} },
+}));
 
 vi.mock("i18next", () => ({
   default: {
@@ -167,6 +172,9 @@ describe("main DataCoordinator startup barrier", () => {
       bootstrap.operations.indexOf("storage:get-settings"),
     );
     expect(bootstrap.operations.indexOf("storage:get-settings")).toBeLessThan(
+      bootstrap.operations.indexOf("data:localize"),
+    );
+    expect(bootstrap.operations.indexOf("data:localize")).toBeLessThan(
       bootstrap.operations.indexOf("app:construct"),
     );
     expect(bootstrap.operations.indexOf("app:construct")).toBeLessThan(

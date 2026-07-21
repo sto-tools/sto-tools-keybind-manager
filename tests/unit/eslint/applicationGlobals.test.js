@@ -13,10 +13,8 @@ import {
 } from "./applicationGlobals.harness.js";
 
 describe("application-global compatibility metadata", () => {
-  it("freezes the exact 15-name post-cleanup allowlist", () => {
+  it("freezes the exact 12-name post-static-data allowlist", () => {
     const expectedNames = [
-      "COMMANDS",
-      "STO_DATA",
       "applyTranslations",
       "commandChainUI",
       "confirmDialog",
@@ -26,7 +24,6 @@ describe("application-global compatibility metadata", () => {
       "i18next",
       "keyBrowserService",
       "keyBrowserUI",
-      "localizeCommandData",
       "stoSync",
       "stoUI",
       "storageService",
@@ -110,24 +107,26 @@ describe("application-global compatibility metadata", () => {
     "inputDialog",
     "stoKeybinds",
     "VFX_EFFECTS",
+    "COMMANDS",
+    "STO_DATA",
+    "localizeCommandData",
   ])("does not retain the retired %s exposure", (name) => {
     expect(applicationGlobalAllowlist).not.toHaveProperty(name);
   });
 });
 
 describe("application-global write guard", () => {
-  it("accepts every declared data.js writer and static bracket spelling", () => {
-    const messages = verify(
-      `
+  it("rejects the retired static-data writers from their former owner", () => {
+    expect(
+      messageIds(
+        `
         window.STO_DATA = {};
         window["COMMANDS"] = {};
         window[\`localizeCommandData\`] = () => {};
       `,
-      "src/js/data.js",
-      { enforceDeclaredWriters: true },
-    );
-
-    expect(messages).toEqual([]);
+        "src/js/data.js",
+      ),
+    ).toEqual(Array(3).fill("unallowlisted"));
   });
 
   it("accepts every main.js root and Object.assign writer", () => {
@@ -209,8 +208,8 @@ describe("application-global write guard", () => {
       "unallowlisted",
       "unallowlisted",
       "unallowlisted",
-      "wrongWriter",
-      "wrongWriter",
+      "unallowlisted",
+      "unallowlisted",
       "unallowlisted",
     ]);
   });
@@ -323,9 +322,9 @@ describe("application-global write guard", () => {
     ).toEqual(Array(6).fill("unallowlisted"));
   });
 
-  it("accepts reflected definitions as declared producer writes", () => {
+  it("rejects reflected definitions of retired static-data globals", () => {
     expect(
-      verify(
+      messageIds(
         `
           Object.defineProperty(window, "STO_DATA", { value: {} });
           const { defineProperties } = Object;
@@ -333,9 +332,8 @@ describe("application-global write guard", () => {
           window.localizeCommandData = () => {};
         `,
         "src/js/data.js",
-        { enforceDeclaredWriters: true },
       ),
-    ).toEqual([]);
+    ).toEqual(Array(3).fill("unallowlisted"));
   });
 
   it("allows only the documented nested development mutation", () => {
@@ -351,15 +349,15 @@ describe("application-global write guard", () => {
     ).toEqual(["wrongWriter", "wrongWriter"]);
   });
 
-  it("ratchets stale producer metadata", () => {
+  it("records no producer metadata for the module-owned static data", () => {
     expect(
-      messageIds("export {};", "src/js/data.js", {
+      verify("export {};", "src/js/data.js", {
         enforceDeclaredWriters: true,
       }),
-    ).toEqual(["stale", "stale", "stale"]);
+    ).toEqual([]);
   });
 
-  it("does not accept mutation or removal as proof of a producer", () => {
+  it("rejects mutation and removal spellings for retired static data", () => {
     expect(
       messageIds(
         `
@@ -368,9 +366,8 @@ describe("application-global write guard", () => {
           for (window.localizeCommandData of values) {}
         `,
         "src/js/data.js",
-        { enforceDeclaredWriters: true },
       ),
-    ).toEqual(["stale", "stale", "stale"]);
+    ).toEqual(Array(3).fill("unallowlisted"));
   });
 });
 

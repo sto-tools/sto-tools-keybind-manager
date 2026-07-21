@@ -4,11 +4,15 @@ import en from "../../src/i18n/en.json";
 import es from "../../src/i18n/es.json";
 import fr from "../../src/i18n/fr.json";
 import commandCategories from "../../src/js/data/commandCatalog.js";
-import "../../src/js/data.js";
+import {
+  flattenedCommands,
+  localizeCommands,
+  stoData,
+} from "../../src/js/data.js";
 
 describe("command library data", () => {
   it("publishes Refine Dilithium in the System group", () => {
-    const command = window.STO_DATA.commands.system.commands.refine_dilithium;
+    const command = stoData.commands.system.commands.refine_dilithium;
 
     expect(command).toEqual({
       name: "Refine Dilithium",
@@ -17,7 +21,7 @@ describe("command library data", () => {
       syntax: "gensendmessage inventory_root processdilithium",
       icon: "⛏️",
     });
-    expect(window.COMMANDS.refine_dilithium).toMatchObject({
+    expect(flattenedCommands.refine_dilithium).toMatchObject({
       category: "system",
       key: "refine_dilithium",
     });
@@ -25,7 +29,8 @@ describe("command library data", () => {
       name: "Refine Dilithium",
       description: "Refine dilithium ore from your inventory",
     });
-    expect(window.STO_DATA.commands).toBe(commandCategories);
+    expect(stoData.commands).toBe(commandCategories);
+    expect(stoData.settings.version).toBe("1.0.0");
     expect(Object.keys(commandCategories.system.commands).slice(8, 12)).toEqual(
       ["missions", "inventory", "refine_dilithium", "map"],
     );
@@ -49,28 +54,51 @@ describe("command library data", () => {
     expect(fr.invalid_input).toBe("Saisie invalide");
   });
 
-  it("localizes the shared catalog object in place", () => {
+  it("keeps the shared catalog and flattened projection identities stable across relocalization", () => {
     const snapshot = structuredClone(commandCategories);
-    const previousI18n = window.i18next;
-    window.i18next = /** @type {typeof window.i18next} */ ({
-      t: (key) => `localized:${key}`,
-    });
+    const projection = flattenedCommands;
+    const flattenedFireAll = flattenedCommands.fire_all;
+    const originalFlattenedName = flattenedFireAll.name;
+    const sourceFireAll = commandCategories.combat.commands.fire_all;
+    const sourceParameters =
+      commandCategories.movement.commands.throttle_adjust.parameters;
 
     try {
-      window.localizeCommandData();
-      expect(window.STO_DATA.commands).toBe(commandCategories);
+      expect(flattenedFireAll).not.toBe(sourceFireAll);
+      expect(flattenedCommands.throttle_adjust.parameters).toBe(
+        sourceParameters,
+      );
+
+      localizeCommands({ t: (key) => `first:${key}` });
+      expect(stoData.commands).toBe(commandCategories);
+      expect(flattenedCommands).toBe(projection);
+      expect(flattenedCommands.fire_all).toBe(flattenedFireAll);
+      expect(flattenedFireAll.name).toBe(originalFlattenedName);
       expect(commandCategories.combat.name).toBe(
-        "localized:command_categories.combat",
+        "first:command_categories.combat",
       );
       expect(commandCategories.combat.commands.fire_all.name).toBe(
-        "localized:command_definitions.fire_all.name",
+        "first:command_definitions.fire_all.name",
+      );
+
+      localizeCommands({ t: (key) => `second:${key}` });
+      expect(flattenedCommands).toBe(projection);
+      expect(flattenedCommands.fire_all).toBe(flattenedFireAll);
+      expect(flattenedFireAll.name).toBe(originalFlattenedName);
+      expect(commandCategories.combat.commands.fire_all.name).toBe(
+        "second:command_definitions.fire_all.name",
       );
     } finally {
       for (const key of Object.keys(commandCategories)) {
         delete commandCategories[key];
       }
       Object.assign(commandCategories, snapshot);
-      window.i18next = previousI18n;
     }
+  });
+
+  it("does not publish the retired static-data compatibility globals", () => {
+    expect(Object.hasOwn(window, "STO_DATA")).toBe(false);
+    expect(Object.hasOwn(window, "COMMANDS")).toBe(false);
+    expect(Object.hasOwn(window, "localizeCommandData")).toBe(false);
   });
 });

@@ -59,6 +59,8 @@ describe("application-global alias write guard", () => {
       "unsafeAlias",
       "mutableAlias",
       "unallowlisted",
+      "unallowlisted",
+      "unallowlisted",
     ]);
   });
 
