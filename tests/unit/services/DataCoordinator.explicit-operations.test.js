@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
+import { applyProfileOperations } from "../../../src/js/components/services/profileOperations.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
 const PROFILE_ID = "characterization-profile";
@@ -377,7 +378,7 @@ describe("DataCoordinator explicit profile operations", () => {
     const sourceSnapshot = JSON.parse(JSON.stringify(source));
     const operations = createOperations();
 
-    const result = coordinator.processUpdateOperations(source, {
+    const result = applyProfileOperations(source, {
       ...operations,
       properties: {
         ...operations.properties,

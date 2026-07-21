@@ -69,6 +69,25 @@ type KeyViewModeRequest = Expect<
 type KeyViewModeResult = Expect<
   Equal<RpcResult<"key:cycle-view-mode">, KeyViewMode>
 >;
+type InterfaceMode = "space" | "ground" | "alias";
+type EnvironmentSwitchRequest = Expect<
+  Equal<RpcRequest<"environment:switch">, { mode: InterfaceMode }>
+>;
+type EnvironmentSwitchResult = Expect<
+  Equal<
+    RpcResult<"environment:switch">,
+    | { success: true; mode: InterfaceMode }
+    | {
+        success: false;
+        error:
+          | "invalid_environment"
+          | "no_profile_selected"
+          | "failed_to_save_profile"
+          | "operation_cancelled";
+        params?: Record<string, unknown>;
+      }
+  >
+>;
 type CommandCategoryToggleRequest = Expect<
   Equal<
     RpcRequest<"command-presentation:toggle-category">,
@@ -482,6 +501,30 @@ async function exerciseCoreApi() {
   // @ts-expect-error View-mode cycling rejects non-empty payload objects.
   request(eventBus, "key:cycle-view-mode", { mode: "categorized" });
 
+  const switchedEnvironment = await request(eventBus, "environment:switch", {
+    mode: "ground",
+  });
+  if (switchedEnvironment.success) {
+    const acceptedMode: InterfaceMode = switchedEnvironment.mode;
+    void acceptedMode;
+  } else {
+    const failureCode:
+      | "invalid_environment"
+      | "no_profile_selected"
+      | "failed_to_save_profile"
+      | "operation_cancelled" = switchedEnvironment.error;
+    void failureCode;
+  }
+  // @ts-expect-error Environment switches always require an explicit mode.
+  request(eventBus, "environment:switch");
+  // @ts-expect-error Environment switches accept only the three canonical modes.
+  request(eventBus, "environment:switch", { mode: "sector" });
+  // @ts-expect-error The environment-switch payload has no compatibility fields.
+  request(eventBus, "environment:switch", {
+    mode: "space",
+    environment: "space",
+  });
+
   const categoryCollapsed = await request(
     eventBus,
     "command-presentation:toggle-category",
@@ -670,6 +713,19 @@ async function exerciseCoreApi() {
   respond(eventBus, "parameter-command:build", () => true);
   respond(eventBus, "parser:clear-cache", () => ({ success: true }));
   respond(eventBus, "key:cycle-view-mode", () => "key-types");
+  respond(eventBus, "environment:switch", ({ mode }) => ({
+    success: true,
+    mode,
+  }));
+  respond(eventBus, "environment:switch", () => ({
+    success: false,
+    error: "failed_to_save_profile",
+  }));
+  // @ts-expect-error Environment-switch failures use the closed coded vocabulary.
+  respond(eventBus, "environment:switch", () => ({
+    success: false,
+    error: "No mode provided",
+  }));
   respond(eventBus, "command-presentation:toggle-category", () => true);
   respond(eventBus, "command-presentation:toggle-group", () => false);
   // @ts-expect-error Command-presentation actions return booleans.

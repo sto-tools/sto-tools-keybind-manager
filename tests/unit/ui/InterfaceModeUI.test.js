@@ -3,6 +3,14 @@ import { createServiceFixture } from "../../fixtures/index.js";
 import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
 import InterfaceModeUI from "../../../src/js/components/ui/InterfaceModeUI.js";
 
+function deferred() {
+  let resolve;
+  const promise = new Promise((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}
+
 function createDomFixture() {
   // Set up a minimal DOM structure with mode buttons
   const container = document.createElement("div");
@@ -79,6 +87,7 @@ describe("InterfaceModeUI", () => {
     dom.cleanup();
     fixture.destroy();
     eventBusFixture.destroy();
+    vi.restoreAllMocks();
   });
 
   it("should initialize without errors", () => {
@@ -118,22 +127,135 @@ describe("InterfaceModeUI", () => {
     expect(eventBusFixture.eventBus.onDom).toHaveBeenCalledTimes(3);
   });
 
-  it("should handle mode button clicks correctly", () => {
+  it("keeps the rendered mode unchanged until a requested switch is broadcast", async () => {
     interfaceModeUI.init();
+    eventBusFixture.eventBus.emit("environment:changed", {
+      fromEnvironment: "ground",
+      toEnvironment: "space",
+      environment: "space",
+    });
+    eventBusFixture.clearEventHistory();
 
-    // Mock the request method to avoid actual service calls
-    const mockRequest = vi
-      .fn()
-      .mockResolvedValue({ success: true, mode: "ground" });
+    const settlement = deferred();
+    const mockRequest = vi.fn(() => settlement.promise);
     interfaceModeUI.request = mockRequest;
 
-    // Click ground mode button
     const groundButton = document.querySelector('[data-mode="ground"]');
+    const spaceButton = document.querySelector('[data-mode="space"]');
     groundButton.click();
 
     expect(mockRequest).toHaveBeenCalledWith("environment:switch", {
       mode: "ground",
     });
+    expect(interfaceModeUI.currentMode).toBe("space");
+    expect(spaceButton.classList.contains("active")).toBe(true);
+    expect(groundButton.classList.contains("active")).toBe(false);
+
+    settlement.resolve({ success: true, mode: "ground" });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(interfaceModeUI.currentMode).toBe("space");
+    expect(spaceButton.classList.contains("active")).toBe(true);
+    expect(groundButton.classList.contains("active")).toBe(false);
+    eventBusFixture.expectNoEvent("environment:changed");
+
+    eventBusFixture.eventBus.emit("environment:changed", {
+      fromEnvironment: "space",
+      toEnvironment: "ground",
+      environment: "ground",
+    });
+
+    expect(interfaceModeUI.currentMode).toBe("ground");
+    expect(spaceButton.classList.contains("active")).toBe(false);
+    expect(groundButton.classList.contains("active")).toBe(true);
+  });
+
+  it.each([
+    [
+      "a resolved persistence failure",
+      () =>
+        Promise.resolve({
+          success: false,
+          error: "failed_to_save_profile",
+        }),
+    ],
+    [
+      "a rejected persistence request",
+      () => Promise.reject(new Error("disk full")),
+    ],
+  ])("does not repaint after %s", async (_label, requestModeChange) => {
+    interfaceModeUI.init();
+    eventBusFixture.eventBus.emit("environment:changed", {
+      fromEnvironment: "ground",
+      toEnvironment: "space",
+      environment: "space",
+    });
+    eventBusFixture.clearEventHistory();
+    interfaceModeUI.request = vi.fn(requestModeChange);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await interfaceModeUI.handleModeButtonClick("ground");
+
+    const groundButton = document.querySelector('[data-mode="ground"]');
+    const spaceButton = document.querySelector('[data-mode="space"]');
+    expect(interfaceModeUI.currentMode).toBe("space");
+    expect(spaceButton.classList.contains("active")).toBe(true);
+    expect(groundButton.classList.contains("active")).toBe(false);
+    eventBusFixture.expectNoEvent("environment:changed");
+  });
+
+  it("does not optimistically update through the currentMode setter", async () => {
+    interfaceModeUI.init();
+    eventBusFixture.eventBus.emit("environment:changed", {
+      fromEnvironment: "ground",
+      toEnvironment: "space",
+      environment: "space",
+    });
+    const settlement = deferred();
+    interfaceModeUI.request = vi.fn(() => settlement.promise);
+
+    interfaceModeUI.currentMode = "ground";
+
+    expect(interfaceModeUI.request).toHaveBeenCalledWith("environment:switch", {
+      mode: "ground",
+    });
+    expect(interfaceModeUI.currentMode).toBe("space");
+
+    settlement.resolve({ success: true, mode: "ground" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(interfaceModeUI.currentMode).toBe("space");
+
+    eventBusFixture.eventBus.emit("environment:changed", {
+      fromEnvironment: "space",
+      toEnvironment: "ground",
+      environment: "ground",
+    });
+    expect(interfaceModeUI.currentMode).toBe("ground");
+  });
+
+  it("adopts late-join service state without issuing a switch request", () => {
+    interfaceModeUI.init();
+    interfaceModeUI.request = vi.fn();
+
+    interfaceModeUI.handleInitialState({
+      sender: "InterfaceModeService",
+      state: {
+        currentMode: "alias",
+        environment: "alias",
+        currentEnvironment: "alias",
+      },
+    });
+
+    const aliasButton = document.querySelector('[data-mode="alias"]');
+    const spaceButton = document.querySelector('[data-mode="space"]');
+    const aliasSelector = document.getElementById("aliasSelectorContainer");
+    expect(interfaceModeUI.currentMode).toBe("alias");
+    expect(aliasButton.classList.contains("active")).toBe(true);
+    expect(spaceButton.classList.contains("active")).toBe(false);
+    expect(aliasSelector.style.display).toBe("");
+    expect(interfaceModeUI.request).not.toHaveBeenCalled();
   });
 
   it("should update UI from the canonical environment broadcast", () => {

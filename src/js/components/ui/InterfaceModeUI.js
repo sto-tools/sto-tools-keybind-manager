@@ -166,8 +166,8 @@ export default class InterfaceModeUI extends UIComponentBase {
   // Set current mode (delegates to service)
   set currentMode(mode) {
     if (!isEnvironment(mode)) return;
-    this._currentMode = mode;
-    // Use request-response pattern to switch environment
+    // The accepted environment broadcast owns the UI cache. Keep the currently
+    // rendered mode unchanged when persistence rejects the requested switch.
     this.request("environment:switch", { mode }).catch((error) => {
       console.error(
         "[InterfaceModeUI] Error switching environment via setter:",
@@ -195,6 +195,7 @@ export default class InterfaceModeUI extends UIComponentBase {
       environment === "ground" ||
       environment === "alias"
     ) {
+      this._currentMode = environment;
       this.updateModeUI(environment);
     }
   }

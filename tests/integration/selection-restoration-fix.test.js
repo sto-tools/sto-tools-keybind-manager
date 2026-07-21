@@ -16,19 +16,8 @@ describe("Selection Restoration Fix - Page Reload", () => {
     dataCoordinator,
     storageService,
     interfaceModeService;
-  let emittedEvents = [];
 
   beforeEach(async () => {
-    // Clear events log
-    emittedEvents = [];
-
-    // Monitor events
-    const originalEmit = eventBus.emit;
-    eventBus.emit = function (event, data) {
-      emittedEvents.push({ event, data });
-      return originalEmit.call(this, event, data);
-    };
-
     // Set up storage with profile containing selections
     storageService = new StorageService({ eventBus });
     await storageService.init();
@@ -65,13 +54,10 @@ describe("Selection Restoration Fix - Page Reload", () => {
     });
     await dataCoordinator.init();
 
-    // InterfaceModeService emits the environment change in the real app
-    interfaceModeService = new InterfaceModeService({ eventBus });
-    interfaceModeService.request = vi.fn(async (topic) => {
-      if (topic === "data:update-profile") {
-        return { success: true };
-      }
-      return null;
+    // Initialize the real environment owner in the same order as the app.
+    interfaceModeService = new InterfaceModeService({
+      eventBus,
+      storage: storageService,
     });
     interfaceModeService.init();
 
@@ -81,16 +67,11 @@ describe("Selection Restoration Fix - Page Reload", () => {
     selectionConsumer = new SelectionCacheConsumer(eventBus);
     await selectionConsumer.init();
 
-    // Wait for handshake to complete before switching mode
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const restoredEnv = dataCoordinator.getCurrentState().currentEnvironment;
-    if (restoredEnv) {
-      await interfaceModeService.switchMode(restoredEnv);
-    }
-
-    // Wait for all async operations to complete
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.waitFor(() => {
+      expect(dataCoordinator.getCurrentState().ready).toBe(true);
+      expect(interfaceModeService.currentMode).toBe("ground");
+      expect(selectionService.cache.currentEnvironment).toBe("ground");
+    });
   });
 
   afterEach(() => {
@@ -98,12 +79,13 @@ describe("Selection Restoration Fix - Page Reload", () => {
     selectionConsumer?.destroy?.();
     selectionService?.destroy?.();
     dataCoordinator?.destroy?.();
+    storageService?.destroy?.();
     vi.clearAllMocks();
   });
 
   it("should restore key selection from profile during initialization", () => {
-    // During initialization/late-join, state is set directly without emitting events
-    // This is the correct behavior - events are for user actions, not initialization
+    // Accepted startup broadcasts and late-join snapshots restore the cache;
+    // no synthetic user action is needed to select the persisted key.
 
     // Verify the selection was restored correctly in the cache
     expect(selectionService.cache.selectedKey).toBe("F2");
@@ -169,21 +151,20 @@ describe("Selection Restoration Fix - Page Reload", () => {
     });
     await dataCoordinator.init();
 
-    interfaceModeService = new InterfaceModeService({ eventBus });
-    interfaceModeService.request = vi.fn(async (topic) => {
-      if (topic === "data:update-profile") {
-        return { success: true };
-      }
-      return null;
+    interfaceModeService = new InterfaceModeService({
+      eventBus,
+      storage: storageService,
     });
     interfaceModeService.init();
 
     selectionService = new SelectionService({ eventBus });
     await selectionService.init();
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    await interfaceModeService.switchMode("alias");
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.waitFor(() => {
+      expect(dataCoordinator.getCurrentState().ready).toBe(true);
+      expect(interfaceModeService.currentMode).toBe("alias");
+      expect(selectionService.cache.currentEnvironment).toBe("alias");
+    });
 
     // Should restore alias selection
     expect(selectionService.cache.currentEnvironment).toBe("alias");

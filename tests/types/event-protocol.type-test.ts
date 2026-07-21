@@ -222,6 +222,7 @@ type DataStateReasonsAreClosed = Expect<
     | "profile-renamed"
     | "profile-deleted"
     | "profile-updated"
+    | "profile-replaced"
     | "environment-changed"
     | "settings-updated"
     | "default-profiles-created"
@@ -409,6 +410,22 @@ bus.emit("preferences:loaded", { settings: { language: "en" } });
 bus.emit("preferences:changed", { key: "language", value: "de" });
 bus.emit("data:state-changed", {
   reason: "initial-load",
+  state: dataCoordinatorState,
+});
+bus.emit("data:state-changed", {
+  reason: "profile-replaced",
+  profileId: "captain",
+  state: dataCoordinatorState,
+});
+// @ts-expect-error Complete profile replacements identify the replaced profile.
+bus.emit("data:state-changed", {
+  reason: "profile-replaced",
+  state: dataCoordinatorState,
+});
+// @ts-expect-error Other publication reasons do not carry replacement metadata.
+bus.emit("data:state-changed", {
+  reason: "profile-updated",
+  profileId: "captain",
   state: dataCoordinatorState,
 });
 // @ts-expect-error Data state broadcasts require a closed publication reason.

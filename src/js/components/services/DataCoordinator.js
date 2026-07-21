@@ -22,9 +22,13 @@ import {
 } from "./profileConstruction.js";
 import { planProfileNormalizations } from "./profileNormalizationPlan.js";
 import { applyProfileOperations } from "./profileOperations.js";
+import {
+  createDataStateChangedPayload,
+  profileStateChange,
+} from "./dataStateChange.js";
 
 /** @param {unknown} error */
-const getErrorMessage = (error) =>
+const errMsg = (error) =>
   error instanceof Error ? error.message : String(error);
 
 /** @param {object} value @param {PropertyKey} key */
@@ -284,31 +288,21 @@ export default class DataCoordinator extends ComponentBase {
    * progress are represented by the final initial-load snapshot instead.
    *
    * @param {import('../../types/events/data.js').DataStateChangeReason} reason
+   * @param {{ profileId?: string }} [details]
    * @returns {import('../../types/events/component-state.js').DataCoordinatorStateSnapshot | null}
    */
-  _publishState(reason) {
+  _publishState(reason, details = {}) {
     if (!this._stateReady || this.destroyed) return null;
 
     this._stateRevision += 1;
     this._currentStateSnapshot = null;
     const state = this.getCurrentState();
-    this.emit("data:state-changed", Object.freeze({ reason, state }), {
-      synchronous: true,
-    });
+    this.emit(
+      "data:state-changed",
+      createDataStateChangedPayload(reason, state, details),
+      { synchronous: true },
+    );
     return state;
-  }
-
-  /**
-   * Build virtual profile with current build data
-   */
-  /**
-   * @param {string} profileId
-   * @param {import('./serviceTypes.js').ProfileData | null | undefined} profile
-   * @param {string} environment
-   * @returns {import('./serviceTypes.js').ProfileData | null}
-   */
-  buildVirtualProfile(profileId, profile, environment) {
-    return createVirtualProfile(profileId, profile, environment);
   }
 
   /**
@@ -325,7 +319,7 @@ export default class DataCoordinator extends ComponentBase {
         hasOwn(this.state.profiles, this.state.currentProfile)
       ) {
         const profile = this.state.profiles[this.state.currentProfile];
-        currentProfile = this.buildVirtualProfile(
+        currentProfile = createVirtualProfile(
           this.state.currentProfile,
           profile,
           this.state.currentEnvironment,
@@ -361,7 +355,7 @@ export default class DataCoordinator extends ComponentBase {
     this.state.metadata.lastModified = new Date().toISOString();
 
     // Build virtual profile for response
-    const virtualProfile = this.buildVirtualProfile(
+    const virtualProfile = createVirtualProfile(
       profileId,
       profile,
       this.state.currentEnvironment,
@@ -447,7 +441,7 @@ export default class DataCoordinator extends ComponentBase {
       };
     } catch (error) {
       const message = this.i18n.t("failed_to_create_profile", {
-        error: getErrorMessage(error),
+        error: errMsg(error),
       });
       throw new Error(message);
     }
@@ -516,7 +510,7 @@ export default class DataCoordinator extends ComponentBase {
       };
     } catch (error) {
       const message = this.i18n.t("failed_to_clone_profile", {
-        error: getErrorMessage(error),
+        error: errMsg(error),
       });
       throw new Error(message);
     }
@@ -584,7 +578,7 @@ export default class DataCoordinator extends ComponentBase {
       };
     } catch (error) {
       const message = this.i18n.t("failed_to_rename_profile", {
-        error: getErrorMessage(error),
+        error: errMsg(error),
       });
       throw new Error(message);
     }
@@ -631,7 +625,7 @@ export default class DataCoordinator extends ComponentBase {
         const newProfile = nextProfiles[nextCurrentProfile];
         nextCurrentEnvironment = newProfile.currentEnvironment || "space";
 
-        switchedProfile = this.buildVirtualProfile(
+        switchedProfile = createVirtualProfile(
           nextCurrentProfile,
           newProfile,
           nextCurrentEnvironment,
@@ -689,22 +683,10 @@ export default class DataCoordinator extends ComponentBase {
       };
     } catch (error) {
       const message = this.i18n.t("failed_to_delete_profile", {
-        error: getErrorMessage(error),
+        error: errMsg(error),
       });
       throw new Error(message);
     }
-  }
-
-  /**
-   * Process explicit update operations (add/delete/modify)
-   * Handle delete before add/modify to avoid conflicts
-   */
-  /**
-   * @param {import('./serviceTypes.js').ProfileData} currentProfile
-   * @param {import('./serviceTypes.js').ProfileOperations} operations
-   */
-  processUpdateOperations(currentProfile, operations) {
-    return applyProfileOperations(currentProfile, operations);
   }
 
   /**
@@ -775,7 +757,7 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error(`Profile ${profileId} not found`);
     }
 
-    const updatedProfile = this.processUpdateOperations(operationBase, {
+    const updatedProfile = applyProfileOperations(operationBase, {
       ...persistableUpdates,
       properties: {
         ...(persistableUpdates.properties || {}),
@@ -809,7 +791,9 @@ export default class DataCoordinator extends ComponentBase {
       this.state.metadata.lastModified = new Date().toISOString();
 
       if (publishState) {
-        this._publishState("profile-updated");
+        this._publishState(
+          ...profileStateChange(persistableUpdates, profileId),
+        );
       }
 
       // Determine if any structural collections were touched
@@ -833,7 +817,7 @@ export default class DataCoordinator extends ComponentBase {
       return { success: true, profile: structuredClone(persistedProfile) };
     } catch (error) {
       const message = this.i18n.t("failed_to_save_profile", {
-        error: getErrorMessage(error),
+        error: errMsg(error),
       });
       throw new Error(message);
     }
@@ -951,7 +935,7 @@ export default class DataCoordinator extends ComponentBase {
         `[${this.componentName}] Failed to load default data:`,
         error,
       );
-      return { success: false, error: getErrorMessage(error) };
+      return { success: false, error: errMsg(error) };
     }
   }
 
@@ -988,7 +972,7 @@ export default class DataCoordinator extends ComponentBase {
       if (!this._isCurrentOperation(operation)) return;
       console.error(
         `[${this.componentName}] Failed to create default profiles:`,
-        getErrorMessage(error),
+        errMsg(error),
       );
       // For storage failures, we should not retry indefinitely
       // The application can function without default profiles if storage is broken
@@ -1038,7 +1022,7 @@ export default class DataCoordinator extends ComponentBase {
       await persist.all(this.storage, nextRoot, this.i18n);
     } catch (error) {
       const message = this.i18n.t("failed_to_save_profile", {
-        error: getErrorMessage(error),
+        error: errMsg(error),
       });
       throw new Error(message);
     }
@@ -1071,7 +1055,7 @@ export default class DataCoordinator extends ComponentBase {
       this.state.profiles[this.state.currentProfile]
     ) {
       const activatedProfile = this.state.profiles[this.state.currentProfile];
-      const virtualProfile = this.buildVirtualProfile(
+      const virtualProfile = createVirtualProfile(
         this.state.currentProfile,
         activatedProfile,
         this.state.currentEnvironment,
@@ -1125,7 +1109,7 @@ export default class DataCoordinator extends ComponentBase {
       await persist.all(this.storage, nextRoot, this.i18n);
     } catch (error) {
       const message = this.i18n.t("failed_to_save_profile", {
-        error: getErrorMessage(error),
+        error: errMsg(error),
       });
       throw new Error(message);
     }
@@ -1153,7 +1137,7 @@ export default class DataCoordinator extends ComponentBase {
     // If we activated a profile for the first time, emit profile:switched event
     if (profileActivated && this.state.currentProfile) {
       const activatedProfile = this.state.profiles[this.state.currentProfile];
-      const virtualProfile = this.buildVirtualProfile(
+      const virtualProfile = createVirtualProfile(
         this.state.currentProfile,
         activatedProfile,
         this.state.currentEnvironment,
@@ -1218,7 +1202,7 @@ export default class DataCoordinator extends ComponentBase {
       });
     } catch (error) {
       const message = this.i18n.t("failed_to_save_profile", {
-        error: getErrorMessage(error),
+        error: errMsg(error),
       });
       throw new Error(message);
     }
@@ -1288,7 +1272,7 @@ export default class DataCoordinator extends ComponentBase {
         this.state.profiles[this.state.currentProfile]
       ) {
         const currentProfile = this.state.profiles[this.state.currentProfile];
-        const virtualProfile = this.buildVirtualProfile(
+        const virtualProfile = createVirtualProfile(
           this.state.currentProfile,
           currentProfile,
           this.state.currentEnvironment,
@@ -1320,10 +1304,6 @@ export default class DataCoordinator extends ComponentBase {
         { synchronous: true },
       );
 
-      console.log(
-        `[${this.componentName}] Emitted refresh events after state reload`,
-      );
-
       return {
         success: true,
         profiles: Object.keys(this.state.profiles).length,
@@ -1335,7 +1315,7 @@ export default class DataCoordinator extends ComponentBase {
         return { success: false, error: "operation_cancelled" };
       }
       console.error(`[${this.componentName}] Failed to reload state:`, error);
-      return { success: false, error: getErrorMessage(error) };
+      return { success: false, error: errMsg(error) };
     }
   }
 

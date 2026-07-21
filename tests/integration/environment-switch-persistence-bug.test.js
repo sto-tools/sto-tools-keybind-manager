@@ -1,207 +1,239 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import eventBus from "../../src/js/core/eventBus.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import InterfaceModeService from "../../src/js/components/services/InterfaceModeService.js";
 import SelectionService from "../../src/js/components/services/SelectionService.js";
+import StorageService from "../../src/js/components/services/StorageService.js";
+import eventBus from "../../src/js/core/eventBus.js";
 
-describe("Environment Switch Selection Persistence Bug Fix", () => {
-  let storageService, dataCoordinator, interfaceModeService, selectionService;
+const profileId = "environment-switch-persistence";
+
+function createProfile() {
+  return {
+    name: "Environment switch persistence",
+    description: "Real owner-chain environment switch fixture",
+    currentEnvironment: "space",
+    builds: {
+      space: { keys: { F1: [], F2: [] } },
+      ground: { keys: { G1: [], G2: [] } },
+    },
+    aliases: { TestAlias: { type: "user" } },
+    selections: {
+      space: "F1",
+      ground: "G1",
+      alias: "TestAlias",
+    },
+  };
+}
+
+describe("Environment switch persistence boundary", () => {
+  let storageService;
+  let dataCoordinator;
+  let interfaceModeService;
+  let selectionService;
 
   beforeEach(async () => {
+    localStorage.clear();
     const i18n = { t: (key) => key };
 
-    // Create real services
-    storageService = new StorageService({ eventBus });
+    storageService = new StorageService({ eventBus, i18n });
+    storageService.init();
+    expect(storageService.saveProfile(profileId, createProfile())).toBe(true);
+    const root = storageService.getAllData();
+    root.currentProfile = profileId;
+    expect(storageService.saveAllData(root)).toBe(true);
+
     dataCoordinator = new DataCoordinator({
       eventBus,
       storage: storageService,
       i18n,
     });
+    dataCoordinator.init();
+
     interfaceModeService = new InterfaceModeService({
       eventBus,
       storage: storageService,
     });
-    selectionService = new SelectionService({ eventBus });
-
-    // Initialize services in correct order
-    storageService.init();
-    await dataCoordinator.init();
     interfaceModeService.init();
-    await selectionService.init();
 
-    // Create test profile with initial selections
-    const testProfile = {
-      name: "Bug Test Profile",
-      description:
-        "Profile for testing environment switch selection persistence",
-      currentEnvironment: "space",
-      builds: {
-        space: { keys: { F1: [], F2: [], F3: [] } },
-        ground: { keys: { G1: [], G2: [] } },
-      },
-      aliases: { TestAlias: { type: "user" } },
-      selections: {
-        space: "F1", // Initial selection
-        ground: "G1", // Initial selection
-        alias: "TestAlias",
-      },
-    };
+    selectionService = new SelectionService({ eventBus });
+    selectionService.init();
 
-    // Create and set up test profile
-    await dataCoordinator.request("data:create-profile", {
-      name: testProfile.name,
-      description: testProfile.description,
+    await vi.waitFor(() => {
+      expect(dataCoordinator.getCurrentState()).toMatchObject({
+        ready: true,
+        currentProfile: profileId,
+        currentEnvironment: "space",
+      });
+      expect(interfaceModeService.currentMode).toBe("space");
+      expect(selectionService.getCurrentState()).toMatchObject({
+        currentEnvironment: "space",
+        selectedKey: "F1",
+      });
     });
-
-    const profiles = dataCoordinator.getCurrentState().profiles;
-    const profileId = Object.keys(profiles).find(
-      (id) => profiles[id].name === testProfile.name,
-    );
-
-    await dataCoordinator.request("data:update-profile", {
-      profileId: profileId,
-      properties: testProfile,
-    });
-
-    await dataCoordinator.request("data:switch-profile", { profileId });
-
-    // Wait for initialization
-    await new Promise((resolve) => setTimeout(resolve, 100));
   });
 
   afterEach(() => {
-    // Clean up services
-    interfaceModeService?.destroy?.();
     selectionService?.destroy?.();
+    interfaceModeService?.destroy?.();
     dataCoordinator?.destroy?.();
     storageService?.destroy?.();
+    localStorage.clear();
   });
 
-  it("should demonstrate the selection persistence bug fix", async () => {
-    console.log("\n=== REPRODUCING BUG: Selection Persistence Issue ===");
+  it("persists a changed selection and restores it after switching away and back", async () => {
+    await expect(
+      selectionService.request("selection:select-key", {
+        keyName: "F2",
+        environment: "space",
+      }),
+    ).resolves.toBe("F2");
 
-    // STEP 1: Verify initial state - should have F1 selected in Space
-    console.log("\n--- Step 1: Initial State ---");
-    expect(selectionService.cache.currentEnvironment).toBe("space");
-    expect(selectionService.cache.selectedKey).toBe("F1");
-    expect(selectionService.cachedSelections.space).toBe("F1");
-    expect(selectionService.cachedSelections.ground).toBe("G1");
-    console.log("✓ Initial state verified: Space=F1, Ground=G1");
-
-    // STEP 2: User selects F2 in Space environment
-    console.log("\n--- Step 2: User selects F2 in Space ---");
-    await selectionService.request("selection:select-key", {
-      keyName: "F2",
-      environment: "space",
+    await vi.waitFor(() => {
+      expect(
+        dataCoordinator.getCurrentState().profiles[profileId].selections.space,
+      ).toBe("F2");
+      expect(storageService.getProfile(profileId).selections.space).toBe("F2");
     });
 
-    // Verify F2 is now selected and cached
-    expect(selectionService.cache.selectedKey).toBe("F2");
-    expect(selectionService.cachedSelections.space).toBe("F2");
-    console.log("✓ User selected F2 in Space");
-    console.log(`  - selectedKey: ${selectionService.cache.selectedKey}`);
-    console.log(
-      `  - cachedSelections.space: ${selectionService.cachedSelections.space}`,
-    );
-    console.log(
-      `  - cachedSelections.ground: ${selectionService.cachedSelections.ground}`,
-    );
+    await expect(
+      interfaceModeService.request("environment:switch", { mode: "ground" }),
+    ).resolves.toEqual({ success: true, mode: "ground" });
 
-    // STEP 3: User switches to Ground environment
-    console.log("\n--- Step 3: User switches to Ground ---");
-    await interfaceModeService.request("environment:switch", {
-      mode: "ground",
+    await vi.waitFor(() => {
+      expect(interfaceModeService.currentMode).toBe("ground");
+      expect(selectionService.getCurrentState()).toMatchObject({
+        currentEnvironment: "ground",
+        selectedKey: "G1",
+      });
+      expect(storageService.getProfile(profileId)).toMatchObject({
+        currentEnvironment: "ground",
+        selections: { space: "F2", ground: "G1" },
+      });
     });
 
-    // Wait for async operations to complete
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await expect(
+      interfaceModeService.request("environment:switch", { mode: "space" }),
+    ).resolves.toEqual({ success: true, mode: "space" });
 
-    // Verify environment switched and Ground selection is restored
-    expect(selectionService.cache.currentEnvironment).toBe("ground");
-    expect(selectionService.cache.selectedKey).toBe("G1");
-    console.log("✓ Switched to Ground, G1 restored");
-    console.log(
-      `  - currentEnvironment: ${selectionService.cache.currentEnvironment}`,
-    );
-    console.log(`  - selectedKey: ${selectionService.cache.selectedKey}`);
-    console.log(
-      `  - cachedSelections.space: ${selectionService.cachedSelections.space}`,
-    );
-    console.log(
-      `  - cachedSelections.ground: ${selectionService.cachedSelections.ground}`,
-    );
+    await vi.waitFor(() => {
+      expect(interfaceModeService.currentMode).toBe("space");
+      expect(selectionService.getCurrentState()).toMatchObject({
+        currentEnvironment: "space",
+        selectedKey: "F2",
+      });
+      expect(dataCoordinator.getCurrentState()).toMatchObject({
+        currentEnvironment: "space",
+        currentProfileData: {
+          currentEnvironment: "space",
+          selections: { space: "F2", ground: "G1" },
+        },
+      });
+      expect(storageService.getProfile(profileId)).toMatchObject({
+        currentEnvironment: "space",
+        selections: { space: "F2", ground: "G1" },
+      });
+    });
+  });
 
-    // CRITICAL CHECK: Verify that F2 was persisted to Space selections
-    const profiles = dataCoordinator.getCurrentState().profiles;
-    const currentProfileId = dataCoordinator.state.currentProfile;
-    const currentProfile = profiles[currentProfileId];
-    console.log(
-      `  - Profile selections.space: ${currentProfile.selections.space}`,
-    );
-    console.log(
-      `  - Profile selections.ground: ${currentProfile.selections.ground}`,
-    );
-
-    // This should show F2 in Space selections (THE FIX)
-    expect(currentProfile.selections.space).toBe("F2");
-    expect(currentProfile.selections.ground).toBe("G1");
-    console.log(
-      "✅ FIX CONFIRMED: F2 persisted to profile.space, G1 persisted to profile.ground",
-    );
-
-    // STEP 4: Switch back to Space environment to test if F2 is preserved
-    console.log("\n--- Step 4: User switches back to Space (BUG TEST) ---");
-    await interfaceModeService.request("environment:switch", { mode: "space" });
-
-    // Wait for async operations to complete (including the profile restoration fix)
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    // Verify the fix: F2 should be restored, not the original F1
-    console.log("🔍 FIX VERIFICATION RESULTS:");
-    console.log(
-      `  - currentEnvironment: ${selectionService.cache.currentEnvironment}`,
-    );
-    console.log(`  - selectedKey: ${selectionService.cache.selectedKey}`);
-    console.log(
-      `  - cachedSelections.space: ${selectionService.cachedSelections.space}`,
-    );
-    console.log(
-      `  - cachedSelections.ground: ${selectionService.cachedSelections.ground}`,
-    );
-
-    // The FIX: It should restore F2 (not F1)
-    if (selectionService.cache.selectedKey === "F2") {
-      console.log("✅ FIX CONFIRMED: Correctly restored F2!");
-    } else if (selectionService.cache.selectedKey === "F1") {
-      console.log("🐛 BUG STILL EXISTS: Restored F1 instead of F2!");
-    } else {
-      console.log(
-        `❓ UNEXPECTED: Restored ${selectionService.cache.selectedKey}`,
+  it.each(["resolved false", "rejection"])(
+    "keeps every owner and consumer unchanged after a %s, then converges after retry",
+    async (failureKind) => {
+      const ownerBefore = dataCoordinator.getCurrentState();
+      const persistedBefore = structuredClone(
+        storageService.getProfile(profileId),
       );
-    }
+      const interfaceBefore = interfaceModeService.getCurrentState();
+      const selectionBefore = selectionService.getCurrentState();
+      const publications = {
+        data: [],
+        environment: [],
+        selection: [],
+        profile: [],
+      };
+      const detachers = [
+        eventBus.on("data:state-changed", (payload) =>
+          publications.data.push(payload),
+        ),
+        eventBus.on("environment:changed", (payload) =>
+          publications.environment.push(payload),
+        ),
+        eventBus.on("selection:state-changed", (payload) =>
+          publications.selection.push(payload),
+        ),
+        eventBus.on("profile:updated", (payload) =>
+          publications.profile.push(payload),
+        ),
+      ];
+      const saveProfile = vi.spyOn(storageService, "saveProfile");
+      if (failureKind === "resolved false") {
+        saveProfile.mockReturnValueOnce(false);
+      } else {
+        saveProfile.mockRejectedValueOnce(new Error("storage unavailable"));
+      }
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    // Final verification: Check what's in the profile
-    const finalProfiles = dataCoordinator.getCurrentState().profiles;
-    const finalProfileId = dataCoordinator.state.currentProfile;
-    const finalProfile = finalProfiles[finalProfileId];
-    console.log(
-      `  - Final profile selections.space: ${finalProfile.selections.space}`,
-    );
-    console.log(
-      `  - Final profile selections.ground: ${finalProfile.selections.ground}`,
-    );
+      try {
+        await expect(
+          interfaceModeService.request("environment:switch", {
+            mode: "ground",
+          }),
+        ).resolves.toEqual({
+          success: false,
+          error: "failed_to_save_profile",
+        });
 
-    // This assertion should pass if the fix works
-    expect(selectionService.cache.selectedKey).toBe(
-      "F2",
-      `Expected F2 to be restored after switching back to Space, but got ${selectionService.cache.selectedKey}`,
-    );
+        expect(dataCoordinator.getCurrentState()).toBe(ownerBefore);
+        expect(dataCoordinator.getCurrentState().revision).toBe(
+          ownerBefore.revision,
+        );
+        expect(storageService.getProfile(profileId)).toEqual(persistedBefore);
+        expect(interfaceModeService.getCurrentState()).toEqual(interfaceBefore);
+        expect(selectionService.getCurrentState()).toEqual(selectionBefore);
+        expect(publications).toEqual({
+          data: [],
+          environment: [],
+          selection: [],
+          profile: [],
+        });
 
-    // Also verify the profile still has the correct data
-    expect(finalProfile.selections.space).toBe("F2");
-    expect(finalProfile.selections.ground).toBe("G1");
+        await expect(
+          interfaceModeService.request("environment:switch", {
+            mode: "ground",
+          }),
+        ).resolves.toEqual({ success: true, mode: "ground" });
 
-    console.log("✅ FIX VERIFICATION COMPLETE: Bug has been resolved!");
-  });
+        await vi.waitFor(() => {
+          expect(dataCoordinator.getCurrentState().revision).toBeGreaterThan(
+            ownerBefore.revision,
+          );
+          expect(dataCoordinator.getCurrentState()).toMatchObject({
+            currentEnvironment: "ground",
+            currentProfileData: { currentEnvironment: "ground" },
+          });
+          expect(storageService.getProfile(profileId).currentEnvironment).toBe(
+            "ground",
+          );
+          expect(interfaceModeService.currentMode).toBe("ground");
+          expect(selectionService.getCurrentState()).toMatchObject({
+            currentEnvironment: "ground",
+            selectedKey: "G1",
+          });
+        });
+        expect(publications.data.length).toBeGreaterThan(0);
+        expect(publications.environment).toHaveLength(1);
+        expect(publications.environment[0]).toMatchObject({
+          fromEnvironment: "space",
+          toEnvironment: "ground",
+          environment: "ground",
+        });
+        expect(publications.selection.length).toBeGreaterThan(0);
+        expect(publications.profile).toEqual([]);
+      } finally {
+        error.mockRestore();
+        saveProfile.mockRestore();
+        for (const detach of detachers) detach();
+      }
+    },
+  );
 });

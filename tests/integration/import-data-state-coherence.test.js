@@ -129,7 +129,7 @@ describe("ImportService DataCoordinator coherence", () => {
     expect(stateEvents).toHaveLength(1);
     expect(legacyEvents).toHaveLength(1);
     expect(stateEvents[0].data).toMatchObject({
-      reason: "profile-updated",
+      reason: "profile-replaced",
       state: { revision: beforeRevision + 1 },
     });
     expect(history.indexOf(stateEvents[0])).toBeLessThan(

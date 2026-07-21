@@ -189,8 +189,8 @@ describe("text export/import round trips", () => {
       ({ event }) => event === "data:state-changed",
     );
     expect(stateEvents.map(({ data }) => data.reason)).toEqual([
-      "profile-updated",
-      "profile-updated",
+      "profile-replaced",
+      "profile-replaced",
     ]);
     expect(stateEvents.map(({ data }) => data.state.revision)).toEqual([
       beforeRevision + 1,

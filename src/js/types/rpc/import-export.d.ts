@@ -18,6 +18,17 @@ export type ImportStrategy =
 
 export type NamedProfile = Profile & { name: string };
 
+export type InterfaceMode = "space" | "ground" | "alias";
+
+export type EnvironmentSwitchResult =
+  | { success: true; mode: InterfaceMode }
+  | CodedFailure<
+      | "invalid_environment"
+      | "no_profile_selected"
+      | "failed_to_save_profile"
+      | "operation_cancelled"
+    >;
+
 export type KeybindImportResult =
   | {
       success: true;
@@ -164,9 +175,8 @@ export type KBFParseForUiResult =
 
 export interface ImportExportRpcProtocol {
   "environment:switch": RequiredRpc<
-    { mode?: string },
-    | { success: true; mode: string }
-    | { success: false; error: "No mode provided" }
+    { mode: InterfaceMode },
+    EnvironmentSwitchResult
   >;
   "export:generate-alias-file": RequiredRpc<{ profileId: string }, string>;
   "export:generate-alias-filename": RequiredRpc<

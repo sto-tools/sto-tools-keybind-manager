@@ -171,6 +171,30 @@ describe("DataCoordinator complete state snapshots", () => {
     });
   });
 
+  it("identifies the exact profile replaced by a complete profile commit", async () => {
+    await initialize();
+    clearEvents();
+
+    await coordinator.updateProfile("alpha", {
+      replacement: profile("Replacement", "ground"),
+    });
+
+    expect(stateEvents()).toHaveLength(1);
+    expect(stateEvents()[0].data).toMatchObject({
+      reason: "profile-replaced",
+      profileId: "alpha",
+      state: {
+        revision: 2,
+        currentProfile: "alpha",
+        currentEnvironment: "ground",
+        currentProfileData: {
+          name: "Replacement",
+          currentEnvironment: "ground",
+        },
+      },
+    });
+  });
+
   it("does not advance or publish when persistence rejects a mutation", async () => {
     await initialize();
     clearEvents();

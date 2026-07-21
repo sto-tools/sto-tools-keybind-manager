@@ -10,16 +10,24 @@ export type DataStateChangeReason =
   | "profile-renamed"
   | "profile-deleted"
   | "profile-updated"
+  | "profile-replaced"
   | "environment-changed"
   | "settings-updated"
   | "default-profiles-created"
   | "fallback-profiles-created"
   | "state-reloaded";
 
-export interface DataStateChangedPayload {
-  reason: DataStateChangeReason;
-  state: DataCoordinatorStateSnapshot;
-}
+export type DataStateChangedPayload =
+  | {
+      reason: "profile-replaced";
+      profileId: string;
+      state: DataCoordinatorStateSnapshot;
+    }
+  | {
+      reason: Exclude<DataStateChangeReason, "profile-replaced">;
+      profileId?: never;
+      state: DataCoordinatorStateSnapshot;
+    };
 
 export interface DataEventProtocol {
   "data:state-changed": DataStateChangedPayload;
