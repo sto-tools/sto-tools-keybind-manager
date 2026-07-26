@@ -38,6 +38,7 @@ describe("sync folder settings owner integration", () => {
   let sync;
   let ui;
   let fs;
+  let directoryPicker;
 
   async function setup({
     rejectSettingsWrite = false,
@@ -67,6 +68,10 @@ describe("sync folder settings owner integration", () => {
       }),
     };
     addSyncTransitionMethods(fs);
+    directoryPicker = {
+      isSupported: vi.fn().mockReturnValue(true),
+      pick: vi.fn().mockResolvedValue(handle),
+    };
     storage = new StorageService({ eventBus });
     sync = new SyncService({
       eventBus,
@@ -75,6 +80,7 @@ describe("sync folder settings owner integration", () => {
       i18n: {
         t: (key, params) => (params?.error ? `${key}:${params.error}` : key),
       },
+      directoryPicker,
     });
     preferences = new PreferencesService({ storage, eventBus });
 
@@ -86,7 +92,6 @@ describe("sync folder settings owner integration", () => {
     await preferences.initialStateReady;
     vi.spyOn(sync, "isFirefox").mockReturnValue(false);
     vi.spyOn(sync, "isSecureContext").mockReturnValue(true);
-    vi.stubGlobal("showDirectoryPicker", vi.fn().mockResolvedValue(handle));
   }
 
   afterEach(() => {
@@ -108,11 +113,13 @@ describe("sync folder settings owner integration", () => {
     const importDecision = new Promise((resolve) => {
       resolveImportDecision = resolve;
     });
-    const confirm = vi.fn().mockReturnValueOnce(importDecision);
-    vi.stubGlobal("confirmDialog", { confirm });
     sync.invokeRequest = vi
       .fn()
-      .mockResolvedValue(createProjectRestoreSuccess());
+      .mockImplementation((topic) =>
+        topic === "ui:confirm"
+          ? importDecision
+          : Promise.resolve(createProjectRestoreSuccess()),
+      );
     const publicationOrder = [];
     let cacheAtFolderSet;
     eventBus.on("preferences:loaded", () => {
@@ -124,21 +131,40 @@ describe("sync folder settings owner integration", () => {
     });
 
     const selection = sync.setSyncFolder(true);
-    await vi.waitFor(() => expect(confirm).toHaveBeenCalledOnce());
+    await vi.waitFor(() =>
+      expect(sync.invokeRequest).toHaveBeenCalledWith(
+        "ui:confirm",
+        {
+          message: "sync_folder_contains_project_prompt",
+          title: "sync_folder_contains_project_title",
+          type: "warning",
+          context: "syncImportProject",
+        },
+        0,
+      ),
+    );
 
     await expect(
       preferences.setExtensionSetting("plugin:concurrent", {
         density: "compact",
       }),
     ).resolves.toBe(true);
-    expect(sync.invokeRequest).not.toHaveBeenCalled();
+    expect(sync.invokeRequest).not.toHaveBeenCalledWith(
+      "project:restore-from-content",
+      expect.anything(),
+      0,
+    );
 
     resolveImportDecision(true);
     await expect(selection).resolves.toBe(handle);
 
     expect(sync.pendingSyncAction).toBe("import");
     expect(sync.awaitingSyncDecisionApply).toBe(true);
-    expect(sync.invokeRequest).not.toHaveBeenCalled();
+    expect(sync.invokeRequest).not.toHaveBeenCalledWith(
+      "project:restore-from-content",
+      expect.anything(),
+      0,
+    );
     expect(publicationOrder).toEqual(["preferences:loaded", "sync:folder-set"]);
     expect(cacheAtFolderSet).toEqual(
       expect.objectContaining({
@@ -165,7 +191,7 @@ describe("sync folder settings owner integration", () => {
     );
 
     await expect(preferences.saveSettings()).resolves.toBe(true);
-    expect(sync.invokeRequest).toHaveBeenCalledOnce();
+    expect(sync.invokeRequest).toHaveBeenCalledTimes(2);
     expect(sync.invokeRequest).toHaveBeenCalledWith(
       "project:restore-from-content",
       { content: projectContent, fileName: "project.json" },

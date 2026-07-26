@@ -32,11 +32,19 @@ describe("SyncService", () => {
     uiMock,
     fsMock,
     i18nMock,
+    directoryPickerMock,
+    confirmMock,
     services,
     persistFolderSettings,
-    detachSettings;
+    detachSettings,
+    detachConfirm;
 
   beforeEach(() => {
+    global.window = {
+      isSecureContext: true,
+      location: { protocol: "https:", hostname: "localhost" },
+    };
+    global.navigator = { userAgent: "Chrome/91.0" };
     fixture = createServiceFixture({ enableFS: false });
     services = [];
     uiMock = { showToast: vi.fn() };
@@ -49,11 +57,19 @@ describe("SyncService", () => {
     addSyncTransitionMethods(fsMock);
 
     i18nMock = { t: vi.fn((key) => key) };
+    directoryPickerMock = {
+      isSupported: vi.fn().mockReturnValue(true),
+      pick: vi.fn(),
+    };
+    confirmMock = vi.fn();
     persistFolderSettings = vi.fn().mockResolvedValue(true);
     detachSettings = respond(
       fixture.eventBus,
       "preferences:persist-sync-folder-settings",
       (settings) => persistFolderSettings(settings),
+    );
+    detachConfirm = respond(fixture.eventBus, "ui:confirm", (request) =>
+      confirmMock(request),
     );
 
     service = new SyncService({
@@ -61,6 +77,7 @@ describe("SyncService", () => {
       ui: uiMock,
       fs: fsMock,
       i18n: i18nMock,
+      directoryPicker: directoryPickerMock,
     });
     services.push(service);
     service.init();
@@ -68,6 +85,7 @@ describe("SyncService", () => {
 
   afterEach(() => {
     detachSettings?.();
+    detachConfirm?.();
     services.forEach((candidate) => {
       if (!candidate.destroyed) candidate.destroy();
     });
@@ -75,188 +93,10 @@ describe("SyncService", () => {
     vi.restoreAllMocks();
   });
 
-  describe("Browser Detection", () => {
-    it("isFirefox() returns true for Firefox user agent", () => {
-      global.navigator = {
-        userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0) Gecko/20100101 Firefox/91.0",
-      };
-      expect(service.isFirefox()).toBe(true);
-    });
-
-    it("isFirefox() returns false for Chrome user agent", () => {
-      global.navigator = {
-        userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      };
-      expect(service.isFirefox()).toBe(false);
-    });
-
-    it("isFirefox() returns false for Edge user agent", () => {
-      global.navigator = {
-        userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.59",
-      };
-      expect(service.isFirefox()).toBe(false);
-    });
-
-    it("isFirefox() returns false when navigator is undefined", () => {
-      global.navigator = undefined;
-      expect(service.isFirefox()).toBe(false);
-    });
-  });
-
-  describe("Secure Context Detection", () => {
-    it("isSecureContext() returns true for HTTPS", () => {
-      global.window = {
-        isSecureContext: true,
-        location: { protocol: "https:", hostname: "example.com" },
-      };
-      expect(service.isSecureContext()).toBe(true);
-    });
-
-    it("isSecureContext() returns true for file:// protocol (fallback logic)", () => {
-      global.window = {
-        isSecureContext: undefined, // Force fallback logic
-        location: { protocol: "file:", hostname: "" },
-      };
-      expect(service.isSecureContext()).toBe(true);
-    });
-
-    it("isSecureContext() returns true for localhost (fallback logic)", () => {
-      global.window = {
-        isSecureContext: undefined, // Force fallback logic
-        location: { protocol: "http:", hostname: "localhost" },
-      };
-      expect(service.isSecureContext()).toBe(true);
-    });
-
-    it("isSecureContext() returns true for 127.0.0.1 (fallback logic)", () => {
-      global.window = {
-        isSecureContext: undefined, // Force fallback logic
-        location: { protocol: "http:", hostname: "127.0.0.1" },
-      };
-      expect(service.isSecureContext()).toBe(true);
-    });
-
-    it("isSecureContext() returns false for HTTP on non-localhost", () => {
-      global.window = {
-        isSecureContext: false,
-        location: { protocol: "http:", hostname: "example.com" },
-      };
-      expect(service.isSecureContext()).toBe(false);
-    });
-
-    it("isSecureContext() returns false when window is undefined", () => {
-      global.window = undefined;
-      expect(service.isSecureContext()).toBe(false);
-    });
-  });
-
-  describe("setSyncFolder - Browser and Context Detection", () => {
-    beforeEach(() => {
-      // Mock window.confirmDialog
-      global.window = {
-        ...global.window,
-        confirmDialog: {
-          inform: vi.fn().mockResolvedValue(undefined),
-        },
-      };
-    });
-
-    it("shows Firefox error for Firefox regardless of protocol", async () => {
-      // Setup Firefox environment
-      global.navigator = { userAgent: "Firefox/91.0" };
-      global.window.location = { protocol: "https:", hostname: "localhost" };
-      global.window.isSecureContext = true;
-
-      await service.setSyncFolder(false);
-
-      expect(uiMock.showToast).toHaveBeenCalledWith(
-        "sync_not_supported_firefox",
-        "error",
-      );
-      expect(global.window.confirmDialog.inform).toHaveBeenCalled();
-    });
-
-    it("shows secure context error for Chrome on HTTP", async () => {
-      // Setup Chrome environment on HTTP
-      global.navigator = { userAgent: "Chrome/91.0" };
-      global.window.location = { protocol: "http:", hostname: "example.com" };
-      global.window.isSecureContext = false;
-      global.window.showDirectoryPicker = vi.fn(); // Should not be called
-
-      await service.setSyncFolder(false);
-
-      expect(uiMock.showToast).toHaveBeenCalledWith(
-        "sync_not_supported_secure_context",
-        "error",
-      );
-      expect(global.window.confirmDialog.inform).toHaveBeenCalled();
-      expect(global.window.showDirectoryPicker).not.toHaveBeenCalled();
-    });
-
-    it("allows Chrome on HTTPS to proceed normally", async () => {
-      // Setup Chrome environment on HTTPS
-      global.navigator = { userAgent: "Chrome/91.0" };
-      global.window.location = { protocol: "https:", hostname: "example.com" };
-      global.window.isSecureContext = true;
-      const handle = createHandle("syncDir");
-      global.window.showDirectoryPicker = vi.fn().mockResolvedValue(handle);
-
-      await service.setSyncFolder(false);
-
-      expect(global.window.showDirectoryPicker).toHaveBeenCalled();
-      expect(uiMock.showToast).toHaveBeenCalledWith(
-        "sync_folder_set",
-        "success",
-      );
-      expect(persistFolderSettings).toHaveBeenCalledWith({
-        syncFolderName: "syncDir",
-        syncFolderPath: "Selected folder: syncDir",
-        syncFolderFallback: false,
-        autoSync: false,
-      });
-    });
-
-    it("allows Chrome on file:// to proceed normally", async () => {
-      // Setup Chrome environment on file://
-      global.navigator = { userAgent: "Chrome/91.0" };
-      global.window.location = { protocol: "file:", hostname: "" };
-      global.window.isSecureContext = true;
-      const handle = createHandle("syncDir");
-      global.window.showDirectoryPicker = vi.fn().mockResolvedValue(handle);
-
-      await service.setSyncFolder(false);
-
-      expect(global.window.showDirectoryPicker).toHaveBeenCalled();
-      expect(uiMock.showToast).toHaveBeenCalledWith(
-        "sync_folder_set",
-        "success",
-      );
-    });
-
-    it("shows browser error for non-Firefox without API support", async () => {
-      // Setup non-Firefox browser without API support
-      global.navigator = { userAgent: "SomeOtherBrowser/1.0" };
-      global.window.location = { protocol: "https:", hostname: "example.com" };
-      global.window.isSecureContext = true;
-      delete global.window.showDirectoryPicker;
-
-      await service.setSyncFolder(false);
-
-      expect(uiMock.showToast).toHaveBeenCalledWith(
-        "sync_not_supported_browser",
-        "error",
-      );
-      expect(global.window.confirmDialog.inform).toHaveBeenCalled();
-    });
-  });
-
   describe("Legacy Functionality", () => {
     it("setSyncFolder saves folder name in preferences", async () => {
       const handle = createHandle("syncDir");
-      global.window.showDirectoryPicker = vi.fn().mockResolvedValue(handle);
+      directoryPickerMock.pick.mockResolvedValue(handle);
       global.navigator = { userAgent: "Chrome/91.0" }; // Non-Firefox
       global.window.location = { protocol: "https:", hostname: "localhost" };
       global.window.isSecureContext = true;
@@ -435,11 +275,6 @@ describe("SyncService", () => {
           hostname: "example.com",
         };
         global.window.isSecureContext = true;
-        // Ensure confirm dialog exists
-        global.window.confirmDialog = {
-          ...(global.window.confirmDialog || {}),
-          confirm: vi.fn(),
-        };
       });
 
       function createDirHandleWithProject(jsonContent) {
@@ -472,16 +307,20 @@ describe("SyncService", () => {
         };
         const handle = createDirHandleWithProject(JSON.stringify(project));
         service.fs.getDirectoryHandle = vi.fn().mockResolvedValue(handle);
-        global.window.showDirectoryPicker = vi.fn().mockResolvedValue(handle);
-        global.window.confirmDialog.confirm.mockResolvedValue(true);
+        directoryPickerMock.pick.mockResolvedValue(handle);
+        confirmMock.mockResolvedValue(true);
 
-        const req = vi.fn().mockImplementation(async (topic) => {
-          if (topic === "project:restore-from-content")
-            return createProjectRestoreSuccess();
-          if (topic === "export:sync-to-folder")
-            throw new Error("should not export when importing");
-          return undefined;
-        });
+        const request = service.invokeRequest;
+        const req = vi
+          .fn()
+          .mockImplementation(async (topic, payload, timeout) => {
+            if (topic === "ui:confirm") return request(topic, payload, timeout);
+            if (topic === "project:restore-from-content")
+              return createProjectRestoreSuccess();
+            if (topic === "export:sync-to-folder")
+              throw new Error("should not export when importing");
+            return undefined;
+          });
         service.invokeRequest = req;
 
         await expect(service.setSyncFolder(false)).resolves.toBe(handle);
@@ -509,18 +348,20 @@ describe("SyncService", () => {
         };
         const handle = createDirHandleWithProject(JSON.stringify(project));
         service.fs.getDirectoryHandle = vi.fn().mockResolvedValue(handle);
-        global.window.showDirectoryPicker = vi.fn().mockResolvedValue(handle);
+        directoryPickerMock.pick.mockResolvedValue(handle);
         // First prompt (import?): decline; Second prompt (overwrite?): confirm
-        global.window.confirmDialog.confirm
-          .mockResolvedValueOnce(false)
-          .mockResolvedValueOnce(true);
+        confirmMock.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
 
-        const req = vi.fn().mockImplementation(async (topic) => {
-          if (topic === "project:restore-from-content")
-            throw new Error("should not import when declined");
-          if (topic === "export:sync-to-folder") return undefined;
-          return undefined;
-        });
+        const request = service.invokeRequest;
+        const req = vi
+          .fn()
+          .mockImplementation(async (topic, payload, timeout) => {
+            if (topic === "ui:confirm") return request(topic, payload, timeout);
+            if (topic === "project:restore-from-content")
+              throw new Error("should not import when declined");
+            if (topic === "export:sync-to-folder") return undefined;
+            return undefined;
+          });
         service.invokeRequest = req;
 
         await service.setSyncFolder(false);
@@ -545,19 +386,21 @@ describe("SyncService", () => {
         };
         const handle = createDirHandleWithProject(JSON.stringify(project));
         service.fs.getDirectoryHandle = vi.fn().mockResolvedValue(handle);
-        global.window.showDirectoryPicker = vi.fn().mockResolvedValue(handle);
+        directoryPickerMock.pick.mockResolvedValue(handle);
         // First confirm: decline import; Second confirm: decline overwrite
-        global.window.confirmDialog.confirm
-          .mockResolvedValueOnce(false)
-          .mockResolvedValueOnce(false);
+        confirmMock.mockResolvedValueOnce(false).mockResolvedValueOnce(false);
 
-        const req = vi.fn().mockImplementation(async (topic) => {
-          if (topic === "project:restore-from-content")
-            throw new Error("should not import when cancelled");
-          if (topic === "export:sync-to-folder")
-            throw new Error("should not export when cancelled");
-          return undefined;
-        });
+        const request = service.invokeRequest;
+        const req = vi
+          .fn()
+          .mockImplementation(async (topic, payload, timeout) => {
+            if (topic === "ui:confirm") return request(topic, payload, timeout);
+            if (topic === "project:restore-from-content")
+              throw new Error("should not import when cancelled");
+            if (topic === "export:sync-to-folder")
+              throw new Error("should not export when cancelled");
+            return undefined;
+          });
         service.invokeRequest = req;
 
         await expect(service.setSyncFolder(false)).resolves.toBeNull();

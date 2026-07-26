@@ -20,6 +20,7 @@ describe("SyncService folder-selection action", () => {
   let fs;
   let durableHandle;
   let detachFolderSettings;
+  let directoryPicker;
 
   beforeEach(() => {
     fixture = createServiceFixture({ enableFS: false });
@@ -34,10 +35,15 @@ describe("SyncService folder-selection action", () => {
       }),
     };
     addSyncTransitionMethods(fs);
+    directoryPicker = {
+      isSupported: vi.fn().mockReturnValue(true),
+      pick: vi.fn(),
+    };
     service = new SyncService({
       eventBus: fixture.eventBus,
       fs,
       i18n: { t: (key) => key },
+      directoryPicker,
     });
     service.init();
   });
@@ -187,7 +193,7 @@ describe("SyncService folder-selection action", () => {
       "preferences:persist-sync-folder-settings",
       (settings) => persistFolderSettings(settings),
     );
-    vi.stubGlobal("showDirectoryPicker", vi.fn().mockResolvedValue(handle));
+    directoryPicker.pick.mockResolvedValue(handle);
     vi.spyOn(service, "isFirefox").mockReturnValue(false);
     vi.spyOn(service, "isSecureContext").mockReturnValue(true);
     const folderSet = vi.fn();

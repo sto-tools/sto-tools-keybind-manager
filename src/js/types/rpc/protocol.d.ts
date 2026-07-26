@@ -6,6 +6,7 @@ import type { DataRpcProtocol } from "./data.js";
 import type { ImportExportRpcProtocol } from "./import-export.js";
 import type { KeyRpcProtocol } from "./keys.js";
 import type { ParameterPreferenceRpcProtocol } from "./parameters-preferences.js";
+import type { UiRpcProtocol } from "./ui.js";
 
 export interface RpcProtocol
   extends AliasRpcProtocol,
@@ -15,4 +16,5 @@ export interface RpcProtocol
     ImportExportRpcProtocol,
     KeyRpcProtocol,
     ParameterPreferenceRpcProtocol,
-    ApplicationRpcProtocol {}
+    ApplicationRpcProtocol,
+    UiRpcProtocol {}

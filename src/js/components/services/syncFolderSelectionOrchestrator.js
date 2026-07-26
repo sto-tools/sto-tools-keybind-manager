@@ -52,19 +52,13 @@ async function prepareDirectory(service, raw) {
 /**
  * @param {import('./SyncService.js').default} service
  * @param {import('../../types/sync-boundary.js').SyncProjectProbeResult} probe
- * @param {import('./serviceTypes.js').AppWindow} appWindow
  * @param {() => boolean} isCurrentSelection
  * @returns {Promise<
  *   | { accepted: false }
  *   | { accepted: true, action: 'import' | 'overwrite' | null, deferredContent: { content: string, fileName: string } | null }
  * >}
  */
-async function chooseProjectAction(
-  service,
-  probe,
-  appWindow,
-  isCurrentSelection,
-) {
+async function chooseProjectAction(service, probe, isCurrentSelection) {
   if (probe.success && probe.state === "absent") {
     return { accepted: true, action: null, deferredContent: null };
   }
@@ -84,17 +78,24 @@ async function chooseProjectAction(
     throw translatedError(service, "sync_folder_project_read_failed");
   }
 
-  const confirm = appWindow.confirmDialog?.confirm;
-  if (typeof confirm !== "function") {
-    throw translatedError(service, "sync_folder_confirmation_unavailable");
-  }
+  /** @param {string} message @param {string} title @param {string} context */
+  const confirm = async (message, title, context) => {
+    try {
+      return await service.invokeRequest(
+        "ui:confirm",
+        { message, title, type: "warning", context },
+        0,
+      );
+    } catch (error) {
+      console.warn("[SyncService] confirmation unavailable", error);
+      throw translatedError(service, "sync_folder_confirmation_unavailable");
+    }
+  };
 
   if (probe.success) {
-    const doImport = await confirm.call(
-      appWindow.confirmDialog,
+    const doImport = await confirm(
       service.i18n.t("sync_folder_contains_project_prompt"),
       service.i18n.t("sync_folder_contains_project_title"),
-      "warning",
       "syncImportProject",
     );
     if (!isCurrentSelection()) return { accepted: false };
@@ -110,15 +111,13 @@ async function chooseProjectAction(
     }
   }
 
-  const confirmOverwrite = await confirm.call(
-    appWindow.confirmDialog,
+  const confirmOverwrite = await confirm(
     service.i18n.t(
       invalidProject
         ? "sync_invalid_project_overwrite_prompt"
         : "sync_overwrite_existing_prompt",
     ),
     service.i18n.t("sync_overwrite_existing_title"),
-    "warning",
     "syncOverwriteProject",
   );
   if (!isCurrentSelection()) return { accepted: false };
@@ -128,6 +127,24 @@ async function chooseProjectAction(
 
   service.ui?.showToast(service.i18n.t("sync_operation_cancelled"), "info");
   return { accepted: false };
+}
+
+/**
+ * @param {import('./SyncService.js').default} service
+ * @param {string} message
+ * @param {string} title
+ * @param {string} id
+ */
+async function informIfAvailable(service, message, title, id) {
+  try {
+    await service.invokeRequest(
+      "ui:inform",
+      { message, title, type: "info", context: id },
+      0,
+    );
+  } catch {
+    // Informational dialogs are optional; the paired localized toast remains.
+  }
 }
 
 /**
@@ -254,23 +271,17 @@ export async function selectSyncFolder(service, autoSync = false) {
 
   try {
     console.log("[SyncService] setSyncFolder called", { autoSync: enabled });
-    const appWindow = /** @type {import('./serviceTypes.js').AppWindow} */ (
-      window
-    );
-
     if (service.isFirefox()) {
       service.ui?.showToast(
         service.i18n.t("sync_not_supported_firefox"),
         "error",
       );
-      if (appWindow.confirmDialog) {
-        await appWindow.confirmDialog.inform(
-          service.i18n.t("sync_not_supported_detailed"),
-          service.i18n.t("sync_not_supported_title"),
-          "info",
-          "syncNotSupported",
-        );
-      }
+      await informIfAvailable(
+        service,
+        service.i18n.t("sync_not_supported_detailed"),
+        service.i18n.t("sync_not_supported_title"),
+        "syncNotSupported",
+      );
       return null;
     }
 
@@ -279,34 +290,30 @@ export async function selectSyncFolder(service, autoSync = false) {
         service.i18n.t("sync_not_supported_secure_context"),
         "error",
       );
-      if (appWindow.confirmDialog) {
-        await appWindow.confirmDialog.inform(
-          service.i18n.t("sync_not_supported_secure_context_detailed"),
-          service.i18n.t("sync_not_supported_secure_context_title"),
-          "info",
-          "syncSecureContext",
-        );
-      }
+      await informIfAvailable(
+        service,
+        service.i18n.t("sync_not_supported_secure_context_detailed"),
+        service.i18n.t("sync_not_supported_secure_context_title"),
+        "syncSecureContext",
+      );
       return null;
     }
 
-    if (typeof appWindow.showDirectoryPicker !== "function") {
+    if (!service.directoryPicker?.isSupported()) {
       service.ui?.showToast(
         service.i18n.t("sync_not_supported_browser"),
         "error",
       );
-      if (appWindow.confirmDialog) {
-        await appWindow.confirmDialog.inform(
-          service.i18n.t("sync_not_supported_browser_detailed"),
-          service.i18n.t("sync_not_supported_browser_title"),
-          "info",
-          "syncNotSupportedBrowser",
-        );
-      }
+      await informIfAvailable(
+        service,
+        service.i18n.t("sync_not_supported_browser_detailed"),
+        service.i18n.t("sync_not_supported_browser_title"),
+        "syncNotSupportedBrowser",
+      );
       return null;
     }
 
-    const rawHandle = await appWindow.showDirectoryPicker();
+    const rawHandle = await service.directoryPicker.pick();
     if (!isCurrentSelection()) return null;
     const directory = await prepareDirectory(service, rawHandle);
     if (!isCurrentSelection()) return null;
@@ -316,7 +323,6 @@ export async function selectSyncFolder(service, autoSync = false) {
     const decision = await chooseProjectAction(
       service,
       probe,
-      appWindow,
       isCurrentSelection,
     );
     if (!decision.accepted || !isCurrentSelection()) return null;

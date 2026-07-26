@@ -89,6 +89,35 @@ describe("CommandUI", () => {
     }
   });
 
+  it("fails closed without showing a hardcoded toast when confirmation is unavailable", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    uiStub.showToast.mockClear();
+
+    await commandUI.confirmClearChain("F1");
+
+    expect(uiStub.showToast).not.toHaveBeenCalled();
+    expect(busFixture.getEventsOfType("command-chain:clear")).toHaveLength(0);
+  });
+
+  it("fails closed without showing a hardcoded toast when confirmation fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    commandUI.confirmDialog = {
+      confirm: vi.fn().mockRejectedValue(new Error("dialog failed")),
+    };
+    uiStub.showToast.mockClear();
+
+    await commandUI.confirmClearChain("F1");
+
+    expect(commandUI.confirmDialog.confirm).toHaveBeenCalledWith(
+      "confirm_clear_commands",
+      "confirm_clear",
+      "warning",
+      "commandChainClear",
+    );
+    expect(uiStub.showToast).not.toHaveBeenCalled();
+    expect(busFixture.getEventsOfType("command-chain:clear")).toHaveLength(0);
+  });
+
   it("waits without a transport deadline for a source import to settle", async () => {
     document.body.innerHTML = `
       <select id="importSourceSelect">

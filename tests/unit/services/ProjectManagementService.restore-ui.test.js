@@ -56,6 +56,10 @@ describe("ProjectManagementService restore UI and ownership", () => {
     fixture.destroy();
   });
 
+  it("does not retain the retired app constructor field", () => {
+    expect(service).not.toHaveProperty("app");
+  });
+
   it("shows one localized success toast for a direct file restore", async () => {
     const outcome = {
       success: true,

@@ -102,6 +102,43 @@ describe("FileExplorerUI – copy preview content", () => {
     }
   });
 
+  it("uses only injected storage when ambient storageService is poisoned", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "storageService",
+    );
+    Object.defineProperty(globalThis, "storageService", {
+      configurable: true,
+      get() {
+        throw new Error("ambient storageService must not be read");
+      },
+    });
+
+    try {
+      const injected = { getProfile: vi.fn() };
+      const withInjection = new FileExplorerUI({
+        eventBus: fixture.eventBus,
+        storage: injected,
+        document,
+        i18n: fixture.i18n,
+      });
+      const withoutInjection = new FileExplorerUI({
+        eventBus: fixture.eventBus,
+        document,
+        i18n: fixture.i18n,
+      });
+
+      expect(withInjection.storage).toBe(injected);
+      expect(withoutInjection.storage).toBeNull();
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(globalThis, "storageService", descriptor);
+      } else {
+        delete globalThis.storageService;
+      }
+    }
+  });
+
   it("shows error toast when clipboard copy fails", async () => {
     component.request = vi.fn().mockResolvedValue({
       success: false,

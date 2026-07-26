@@ -116,11 +116,10 @@ function decodeRestoreRequest(payload) {
  * for mix-in compatibility while the codebase migrates to service instances.
  */
 export default class ProjectManagementService extends ComponentBase {
-  /** @param {{ storage?: import('./serviceTypes.js').Storage | null, ui?: import('./serviceTypes.js').ToastUI | null, app?: unknown, eventBus?: import('./serviceTypes.js').EventBus | null, i18n?: import('./serviceTypes.js').I18n | null, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null }} [options] */
+  /** @param {{ storage?: import('./serviceTypes.js').Storage | null, ui?: import('./serviceTypes.js').ToastUI | null, eventBus?: import('./serviceTypes.js').EventBus | null, i18n?: import('./serviceTypes.js').I18n | null, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null }} [options] */
   constructor({
     storage = null,
     ui = null,
-    app = null,
     eventBus = null,
     i18n = null,
     runPreferencesTransition = null,
@@ -131,7 +130,6 @@ export default class ProjectManagementService extends ComponentBase {
     this.storage = storage;
     this.ui = ui;
     this.i18n = i18n;
-    this.app = app;
     this.runPreferencesTransition = runPreferencesTransition;
     this._restoreLifecycleGeneration = 0;
     /** @type {Array<() => void>} */

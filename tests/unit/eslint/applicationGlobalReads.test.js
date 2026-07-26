@@ -12,18 +12,17 @@ import {
 } from "./applicationGlobals.harness.js";
 
 describe("application-global read guard", () => {
-  it("accepts exact direct and aliased production readers", () => {
+  it("accepts native reads while rejecting retired aliased confirmation", () => {
     expect(
-      verifyReads(
+      readMessageIds(
         `
           const runtime = globalThis;
           runtime.confirmDialog?.confirm("continue");
           window.document.querySelector("main");
         `,
         "src/js/components/ui/CommandUI.js",
-        { enforceDeclaredReaders: true },
       ),
-    ).toEqual([]);
+    ).toEqual(["unallowlisted"]);
   });
 
   it("rejects reads of the retired static-data globals", () => {
@@ -73,6 +72,39 @@ describe("application-global read guard", () => {
     ).toEqual(["dynamic", "unallowlisted"]);
   });
 
+  it("rejects laundering the global object or an alias through opaque values", () => {
+    expect(
+      readMessageIds(
+        `
+          const runtime = window;
+          consume(runtime);
+          construct(new Consumer(globalThis));
+          const wrapped = { runtime };
+          const list = [window];
+          function expose() {
+            return runtime;
+          }
+          void wrapped;
+          void list;
+          void expose;
+        `,
+        "src/js/example.js",
+      ),
+    ).toEqual(Array(5).fill("opaque"));
+  });
+
+  it("does not mistake a shadowed Object.assign call for a global write", () => {
+    expect(
+      readMessageIds(
+        `
+          const Object = { assign: consume };
+          Object.assign(window, { eventBus });
+        `,
+        "src/js/example.js",
+      ),
+    ).toEqual(["opaque"]);
+  });
+
   it("checks destructured reads and rejects opaque extraction", () => {
     expect(
       readMessageIds(
@@ -100,6 +132,7 @@ describe("application-global read guard", () => {
           delete window.applyTranslations;
           window.location.hash = "probe";
           globalThis.requestAnimationFrame(callback);
+          Object.assign(window, { eventBus });
         `,
         "src/js/main.js",
       ),
@@ -108,10 +141,10 @@ describe("application-global read guard", () => {
 
   it("ratchets stale production reader metadata", () => {
     expect(
-      readMessageIds("export {};", "src/js/components/ui/CommandUI.js", {
+      readMessageIds("export {};", "src/js/app.js", {
         enforceDeclaredReaders: true,
       }),
-    ).toEqual(["stale"]);
+    ).toEqual(Array(3).fill("stale"));
   });
 
   it.each([
@@ -146,6 +179,7 @@ describe("application-global read guard", () => {
       applicationGlobalAllowlist.applyTranslations.consumers,
     ).not.toContain("src/js/components/services/PreferencesService.js");
     expect(applicationGlobalAllowlist).not.toHaveProperty("stoSync");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("confirmDialog");
     expect(
       readMessageIds(
         "void globalThis.stoSync;",

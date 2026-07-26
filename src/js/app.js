@@ -208,15 +208,13 @@ export default class STOToolsKeybindManager {
         modalManager,
         i18n: this.i18n,
       });
+      this.confirmDialogUI.init();
 
       this.inputDialogUI = create(InputDialogUI, {
         eventBus,
         modalManager,
         i18n: this.i18n,
       });
-
-      // Retain the confirmation compatibility surface for remaining consumers.
-      window.confirmDialog = this.confirmDialogUI;
 
       this.profileUI = create(ProfileUI, {
         eventBus,
@@ -285,7 +283,6 @@ export default class STOToolsKeybindManager {
       this.projectManagementService = create(ProjectManagementService, {
         storage: storageService,
         ui: stoUI,
-        app: this,
         eventBus,
         i18n: this.i18n,
         runPreferencesTransition: (source, operation) =>
@@ -317,7 +314,6 @@ export default class STOToolsKeybindManager {
       this.keyCaptureUI.init();
 
       this.commandService = create(CommandService, {
-        storage: storageService,
         eventBus,
         i18n: this.i18n,
         ui: stoUI,
@@ -402,8 +398,6 @@ export default class STOToolsKeybindManager {
 
       this.interfaceModeService = create(InterfaceModeService, {
         eventBus,
-        storage: storageService,
-        app: this,
       });
 
       this.interfaceModeUI = create(InterfaceModeUI, {
@@ -524,9 +518,6 @@ export default class STOToolsKeybindManager {
         console.error("Failed to roll back first-run welcome:", rollbackError);
       }
 
-      if (window.confirmDialog === this.confirmDialogUI) {
-        window.confirmDialog = undefined;
-      }
       if (window.commandChainUI === this.commandChainUI) {
         window.commandChainUI = undefined;
       }

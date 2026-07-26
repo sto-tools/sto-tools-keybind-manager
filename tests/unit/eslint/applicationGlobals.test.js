@@ -13,11 +13,10 @@ import {
 } from "./applicationGlobals.harness.js";
 
 describe("application-global compatibility metadata", () => {
-  it("freezes the exact 10-name post-UI-sync allowlist", () => {
+  it("freezes the exact 9-name post-confirmation allowlist", () => {
     const expectedNames = [
       "applyTranslations",
       "commandChainUI",
-      "confirmDialog",
       "dataCoordinator",
       "devMonitor",
       "eventBus",
@@ -69,9 +68,7 @@ describe("application-global compatibility metadata", () => {
       "src/js/app.js",
       "browser diagnostics",
     ]);
-    expect(applicationGlobalAllowlist.confirmDialog.consumers).toContain(
-      "src/js/app.js",
-    );
+    expect(applicationGlobalAllowlist).not.toHaveProperty("confirmDialog");
     expect(applicationGlobalAllowlist.keyBrowserUI.consumers).toContain(
       "src/js/app.js",
     );
@@ -102,6 +99,7 @@ describe("application-global compatibility metadata", () => {
     "localizeCommandData",
     "stoUI",
     "stoSync",
+    "confirmDialog",
   ])("does not retain the retired %s exposure", (name) => {
     expect(applicationGlobalAllowlist).not.toHaveProperty(name);
   });
@@ -149,7 +147,6 @@ describe("application-global write guard", () => {
   it("accepts every app.js and DevMonitor.js writer", () => {
     const appMessages = verify(
       `
-        window.confirmDialog = {};
         window.commandChainUI = {};
         window.keyBrowserUI = {};
         window.keyBrowserService = {};
@@ -169,6 +166,12 @@ describe("application-global write guard", () => {
 
     expect(appMessages).toEqual([]);
     expect(developmentMessages).toEqual([]);
+  });
+
+  it("rejects the retired confirmation writer from app composition", () => {
+    expect(messageIds("window.confirmDialog = {};", "src/js/app.js")).toEqual([
+      "unallowlisted",
+    ]);
   });
 
   it("ignores native browser writes and locally shadowed built-ins", () => {

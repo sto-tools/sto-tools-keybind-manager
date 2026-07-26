@@ -1,10 +1,6 @@
 import UIComponentBase from "../UIComponentBase.js";
 import { resolveDocument, resolveI18n } from "./uiTypes.js";
 
-const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
-  globalThis
-);
-
 /*
  * BindsetManagerUI - Handles the bindset manager modal
  * Manages the bindset manager modal and its interactions
@@ -30,7 +26,7 @@ export default class BindsetManagerUI extends UIComponentBase {
     this.componentName = "BindsetManagerUI";
     this.i18n = resolveI18n(i18n);
     this.document = resolveDocument(document);
-    this.confirmDialog = confirmDialog || runtime.confirmDialog || null;
+    this.confirmDialog = confirmDialog ?? null;
     this.inputDialog = inputDialog;
     this.selectedBindset = null;
     this.listenersSetup = false;

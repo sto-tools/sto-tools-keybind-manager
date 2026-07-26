@@ -1,5 +1,6 @@
 import UIComponentBase from "../UIComponentBase.js";
 import { resolveI18n } from "./uiTypes.js";
+import { materializeUiDialogRequest } from "./uiDialogBoundary.js";
 
 /** @typedef {import('./uiTypes.js').DialogType} DialogType */
 /**
@@ -46,6 +47,32 @@ export default class ConfirmDialogUI extends UIComponentBase {
     this.currentConfirmModal = null;
     /** @type {InformModalState | null} */
     this.currentInformModal = null;
+    /** @type {Array<() => void>} */
+    this._responseDetachFunctions = [];
+  }
+
+  onInit() {
+    if (this._responseDetachFunctions.length > 0) return;
+    this._responseDetachFunctions.push(
+      this.respond("ui:confirm", (payload) => {
+        const request = materializeUiDialogRequest(payload);
+        return this.confirm(
+          request.message,
+          request.title,
+          request.type,
+          request.context,
+        );
+      }),
+      this.respond("ui:inform", (payload) => {
+        const request = materializeUiDialogRequest(payload);
+        return this.inform(
+          request.message,
+          request.title,
+          request.type,
+          request.context,
+        );
+      }),
+    );
   }
 
   // Show a confirmation dialog and resolve with the user's choice.
@@ -150,7 +177,9 @@ export default class ConfirmDialogUI extends UIComponentBase {
         this.regenerateInformModal();
       });
 
+      let detachKeyDown = () => {};
       const handleClose = () => {
+        detachKeyDown();
         // Unregister regeneration callback
         this.modalManager?.unregisterRegenerateCallback?.(informId);
         this.currentInformModal = null;
@@ -173,14 +202,13 @@ export default class ConfirmDialogUI extends UIComponentBase {
       }
 
       // Also allow ESC key to close
-      /** @param {KeyboardEvent} event */
+      /** @param {Event} event */
       const handleKeyDown = (event) => {
-        if (event.key === "Escape") {
-          document.removeEventListener("keydown", handleKeyDown);
+        if (event instanceof KeyboardEvent && event.key === "Escape") {
           handleClose();
         }
       };
-      document.addEventListener("keydown", handleKeyDown);
+      detachKeyDown = this.onDom(document, "keydown", handleKeyDown);
 
       requestAnimationFrame(() => {
         this.modalManager?.show(informId);
@@ -307,7 +335,9 @@ export default class ConfirmDialogUI extends UIComponentBase {
     this.currentInformModal.modalElement = newModal;
 
     // Re-attach event listeners
+    let detachKeyDown = () => {};
     const handleClose = () => {
+      detachKeyDown();
       if (!this.currentInformModal) return;
       const { resolve, informId } = this.currentInformModal;
       this.modalManager?.unregisterRegenerateCallback?.(informId);
@@ -326,14 +356,13 @@ export default class ConfirmDialogUI extends UIComponentBase {
     }
 
     // Re-attach ESC key listener
-    /** @param {KeyboardEvent} event */
+    /** @param {Event} event */
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        document.removeEventListener("keydown", handleKeyDown);
+      if (event instanceof KeyboardEvent && event.key === "Escape") {
         handleClose();
       }
     };
-    document.addEventListener("keydown", handleKeyDown);
+    detachKeyDown = this.onDom(document, "keydown", handleKeyDown);
   }
 
   // Helper method for confirm action handling
@@ -353,5 +382,30 @@ export default class ConfirmDialogUI extends UIComponentBase {
     }
 
     resolve(result);
+  }
+
+  onDestroy() {
+    for (const detach of this._responseDetachFunctions) detach();
+    this._responseDetachFunctions = [];
+
+    if (this.currentConfirmModal) {
+      const { resolve, modalElement, confirmId } = this.currentConfirmModal;
+      this.modalManager?.unregisterRegenerateCallback?.(confirmId);
+      this.modalManager?.hide(confirmId);
+      modalElement.remove();
+      this.currentConfirmModal = null;
+      resolve(false);
+    }
+
+    if (this.currentInformModal) {
+      const { resolve, modalElement, informId } = this.currentInformModal;
+      this.modalManager?.unregisterRegenerateCallback?.(informId);
+      this.modalManager?.hide(informId);
+      modalElement.remove();
+      this.currentInformModal = null;
+      resolve(true);
+    }
+
+    super.onDestroy();
   }
 }

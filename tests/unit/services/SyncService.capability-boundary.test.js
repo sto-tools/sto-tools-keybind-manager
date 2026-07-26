@@ -36,6 +36,9 @@ describe("SyncService filesystem capability boundary", () => {
   let ui;
   let persistFolderSettings;
   let detachSettings;
+  let detachConfirm;
+  let directoryPicker;
+  let confirm;
 
   beforeEach(() => {
     fixture = createServiceFixture({ enableFS: false });
@@ -46,17 +49,26 @@ describe("SyncService filesystem capability boundary", () => {
     };
     addSyncTransitionMethods(fs);
     ui = { showToast: vi.fn() };
+    directoryPicker = {
+      isSupported: vi.fn().mockReturnValue(true),
+      pick: vi.fn(),
+    };
+    confirm = vi.fn().mockResolvedValue(false);
     persistFolderSettings = vi.fn().mockResolvedValue(true);
     detachSettings = respond(
       fixture.eventBus,
       "preferences:persist-sync-folder-settings",
       (settings) => persistFolderSettings(settings),
     );
+    detachConfirm = respond(fixture.eventBus, "ui:confirm", (request) =>
+      confirm(request),
+    );
     service = new SyncService({
       eventBus: fixture.eventBus,
       fs,
       ui,
       i18n: { t: (key) => key },
+      directoryPicker,
     });
     service.init();
     vi.spyOn(service, "isFirefox").mockReturnValue(false);
@@ -65,6 +77,7 @@ describe("SyncService filesystem capability boundary", () => {
 
   afterEach(() => {
     detachSettings?.();
+    detachConfirm?.();
     if (service && !service.destroyed) service.destroy();
     fixture?.destroy();
     vi.restoreAllMocks();
@@ -72,10 +85,7 @@ describe("SyncService filesystem capability boundary", () => {
   });
 
   it("rejects a malformed picker capability before persistence or settings effects", async () => {
-    vi.stubGlobal(
-      "showDirectoryPicker",
-      vi.fn().mockResolvedValue({ name: "partial" }),
-    );
+    directoryPicker.pick.mockResolvedValue({ name: "partial" });
 
     await expect(service.setSyncFolder(false)).resolves.toBeNull();
 
@@ -139,19 +149,18 @@ describe("SyncService filesystem capability boundary", () => {
 
   it("never offers an invalid project for import and requires explicit overwrite", async () => {
     const handle = createHandle("syncDir", '{"type":"project"');
-    vi.stubGlobal("showDirectoryPicker", vi.fn().mockResolvedValue(handle));
-    const confirm = vi.fn().mockResolvedValue(true);
-    vi.stubGlobal("confirmDialog", { confirm });
+    directoryPicker.pick.mockResolvedValue(handle);
+    confirm.mockResolvedValue(true);
 
     await expect(service.setSyncFolder(false)).resolves.toBe(handle);
 
     expect(confirm).toHaveBeenCalledOnce();
-    expect(confirm).toHaveBeenCalledWith(
-      "sync_invalid_project_overwrite_prompt",
-      "sync_overwrite_existing_title",
-      "warning",
-      "syncOverwriteProject",
-    );
+    expect(confirm).toHaveBeenCalledWith({
+      message: "sync_invalid_project_overwrite_prompt",
+      title: "sync_overwrite_existing_title",
+      type: "warning",
+      context: "syncOverwriteProject",
+    });
     expect(service.pendingSyncAction).toBe("overwrite");
     expect(service.deferredImportContent).toBeNull();
   });
@@ -167,20 +176,19 @@ describe("SyncService filesystem capability boundary", () => {
         text: readText,
       }),
     });
-    vi.stubGlobal("showDirectoryPicker", vi.fn().mockResolvedValue(handle));
-    const confirm = vi.fn().mockResolvedValue(false);
-    vi.stubGlobal("confirmDialog", { confirm });
+    directoryPicker.pick.mockResolvedValue(handle);
+    confirm.mockResolvedValue(false);
 
     await expect(service.setSyncFolder(false)).resolves.toBeNull();
 
     expect(readText).not.toHaveBeenCalled();
     expect(confirm).toHaveBeenCalledOnce();
-    expect(confirm).toHaveBeenCalledWith(
-      "sync_invalid_project_overwrite_prompt",
-      "sync_overwrite_existing_title",
-      "warning",
-      "syncOverwriteProject",
-    );
+    expect(confirm).toHaveBeenCalledWith({
+      message: "sync_invalid_project_overwrite_prompt",
+      title: "sync_overwrite_existing_title",
+      type: "warning",
+      context: "syncOverwriteProject",
+    });
     expect(fs.getDirectoryHandle).not.toHaveBeenCalled();
     expect(fs.saveDirectoryHandle).not.toHaveBeenCalled();
     expect(fs.deleteDirectoryHandle).not.toHaveBeenCalled();

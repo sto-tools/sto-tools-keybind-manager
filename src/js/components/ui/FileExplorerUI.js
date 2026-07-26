@@ -7,10 +7,6 @@ import {
   resolveI18n,
 } from "./uiTypes.js";
 
-const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
-  globalThis
-);
-
 /*
  * FileExplorerUI – a UI component for managing file operations in the browser's file system.
  *
@@ -42,7 +38,7 @@ export default class FileExplorerUI extends UIComponentBase {
     super(eventBus);
     this.componentName = "FileExplorerUI";
 
-    this.storage = storage || runtime.storageService || null;
+    this.storage = storage ?? null;
     this.ui = ui ?? null;
     this.fileSystem = fileSystem || FileSystemService._getInstance();
     this.document = resolveDocument(document);

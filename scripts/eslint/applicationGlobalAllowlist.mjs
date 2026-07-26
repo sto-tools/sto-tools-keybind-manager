@@ -43,15 +43,10 @@ export const applicationGlobalAllowlist = deepFreeze({
   },
   storageService: {
     classification: "bootstrap compatibility",
-    purpose:
-      "Storage owner bridge for the legacy file explorer and diagnostics.",
-    consumers: [
-      "src/js/components/ui/FileExplorerUI.js",
-      "browser diagnostics",
-    ],
+    purpose: "Checked-bundle storage diagnostics.",
+    consumers: ["browser diagnostics"],
     compatibilityOwner: "main.js",
-    removalGate:
-      "File explorer storage is always injected and diagnostics use protocols.",
+    removalGate: "Browser diagnostics use protocols and native storage.",
     writers: [writer("src/js/main.js", "storageService")],
   },
   dataCoordinator: {
@@ -76,24 +71,6 @@ export const applicationGlobalAllowlist = deepFreeze({
     compatibilityOwner: "main.js",
     removalGate: "External diagnostics use an explicit development adapter.",
     writers: [writer("src/js/main.js", "eventBus")],
-  },
-  confirmDialog: {
-    classification: "UI compatibility",
-    purpose: "Shared confirmation capability for remaining fallback consumers.",
-    consumers: [
-      "src/js/app.js",
-      "src/js/components/services/dataCoordinatorDefaultUi.js",
-      "src/js/components/services/syncFolderSelectionOrchestrator.js",
-      "src/js/components/ui/AliasBrowserUI.js",
-      "src/js/components/ui/BindsetManagerUI.js",
-      "src/js/components/ui/BindsetSelectorUI.js",
-      "src/js/components/ui/CommandUI.js",
-      "src/js/components/ui/HeaderMenuUI.js",
-      "src/js/components/ui/ProfileUI.js",
-    ],
-    compatibilityOwner: "app.js",
-    removalGate: "Every confirmation consumer receives the dialog capability.",
-    writers: [writer("src/js/app.js", "confirmDialog")],
   },
   commandChainUI: {
     classification: "UI compatibility",

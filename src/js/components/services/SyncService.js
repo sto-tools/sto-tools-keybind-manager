@@ -52,8 +52,8 @@ function decodeFolderSelectionRequest(payload) {
 }
 
 export default class SyncService extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, ui?: import('./serviceTypes.js').ToastUI, fs?: import('./serviceTypes.js').FileSystem, i18n?: import('./serviceTypes.js').I18n }} [options] */
-  constructor({ eventBus, ui, fs, i18n } = {}) {
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, ui?: import('./serviceTypes.js').ToastUI, fs?: import('./serviceTypes.js').FileSystem, i18n?: import('./serviceTypes.js').I18n, directoryPicker?: import('./serviceTypes.js').DirectoryPicker | null }} [options] */
+  constructor({ eventBus, ui, fs, i18n, directoryPicker = null } = {}) {
     super(eventBus);
     this.componentName = "SyncService";
 
@@ -64,6 +64,7 @@ export default class SyncService extends ComponentBase {
         t: (key) => key,
       });
     this.fs = fs || new FileSystemService({ eventBus });
+    this.directoryPicker = directoryPicker;
     this.awaitingSyncDecisionApply = false;
     /** @type {'import' | 'overwrite' | null} */
     this.pendingSyncAction = null;

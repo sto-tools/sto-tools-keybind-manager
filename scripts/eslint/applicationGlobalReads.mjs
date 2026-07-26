@@ -2,6 +2,7 @@ import {
   GLOBAL_ROOT_NAMES,
   NATIVE_GLOBAL_NAMES,
   createGlobalPathResolver,
+  isUnshadowed,
   normalizeFilename,
   staticObjectKey,
   unwrap,
@@ -45,6 +46,19 @@ function isAssignmentTarget(node) {
       parent.argument === child) ||
     ((parent?.type === "ForInStatement" || parent?.type === "ForOfStatement") &&
       parent.left === child)
+  );
+}
+
+function isObjectAssignCall(sourceCode, node) {
+  const callee = unwrap(node.callee);
+  const owner = callee?.type === "MemberExpression" && unwrap(callee.object);
+  return (
+    callee?.type === "MemberExpression" &&
+    callee.computed === false &&
+    owner?.type === "Identifier" &&
+    isUnshadowed(sourceCode, owner, "Object") &&
+    callee.property.type === "Identifier" &&
+    callee.property.name === "assign"
   );
 }
 
@@ -163,12 +177,57 @@ export const noUnallowlistedApplicationGlobalReadsRule = {
       validatePattern(pattern, pathInfo.segments, reportNode);
     };
 
+    const validateOpaqueGlobalValue = (node) => {
+      const pathInfo = pathResolver.globalPath(node);
+      if (pathInfo?.segments.length === 0) {
+        context.report({ node, messageId: "opaque" });
+      }
+    };
+
     return {
       AssignmentExpression(node) {
         validateDestructuringRead(node.left, node.right, node);
       },
 
       MemberExpression: validateMember,
+
+      CallExpression(node) {
+        for (const [index, argument] of node.arguments.entries()) {
+          if (index === 0 && isObjectAssignCall(context.sourceCode, node)) {
+            continue;
+          }
+          validateOpaqueGlobalValue(
+            argument.type === "SpreadElement" ? argument.argument : argument,
+          );
+        }
+      },
+
+      NewExpression(node) {
+        for (const argument of node.arguments) {
+          validateOpaqueGlobalValue(
+            argument.type === "SpreadElement" ? argument.argument : argument,
+          );
+        }
+      },
+
+      Property(node) {
+        if (node.parent?.type !== "ObjectPattern") {
+          validateOpaqueGlobalValue(node.value);
+        }
+      },
+
+      ArrayExpression(node) {
+        for (const element of node.elements) {
+          if (!element) continue;
+          validateOpaqueGlobalValue(
+            element.type === "SpreadElement" ? element.argument : element,
+          );
+        }
+      },
+
+      ReturnStatement(node) {
+        if (node.argument) validateOpaqueGlobalValue(node.argument);
+      },
 
       VariableDeclarator(node) {
         if (node.init) validateDestructuringRead(node.id, node.init, node);

@@ -47,7 +47,10 @@ describe("sync folder durable transition recovery", () => {
 
   it("blocks export after recreation when compensation leaves a dirty marker", async () => {
     const candidate = createHandle("Candidate Fleet Builds");
-    vi.stubGlobal("showDirectoryPicker", vi.fn().mockResolvedValue(candidate));
+    const directoryPicker = {
+      isSupported: vi.fn().mockReturnValue(true),
+      pick: vi.fn().mockResolvedValue(candidate),
+    };
     vi.spyOn(fs, "restoreSyncDirectoryState").mockRejectedValue(
       new Error("rollback transaction aborted"),
     );
@@ -58,6 +61,7 @@ describe("sync folder durable transition recovery", () => {
       i18n: {
         t: (key, params) => (params?.error ? `${key}:${params.error}` : key),
       },
+      directoryPicker,
     });
     service.init();
     vi.spyOn(service, "isFirefox").mockReturnValue(false);

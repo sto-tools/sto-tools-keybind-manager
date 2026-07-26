@@ -189,6 +189,15 @@ const dataService = new DataService({
     eventBus,
     ui: stoUI,
     i18n: i18next,
+    directoryPicker: Object.freeze({
+      isSupported: () => typeof window.showDirectoryPicker === "function",
+      pick: async () => {
+        if (typeof window.showDirectoryPicker !== "function") {
+          throw new Error("directory_picker_unavailable");
+        }
+        return await window.showDirectoryPicker();
+      },
+    }),
   });
   stoSync.init();
 

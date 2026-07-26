@@ -8,10 +8,6 @@ import { escapeHtml } from "../../lib/htmlEscape.js";
 import { getSnapshotUserAliases } from "../services/dataState.js";
 import { resolveDocument, resolveI18n } from "./uiTypes.js";
 
-const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
-  globalThis
-);
-
 /**
  * @typedef {{
  *   commands?: string | import('../services/serviceTypes.js').StoredCommand[],
@@ -104,7 +100,7 @@ export default class AliasBrowserUI extends UIComponentBase {
     super(bus);
     this.componentName = "AliasBrowserUI";
     this.modalManager = modalManager;
-    this.confirmDialog = confirmDialog || runtime.confirmDialog || null;
+    this.confirmDialog = confirmDialog ?? null;
     this.document = resolveDocument(document);
     this.i18n = resolveI18n(i18n);
   }

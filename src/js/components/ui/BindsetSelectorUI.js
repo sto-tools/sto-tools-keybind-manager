@@ -2,10 +2,6 @@ import UIComponentBase from "../UIComponentBase.js";
 import { escapeHtml } from "../../lib/htmlEscape.js";
 import { eventElement, resolveDocument, resolveI18n } from "./uiTypes.js";
 
-const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
-  globalThis
-);
-
 /*
  * BindsetSelectorUI - Handles the bindset selector UI
  * Manages the bindset selector UI and its interactions
@@ -28,7 +24,7 @@ export default class BindsetSelectorUI extends UIComponentBase {
     super(eventBus);
     this.componentName = "BindsetSelectorUI";
     this.document = resolveDocument(document);
-    this.confirmDialog = confirmDialog || runtime.confirmDialog || null;
+    this.confirmDialog = confirmDialog ?? null;
     this.i18n = resolveI18n(i18n);
 
     this.containerId = "bindsetSelectorContainer";
@@ -310,9 +306,6 @@ export default class BindsetSelectorUI extends UIComponentBase {
         "info",
         "bindsetAddKey",
       );
-    } else {
-      // Fallback to window.confirm when confirmDialog is not available
-      confirmed = window.confirm(message);
     }
 
     if (confirmed) {
@@ -350,9 +343,6 @@ export default class BindsetSelectorUI extends UIComponentBase {
         "warning",
         "bindsetRemoveKey",
       );
-    } else {
-      // Fallback to window.confirm when confirmDialog is not available
-      confirmed = window.confirm(message);
     }
 
     if (confirmed) {

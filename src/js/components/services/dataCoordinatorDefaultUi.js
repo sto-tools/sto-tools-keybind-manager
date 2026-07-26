@@ -1,8 +1,3 @@
-const appWindow =
-  typeof window === "undefined"
-    ? null
-    : /** @type {import('./serviceTypes.js').AppWindow} */ (window);
-
 /**
  * Keep the user-confirmation and toast flow separate from DataCoordinator's
  * persistence/state authority. Lifecycle checks prevent a replaced coordinator
@@ -28,23 +23,33 @@ export async function handleLoadDefaultDataUi(coordinator) {
         `[DataCoordinator] Default profile already exists: ${profileId} - "${profile.name}"`,
       );
 
-      if (appWindow?.confirmDialog) {
-        const confirmed = await appWindow.confirmDialog.confirm(
-          coordinator.i18n.t("default_profile_exists_message"),
-          coordinator.i18n.t("default_profile_exists_title"),
-          "warning",
-          "loadDefaultData",
+      let confirmed = false;
+      try {
+        confirmed = await coordinator.request(
+          "ui:confirm",
+          {
+            message: coordinator.i18n.t("default_profile_exists_message"),
+            title: coordinator.i18n.t("default_profile_exists_title"),
+            type: "warning",
+            context: "loadDefaultData",
+          },
+          0,
+        );
+      } catch (error) {
+        console.warn(
+          "[DataCoordinator] Default-profile confirmation unavailable:",
+          error,
         );
         if (!coordinator._isCurrentOperation(operation)) return;
-        if (!confirmed) {
-          console.log("[DataCoordinator] User cancelled default data load");
-          return;
-        }
-      } else {
         coordinator.emit("toast:show", {
           message: coordinator.i18n.t("default_profile_exists_no_overwrite"),
           type: "warning",
         });
+        return;
+      }
+      if (!coordinator._isCurrentOperation(operation)) return;
+      if (!confirmed) {
+        console.log("[DataCoordinator] User cancelled default data load");
         return;
       }
     }

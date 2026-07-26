@@ -23,6 +23,7 @@ describe("sync folder action UI integration", () => {
   let durableHandle;
   let persistFolderSettings;
   let detachFolderSettings;
+  let directoryPicker;
 
   beforeEach(() => {
     eventBus.clear();
@@ -41,6 +42,10 @@ describe("sync folder action UI integration", () => {
       }),
     };
     addSyncTransitionMethods(fs);
+    directoryPicker = {
+      isSupported: vi.fn().mockReturnValue(true),
+      pick: vi.fn(),
+    };
     persistFolderSettings = vi.fn().mockResolvedValue(true);
     detachFolderSettings = respond(
       eventBus,
@@ -51,6 +56,7 @@ describe("sync folder action UI integration", () => {
       eventBus,
       fs,
       i18n: { t: (key) => key },
+      directoryPicker,
     });
     preferencesUI = new PreferencesUI({ eventBus, document });
     sync.init();
@@ -116,7 +122,7 @@ describe("sync folder action UI integration", () => {
       configurable: true,
       get: nameGetter,
     });
-    vi.stubGlobal("showDirectoryPicker", vi.fn().mockResolvedValue(handle));
+    directoryPicker.pick.mockResolvedValue(handle);
     vi.spyOn(sync, "isFirefox").mockReturnValue(false);
     vi.spyOn(sync, "isSecureContext").mockReturnValue(true);
 

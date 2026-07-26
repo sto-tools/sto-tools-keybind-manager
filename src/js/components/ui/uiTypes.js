@@ -87,8 +87,6 @@
  * }} VFXManagerLike
  *
  * @typedef {{
- *   storageService?: import('../services/StorageService.js').default,
- *   confirmDialog?: ConfirmDialogLike,
  *   applyTranslations?: (element?: Document | Element | null) => void
  * }} RuntimeGlobals
  */

@@ -7,10 +7,6 @@ import {
   resolveI18n,
 } from "./uiTypes.js";
 
-const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
-  globalThis
-);
-
 /**
  * ProfileUI - Handles all profile-related UI operations
  * Manages profile rendering, modals, and user interactions
@@ -39,7 +35,7 @@ export default class ProfileUI extends UIComponentBase {
 
     this.ui = ui;
     this.modalManager = modalManager;
-    this.confirmDialog = confirmDialog || runtime.confirmDialog || null;
+    this.confirmDialog = confirmDialog ?? null;
     this.document = resolveDocument(document);
 
     this.i18n = resolveI18n(i18n);

@@ -1,10 +1,6 @@
 import UIComponentBase from "../UIComponentBase.js";
 import { eventElement, resolveDocument, resolveI18n } from "./uiTypes.js";
 
-const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
-  globalThis
-);
-
 /**
  * HeaderMenuUI - Handles header dropdown menu interactions
  * Manages import, backup, language, and settings menu toggles and interactions
@@ -27,7 +23,7 @@ export default class HeaderMenuUI extends UIComponentBase {
     super(eventBus);
     this.componentName = "HeaderMenuUI";
     this.document = resolveDocument(document);
-    this.confirmDialog = confirmDialog || runtime.confirmDialog || null;
+    this.confirmDialog = confirmDialog ?? null;
     this.i18n = resolveI18n(i18n);
   }
 

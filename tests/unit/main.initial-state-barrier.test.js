@@ -13,6 +13,7 @@ const bootstrap = vi.hoisted(() => {
     ComponentStub,
     dataRpcTopics: new Set(),
     appDependencies: null,
+    syncOptions: null,
     operations: [],
     initialStateReady: Promise.resolve(),
     rejectInitialState: () => {},
@@ -21,6 +22,7 @@ const bootstrap = vi.hoisted(() => {
       state.operations.length = 0;
       state.dataRpcTopics.clear();
       state.appDependencies = null;
+      state.syncOptions = null;
       state.initialStateReady = new Promise((resolve, reject) => {
         state.resolveInitialState = resolve;
         state.rejectInitialState = reject;
@@ -93,11 +95,18 @@ vi.mock("../../src/js/components/services/index.js", () => {
     }
   }
 
+  class SyncService extends bootstrap.ComponentStub {
+    constructor(options) {
+      super();
+      bootstrap.syncOptions = options;
+    }
+  }
+
   return {
     CommandChainValidatorService: bootstrap.ComponentStub,
     DataCoordinator,
     StorageService,
-    SyncService: bootstrap.ComponentStub,
+    SyncService,
     ToastService: bootstrap.ComponentStub,
     UIUtilityService: bootstrap.ComponentStub,
   };
@@ -151,6 +160,7 @@ describe("main DataCoordinator startup barrier", () => {
       "eventBus",
       "i18next",
       "storageService",
+      "showDirectoryPicker",
     ]) {
       delete window[property];
     }
@@ -192,6 +202,15 @@ describe("main DataCoordinator startup barrier", () => {
     expect(window.applyTranslations).toBe(
       bootstrap.appDependencies.applyTranslations,
     );
+    expect(bootstrap.syncOptions.directoryPicker.isSupported()).toBe(false);
+    const selectedDirectory = { kind: "directory", name: "late-picker" };
+    const showDirectoryPicker = vi.fn().mockResolvedValue(selectedDirectory);
+    window.showDirectoryPicker = showDirectoryPicker;
+    expect(bootstrap.syncOptions.directoryPicker.isSupported()).toBe(true);
+    await expect(bootstrap.syncOptions.directoryPicker.pick()).resolves.toBe(
+      selectedDirectory,
+    );
+    expect(showDirectoryPicker).toHaveBeenCalledOnce();
 
     const translated = document.createElement("span");
     translated.dataset.i18n = "translated_by_injected_capability";

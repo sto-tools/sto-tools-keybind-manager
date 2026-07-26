@@ -11,6 +11,7 @@ import type {
   RpcKnownTopic,
   RpcRequest,
   RpcResult,
+  UiDialogRequest,
 } from "../../src/js/types/rpc/index.js";
 import type {
   CommandGroupType,
@@ -176,6 +177,12 @@ type SyncFolderExportRequest = Expect<
 type UtilityClipboardRequest = Expect<
   Equal<RpcRequest<"utility:copy-to-clipboard">, { text?: string }>
 >;
+type UiConfirmRequest = Expect<
+  Equal<RpcRequest<"ui:confirm">, UiDialogRequest>
+>;
+type UiConfirmResult = Expect<Equal<RpcResult<"ui:confirm">, boolean>>;
+type UiInformRequest = Expect<Equal<RpcRequest<"ui:inform">, UiDialogRequest>>;
+type UiInformResult = Expect<Equal<RpcResult<"ui:inform">, boolean>>;
 type SelectionKeyRequest = Expect<
   Equal<
     RpcRequest<"selection:select-key">,
@@ -497,6 +504,31 @@ const utilityClipboardHandler: RpcHandler<
   message: "content_copied_to_clipboard",
 });
 utilityClipboardHandler();
+const uiConfirmHandler: RpcHandler<"ui:confirm"> = ({
+  message,
+  title,
+  type,
+  context,
+}) => {
+  message.toUpperCase();
+  title.toUpperCase();
+  type.toUpperCase();
+  context.toUpperCase();
+  return true;
+};
+const uiInformHandler: RpcHandler<"ui:inform"> = () => true;
+uiConfirmHandler({
+  message: "Proceed?",
+  title: "Confirm",
+  type: "warning",
+  context: "testOperation",
+});
+uiInformHandler({
+  message: "Complete",
+  title: "Information",
+  type: "info",
+  context: "testOperation",
+});
 
 type DynamicTopicRemainsBranded = Expect<
   Equal<typeof dynamicTopic extends string ? true : false, true>
@@ -553,6 +585,56 @@ async function exerciseCoreApi() {
   await request(eventBus, "key:cycle-view-mode", {});
   // @ts-expect-error View-mode cycling rejects non-empty payload objects.
   request(eventBus, "key:cycle-view-mode", { mode: "categorized" });
+
+  const confirmed = await request(
+    eventBus,
+    "ui:confirm",
+    {
+      message: "Overwrite the default profile?",
+      title: "Default profile exists",
+      type: "warning",
+      context: "loadDefaultData",
+    },
+    0,
+  );
+  const confirmedResult: boolean = confirmed;
+  void confirmedResult;
+  const informed = await request(
+    eventBus,
+    "ui:inform",
+    {
+      message: "Sync complete",
+      title: "Sync",
+      type: "success",
+      context: "syncSuccess",
+    },
+    0,
+  );
+  const informedResult: boolean = informed;
+  void informedResult;
+  // @ts-expect-error Dialog actions require their exact request payload.
+  request(eventBus, "ui:confirm");
+  // @ts-expect-error Dialog type names are a closed vocabulary.
+  request(eventBus, "ui:confirm", {
+    message: "Proceed?",
+    title: "Confirm",
+    type: "question",
+    context: "testOperation",
+  });
+  // @ts-expect-error Dialog requests require an explicit operation context.
+  request(eventBus, "ui:inform", {
+    message: "Complete",
+    title: "Information",
+    type: "info",
+  });
+  // @ts-expect-error Dialog request envelopes have no compatibility fields.
+  request(eventBus, "ui:inform", {
+    message: "Complete",
+    title: "Information",
+    type: "info",
+    context: "testOperation",
+    prefix: "testOperation",
+  });
 
   const switchedEnvironment = await request(eventBus, "environment:switch", {
     mode: "ground",

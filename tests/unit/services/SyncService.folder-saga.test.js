@@ -27,6 +27,7 @@ describe("SyncService folder compensation saga", () => {
   let detachFolderSettings;
   let durableHandle;
   let transitionState;
+  let directoryPicker;
 
   beforeEach(() => {
     fixture = createServiceFixture({ enableFS: false });
@@ -42,6 +43,10 @@ describe("SyncService folder compensation saga", () => {
     };
     transitionState = addSyncTransitionMethods(fs);
     ui = { showToast: vi.fn() };
+    directoryPicker = {
+      isSupported: vi.fn().mockReturnValue(true),
+      pick: vi.fn(),
+    };
     persistFolderSettings = vi.fn().mockResolvedValue(true);
     detachFolderSettings = respond(
       fixture.eventBus,
@@ -55,6 +60,7 @@ describe("SyncService folder compensation saga", () => {
       i18n: {
         t: (key, params) => (params?.error ? `${key}:${params.error}` : key),
       },
+      directoryPicker,
     });
     service.init();
     vi.spyOn(service, "isFirefox").mockReturnValue(false);
@@ -70,7 +76,7 @@ describe("SyncService folder compensation saga", () => {
   });
 
   function selectHandle(handle) {
-    vi.stubGlobal("showDirectoryPicker", vi.fn().mockResolvedValue(handle));
+    directoryPicker.pick.mockResolvedValue(handle);
   }
 
   it("keeps a failed compensation quarantined after service recreation", async () => {
@@ -103,6 +109,7 @@ describe("SyncService folder compensation saga", () => {
       i18n: {
         t: (key, params) => (params?.error ? `${key}:${params.error}` : key),
       },
+      directoryPicker,
     });
     service.init();
     vi.spyOn(service, "isFirefox").mockReturnValue(false);
@@ -177,23 +184,19 @@ describe("SyncService folder compensation saga", () => {
     const secondHandle = createSelectedHandle("Second");
     let releaseFirst;
     let releaseSecond;
-    vi.stubGlobal(
-      "showDirectoryPicker",
-      vi
-        .fn()
-        .mockImplementationOnce(
-          () =>
-            new Promise((resolve) => {
-              releaseFirst = () => resolve(firstHandle);
-            }),
-        )
-        .mockImplementationOnce(
-          () =>
-            new Promise((resolve) => {
-              releaseSecond = () => resolve(secondHandle);
-            }),
-        ),
-    );
+    directoryPicker.pick
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseFirst = () => resolve(firstHandle);
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseSecond = () => resolve(secondHandle);
+          }),
+      );
 
     const first = service.setSyncFolder(false);
     const second = service.setSyncFolder(false);
@@ -216,13 +219,9 @@ describe("SyncService folder compensation saga", () => {
   it("compensates an in-flight superseded write before committing the latest selection", async () => {
     const firstHandle = createSelectedHandle("First");
     const secondHandle = createSelectedHandle("Second");
-    vi.stubGlobal(
-      "showDirectoryPicker",
-      vi
-        .fn()
-        .mockResolvedValueOnce(firstHandle)
-        .mockResolvedValueOnce(secondHandle),
-    );
+    directoryPicker.pick
+      .mockResolvedValueOnce(firstHandle)
+      .mockResolvedValueOnce(secondHandle);
     /** @type {() => void} */
     let releaseFirstWrite = () => {};
     fs.saveDirectoryHandle.mockImplementationOnce(
@@ -259,13 +258,9 @@ describe("SyncService folder compensation saga", () => {
   it("restores a coherent earlier commit when the queued newer settings write fails", async () => {
     const firstHandle = createSelectedHandle("First");
     const secondHandle = createSelectedHandle("Second");
-    vi.stubGlobal(
-      "showDirectoryPicker",
-      vi
-        .fn()
-        .mockResolvedValueOnce(firstHandle)
-        .mockResolvedValueOnce(secondHandle),
-    );
+    directoryPicker.pick
+      .mockResolvedValueOnce(firstHandle)
+      .mockResolvedValueOnce(secondHandle);
     /** @type {(value: boolean) => void} */
     let resolveFirstSettings = () => {};
     persistFolderSettings

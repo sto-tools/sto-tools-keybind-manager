@@ -37,13 +37,10 @@ function isInterfaceMode(mode) {
  * Manages space/ground/alias mode transitions and profile environment updates
  */
 export default class InterfaceModeService extends ComponentBase {
-  /** @param {{ eventBus: import('./serviceTypes.js').EventBus, storage?: import('./serviceTypes.js').Storage, app?: unknown }} options */
-  constructor({ eventBus, storage, app }) {
+  /** @param {{ eventBus: import('./serviceTypes.js').EventBus }} options */
+  constructor({ eventBus }) {
     super(eventBus);
     this.componentName = "InterfaceModeService";
-    this.storage = storage;
-    this.app = app;
-
     /** @type {InterfaceMode} */
     this._currentMode = "space";
     this._modeListenersSetup = false;

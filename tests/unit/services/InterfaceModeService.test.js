@@ -34,6 +34,11 @@ describe("InterfaceModeService", () => {
     harness.destroy();
   });
 
+  it("does not retain the retired storage and app constructor fields", () => {
+    expect(service).not.toHaveProperty("storage");
+    expect(service).not.toHaveProperty("app");
+  });
+
   it("persists the captured profile before committing and broadcasting a switch", async () => {
     publishProfile("captain", "space");
     fixture.eventBusFixture.clearEventHistory();

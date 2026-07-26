@@ -101,4 +101,31 @@ describe("BindsetSelectorUI", () => {
     );
     expect(ui.isOpen).toBe(false);
   });
+
+  it("fails closed without an injected confirmation capability", async () => {
+    const confirmDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "confirm",
+    );
+    Object.defineProperty(window, "confirm", {
+      configurable: true,
+      get() {
+        throw new Error("ambient window.confirm must not be read");
+      },
+    });
+    ui.request = vi.fn();
+
+    try {
+      await ui.showAddKeyConfirmation("Weapons");
+      await ui.showRemoveKeyConfirmation("Weapons");
+
+      expect(ui.request).not.toHaveBeenCalled();
+    } finally {
+      if (confirmDescriptor) {
+        Object.defineProperty(window, "confirm", confirmDescriptor);
+      } else {
+        delete window.confirm;
+      }
+    }
+  });
 });

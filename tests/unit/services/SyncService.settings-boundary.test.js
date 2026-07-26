@@ -42,7 +42,10 @@ describe("SyncService settings boundary", () => {
   let i18n;
   let persistFolderSettings;
   let detachFolderSettings;
+  let detachConfirm;
   let durableHandle;
+  let directoryPicker;
+  let confirm;
 
   beforeEach(() => {
     fixture = createServiceFixture({ enableFS: false });
@@ -63,17 +66,26 @@ describe("SyncService settings boundary", () => {
         params?.error ? `${key}:${params.error}` : key,
       ),
     };
+    directoryPicker = {
+      isSupported: vi.fn().mockReturnValue(true),
+      pick: vi.fn(),
+    };
+    confirm = vi.fn().mockResolvedValue(false);
     persistFolderSettings = vi.fn().mockResolvedValue(true);
     detachFolderSettings = respond(
       fixture.eventBus,
       "preferences:persist-sync-folder-settings",
       (mutation) => persistFolderSettings(mutation),
     );
+    detachConfirm = respond(fixture.eventBus, "ui:confirm", (request) =>
+      confirm(request),
+    );
     service = new SyncService({
       eventBus: fixture.eventBus,
       ui,
       fs,
       i18n,
+      directoryPicker,
     });
     service.init();
     vi.spyOn(service, "isFirefox").mockReturnValue(false);
@@ -82,6 +94,7 @@ describe("SyncService settings boundary", () => {
 
   afterEach(() => {
     detachFolderSettings?.();
+    detachConfirm?.();
     if (service && !service.destroyed) service.destroy();
     fixture?.destroy();
     vi.restoreAllMocks();
@@ -89,7 +102,7 @@ describe("SyncService settings boundary", () => {
   });
 
   function selectHandle(handle) {
-    vi.stubGlobal("showDirectoryPicker", vi.fn().mockResolvedValue(handle));
+    directoryPicker.pick.mockResolvedValue(handle);
   }
 
   it("persists only the folder settings patch before publishing success", async () => {
@@ -132,9 +145,7 @@ describe("SyncService settings boundary", () => {
       durableHandle = priorHandle;
       const handle = createSelectedHandle('{"type":"project","data":{}}');
       selectHandle(handle);
-      vi.stubGlobal("confirmDialog", {
-        confirm: vi.fn().mockResolvedValue(true),
-      });
+      confirm.mockResolvedValue(true);
       service.pendingSyncAction = "overwrite";
       service.awaitingSyncDecisionApply = true;
       service.deferredImportContent = {
@@ -255,9 +266,7 @@ describe("SyncService settings boundary", () => {
     const content = '{"type":"project","data":{}}';
     const handle = createSelectedHandle(content);
     selectHandle(handle);
-    vi.stubGlobal("confirmDialog", {
-      confirm: vi.fn().mockResolvedValue(true),
-    });
+    confirm.mockResolvedValue(true);
     persistFolderSettings.mockImplementation(() => {
       expect(service.pendingSyncAction).toBeNull();
       expect(service.awaitingSyncDecisionApply).toBe(false);
@@ -328,14 +337,11 @@ describe("SyncService settings boundary", () => {
   it("does not resume a folder selection across destroy and reinitialization", async () => {
     const handle = createSelectedHandle();
     let releasePicker;
-    vi.stubGlobal(
-      "showDirectoryPicker",
-      vi.fn(
-        () =>
-          new Promise((resolve) => {
-            releasePicker = () => resolve(handle);
-          }),
-      ),
+    directoryPicker.pick.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releasePicker = () => resolve(handle);
+        }),
     );
     const folderSet = vi.fn();
     fixture.eventBus.on("sync:folder-set", folderSet);
@@ -356,20 +362,15 @@ describe("SyncService settings boundary", () => {
     firstHandle.name = "First";
     const secondHandle = createSelectedHandle();
     secondHandle.name = "Second";
-    vi.stubGlobal(
-      "showDirectoryPicker",
-      vi
-        .fn()
-        .mockResolvedValueOnce(firstHandle)
-        .mockResolvedValueOnce(secondHandle),
-    );
+    directoryPicker.pick
+      .mockResolvedValueOnce(firstHandle)
+      .mockResolvedValueOnce(secondHandle);
     /** @type {(value: boolean) => void} */
     let resolveFirstDecision = () => {};
     const firstDecision = new Promise((resolve) => {
       resolveFirstDecision = resolve;
     });
-    const confirm = vi.fn().mockReturnValueOnce(firstDecision);
-    vi.stubGlobal("confirmDialog", { confirm });
+    confirm.mockReturnValueOnce(firstDecision);
     const folderSet = vi.fn();
     fixture.eventBus.on("sync:folder-set", folderSet);
 

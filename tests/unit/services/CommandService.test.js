@@ -20,6 +20,33 @@ describe("CommandService command catalog compatibility", () => {
     fixture.destroy();
   });
 
+  it("does not read or retain retired constructor dependencies", () => {
+    /** @type {(string | symbol)[]} */
+    const reads = [];
+    const options = new Proxy(
+      {
+        eventBus: fixture.eventBus,
+        i18n: service.i18n,
+      },
+      {
+        get(target, property, receiver) {
+          reads.push(property);
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    );
+    const candidate = new CommandService(options);
+
+    expect(reads).not.toContain("storage");
+    expect(reads).not.toContain("profileService");
+    expect(reads).not.toContain("modalManager");
+    expect(service).not.toHaveProperty("storage");
+    expect(service).not.toHaveProperty("profileService");
+    expect(service).not.toHaveProperty("modalManager");
+
+    candidate.destroy();
+  });
+
   it("checks environment restrictions through the imported command catalog", async () => {
     await expect(service.isCommandCompatible("FireAll", "space")).resolves.toBe(
       true,

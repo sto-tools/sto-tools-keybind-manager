@@ -22,22 +22,12 @@ import { normalizeParsedCommandForDisplay } from "./commandDisplayProjection.js"
  * this service to persist changes and broadcast events.
  */
 export default class CommandService extends ComponentBase {
-  /** @param {{ storage?: import('./serviceTypes.js').Storage, eventBus: import('./serviceTypes.js').EventBus, i18n: import('./serviceTypes.js').I18n, profileService?: unknown, modalManager?: unknown, ui?: import('./serviceTypes.js').ToastUI | null }} options */
-  constructor({
-    storage,
-    eventBus,
-    i18n,
-    profileService = null,
-    modalManager = null,
-    ui = null,
-  }) {
+  /** @param {{ eventBus: import('./serviceTypes.js').EventBus, i18n: import('./serviceTypes.js').I18n, ui?: import('./serviceTypes.js').ToastUI | null }} options */
+  constructor({ eventBus, i18n, ui = null }) {
     super(eventBus);
     this.componentName = "CommandService";
     this.i18n = i18n;
     this.ui = ui;
-    void storage;
-    void profileService;
-    void modalManager;
 
     // Store detach functions for cleanup
     /** @type {Array<() => void>} */

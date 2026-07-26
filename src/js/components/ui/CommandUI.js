@@ -13,10 +13,6 @@ import {
   resolveI18n,
 } from "./uiTypes.js";
 
-const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
-  globalThis
-);
-
 /** @typedef {'success' | 'warning' | 'error'} ValidationSeverity */
 /** @typedef {import('../../types/events/base.js').ValidationIssue} ValidationIssue */
 /** @typedef {{ warnings: ValidationIssue[], errors: ValidationIssue[] }} ValidationState */
@@ -59,7 +55,7 @@ export default class CommandUI extends UIComponentBase {
     this.ui = ui ?? null;
     this.modalManager = modalManager;
     this.parameterCommandUI = parameterCommandUI;
-    this.confirmDialog = confirmDialog || runtime.confirmDialog || null;
+    this.confirmDialog = confirmDialog ?? null;
     this.i18n = resolveI18n(i18n);
 
     this._activeBindset = "Primary Bindset";
@@ -391,7 +387,6 @@ export default class CommandUI extends UIComponentBase {
         console.error(
           "CommandUI: confirmDialog not available, cannot show confirmation dialog",
         );
-        await this.showToast("Confirmation dialog not available", "error");
         return;
       }
 
@@ -411,8 +406,6 @@ export default class CommandUI extends UIComponentBase {
       }
     } catch (error) {
       console.error("CommandUI: Failed to confirm clear chain:", error);
-      // Show error toast to user when confirmation fails
-      await this.showToast("Failed to show confirmation dialog", "error");
     }
   }
 

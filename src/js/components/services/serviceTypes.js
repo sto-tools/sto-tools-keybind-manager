@@ -169,9 +169,9 @@
  * @typedef {Object} ToastUI
  * @property {(message: string, type?: string, duration?: number) => unknown} showToast
  *
- * @typedef {Object} ConfirmDialog
- * @property {(message: string, title?: string, kind?: string, id?: string) => Promise<boolean>} confirm
- * @property {(message: string, title?: string, kind?: string, id?: string) => Promise<void>} inform
+ * @typedef {Object} DirectoryPicker
+ * @property {() => boolean} isSupported
+ * @property {() => Promise<unknown>} pick
  *
  * @typedef {Object} CommandDefinition
  * @property {string} [command]
@@ -200,9 +200,7 @@
  *
  * @typedef {Window & typeof globalThis & {
  *   applyTranslations?: (root?: Document | Element | null) => void,
- *   confirmDialog?: ConfirmDialog,
  *   i18next?: I18n,
- *   showDirectoryPicker?: () => Promise<unknown>
  * }} AppWindow
  */
 
