@@ -28,6 +28,14 @@ export type SyncProjectResult =
       params: { error: string };
     };
 
+export type SyncFolderSelectionResult =
+  | { success: true; folderName: string }
+  | { success: false };
+
+export type ProjectRestorePendingActivation =
+  | { data: "pending"; preferences: "pending" | "not-required" }
+  | { data: "complete"; preferences: "pending" };
+
 export type ProjectRestoreResult =
   | {
       success: true;
@@ -48,6 +56,7 @@ export type ProjectRestoreResult =
       imported: { profiles: number; settings: boolean };
       currentProfile: string | null;
       durable: true;
+      activation: ProjectRestorePendingActivation;
     };
 
 export interface ApplicationRpcProtocol {
@@ -74,6 +83,10 @@ export interface ApplicationRpcProtocol {
       forceEmit?: boolean;
     },
     string | null
+  >;
+  "sync:select-folder": RequiredRpc<
+    { autoSync: boolean },
+    SyncFolderSelectionResult
   >;
   "sync:sync-project": OptionalRpc<{ source?: string }, SyncProjectResult>;
   "utility:copy-to-clipboard": OptionalRpc<{ text?: string }, ClipboardResult>;

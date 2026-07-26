@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import AutoSync from "../../../src/js/components/services/AutoSync.js";
+import ComponentBase from "../../../src/js/components/ComponentBase.js";
+import { createPreferencesState } from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
 function createMockSyncManager() {
@@ -7,16 +9,15 @@ function createMockSyncManager() {
 }
 
 describe("AutoSync", () => {
-  let fixture, storage, eventBus, syncManager, autoSync, services;
+  let fixture, eventBus, syncManager, autoSync, services;
 
   beforeEach(() => {
     fixture = createServiceFixture();
     services = [];
-    storage = fixture.storageService;
     eventBus = fixture.eventBus;
 
     syncManager = createMockSyncManager();
-    autoSync = new AutoSync({ eventBus, storage, syncManager });
+    autoSync = new AutoSync({ eventBus, syncManager });
     services.push(autoSync);
     autoSync.init();
   });
@@ -131,8 +132,9 @@ describe("AutoSync", () => {
       expect(
         eventBus.getListenerCount("preferences:autosync-settings-changed"),
       ).toBe(expected);
-      expect(eventBus.getListenerCount("preferences:changed")).toBe(
-        expected * 2,
+      expect(eventBus.getListenerCount("preferences:changed")).toBe(expected);
+      expect(eventBus.getListenerCount("preferences:state-changed")).toBe(
+        expected,
       );
     };
 
@@ -140,11 +142,13 @@ describe("AutoSync", () => {
     autoSync.init();
     expectPreferenceOwner(1);
 
-    storage.getSettings.mockReturnValue({
-      autoSync: true,
-      autoSyncInterval: "change",
+    eventBus.emit("preferences:state-changed", {
+      reason: "startup-loaded",
+      state: createPreferencesState(
+        { autoSync: true, autoSyncInterval: "change" },
+        { authorityEpoch: 100, revision: 1 },
+      ),
     });
-    autoSync.setupFromSettings();
     expect(eventBus.getListenerCount("storage:data-changed")).toBe(1);
 
     autoSync.destroy();
@@ -157,11 +161,115 @@ describe("AutoSync", () => {
     expect(eventBus.getListenerCount("storage:data-changed")).toBe(1);
 
     autoSync.destroy();
-    const replacement = new AutoSync({ eventBus, storage, syncManager });
+    const replacement = new AutoSync({ eventBus, syncManager });
     services.push(replacement);
     expectPreferenceOwner(0);
     replacement.init();
     expectPreferenceOwner(1);
-    expect(eventBus.getListenerCount("storage:data-changed")).toBe(1);
+    expect(eventBus.getListenerCount("storage:data-changed")).toBe(0);
+  });
+
+  it("hydrates from an owner-first late join without reading storage", () => {
+    autoSync.destroy();
+    class PreferencesService extends ComponentBase {
+      getCurrentState() {
+        return createPreferencesState(
+          { autoSync: true, autoSyncInterval: "change" },
+          { authorityEpoch: 200, revision: 1 },
+        );
+      }
+    }
+    const owner = new PreferencesService(eventBus);
+    services.push(owner);
+    owner.init();
+
+    const poisonedStorage = {};
+    Object.defineProperty(poisonedStorage, "getSettings", {
+      get() {
+        throw new Error("AutoSync must not read storage");
+      },
+    });
+    const consumer = new AutoSync(
+      /** @type {any} */ ({
+        eventBus,
+        syncManager,
+        storage: poisonedStorage,
+      }),
+    );
+    services.push(consumer);
+
+    expect(() => consumer.init()).not.toThrow();
+    expect(consumer.cache.preferences.autoSync).toBe(true);
+    expect(consumer.isEnabled).toBe(true);
+  });
+
+  it("uses a consumer-first startup snapshot but keeps sync-folder staging inert", () => {
+    const setup = vi.spyOn(autoSync, "setupFromSettings");
+    eventBus.emit("preferences:state-changed", {
+      reason: "sync-folder-staged",
+      state: createPreferencesState(
+        { autoSync: true, autoSyncInterval: "change" },
+        { authorityEpoch: 300, revision: 1 },
+      ),
+    });
+
+    expect(autoSync.cache.preferences.autoSync).toBe(true);
+    expect(autoSync.isEnabled).toBe(false);
+    expect(setup).not.toHaveBeenCalled();
+    expect(syncManager.syncProject).not.toHaveBeenCalled();
+
+    eventBus.emit("preferences:autosync-settings-changed");
+    expect(autoSync.isEnabled).toBe(true);
+    expect(setup).toHaveBeenCalledOnce();
+    expect(syncManager.syncProject).not.toHaveBeenCalled();
+  });
+
+  it("keeps malformed, stale, duplicate, and pre-ready startup publications inert", () => {
+    const setup = vi.spyOn(autoSync, "setupFromSettings");
+    eventBus.emit("preferences:state-changed", {
+      reason: "startup-loaded",
+      state: createPreferencesState(
+        { autoSync: true, autoSyncInterval: "change" },
+        { authorityEpoch: 400, revision: 1 },
+      ),
+    });
+    expect(autoSync.isEnabled).toBe(true);
+    setup.mockClear();
+
+    const duplicate = createPreferencesState(
+      { autoSync: false },
+      { authorityEpoch: 400, revision: 1 },
+    );
+    eventBus.emit("preferences:state-changed", {
+      reason: "startup-loaded",
+      state: duplicate,
+    });
+    eventBus.emit("preferences:state-changed", {
+      reason: "startup-loaded",
+      state: createPreferencesState(
+        { autoSync: false },
+        { authorityEpoch: 399, revision: 10 },
+      ),
+    });
+    eventBus.emit("preferences:state-changed", {
+      reason: "startup-loaded",
+      state: { ...duplicate, unexpected: true },
+    });
+    eventBus.emit("preferences:state-changed", {
+      reason: "startup-loaded",
+      state: createPreferencesState(
+        { autoSync: false },
+        { authorityEpoch: 401, ready: false, revision: 0 },
+      ),
+    });
+
+    expect(setup).not.toHaveBeenCalled();
+    expect(autoSync.isEnabled).toBe(true);
+    expect(autoSync.cache.preferences.autoSync).toBe(true);
+    expect(autoSync.cache.preferencesState).toMatchObject({
+      authorityEpoch: 401,
+      ready: false,
+      revision: 0,
+    });
   });
 });

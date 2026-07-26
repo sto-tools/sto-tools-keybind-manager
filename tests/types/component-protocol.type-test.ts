@@ -89,6 +89,12 @@ async function exerciseComponentRpc() {
   await component.request("parser:clear-cache");
   await component.request("parser:clear-cache", undefined, 0);
   await component.request("sync:sync-project", undefined, 0);
+  const folderSelection = await component.request(
+    "sync:select-folder",
+    { autoSync: true },
+    0,
+  );
+  if (folderSelection.success) folderSelection.folderName.toUpperCase();
   const nextViewMode = await component.request("key:cycle-view-mode");
   nextViewMode.toUpperCase();
   const categoryCollapsed = await component.request(
@@ -111,6 +117,10 @@ async function exerciseComponentRpc() {
   component.request("key:cycle-view-mode", { mode: "categorized" });
   // @ts-expect-error Required RPC payloads cannot be omitted.
   component.request("parser:parse-command-string");
+  // @ts-expect-error Folder selection is a required-payload action.
+  component.request("sync:select-folder");
+  // @ts-expect-error Folder selection accepts only a boolean flag.
+  component.request("sync:select-folder", { autoSync: 1 });
   // @ts-expect-error RPC payloads are selected by their topic.
   component.request("parser:parse-command-string", { commandString: 42 });
   // @ts-expect-error Settings snapshots are broadcast/cache state, not RPC state.
@@ -194,6 +204,13 @@ async function exerciseComponentRpc() {
   component.respond("key:cycle-view-mode", () => "categorized");
   component.respond("command-presentation:toggle-category", () => true);
   component.respond("command-presentation:toggle-group", () => false);
+  component.respond("sync:select-folder", () => ({
+    success: true,
+    folderName: "Fleet Builds",
+  }));
+  component.respond("sync:select-folder", () => ({ success: false }));
+  // @ts-expect-error Successful selection replies require a folder name.
+  component.respond("sync:select-folder", () => ({ success: true }));
   // @ts-expect-error Command-presentation actions return booleans.
   component.respond("command-presentation:toggle-group", () => "collapsed");
   // @ts-expect-error View-mode action results use the closed mode contract.

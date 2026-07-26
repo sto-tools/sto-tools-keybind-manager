@@ -68,6 +68,40 @@ describe("FileExplorerUI – copy preview content", () => {
     expect(successCall).toEqual(["content_copied_to_clipboard", "success"]);
   });
 
+  it("uses only the injected UI capability when ambient stoUI is poisoned", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, "stoUI");
+    Object.defineProperty(globalThis, "stoUI", {
+      configurable: true,
+      get() {
+        throw new Error("ambient stoUI must not be read");
+      },
+    });
+
+    try {
+      const injected = { showToast: vi.fn() };
+      const withInjection = new FileExplorerUI({
+        eventBus: fixture.eventBus,
+        ui: injected,
+        document,
+        i18n: fixture.i18n,
+      });
+      const withoutInjection = new FileExplorerUI({
+        eventBus: fixture.eventBus,
+        document,
+        i18n: fixture.i18n,
+      });
+
+      expect(withInjection.ui).toBe(injected);
+      expect(withoutInjection.ui).toBeNull();
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(globalThis, "stoUI", descriptor);
+      } else {
+        delete globalThis.stoUI;
+      }
+    }
+  });
+
   it("shows error toast when clipboard copy fails", async () => {
     component.request = vi.fn().mockResolvedValue({
       success: false,

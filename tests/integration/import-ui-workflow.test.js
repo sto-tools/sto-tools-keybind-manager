@@ -110,6 +110,8 @@ describe("ImportUI workflow integration", () => {
     importService.init();
     preferences.init();
 
+    await preferences.initialStateReady;
+
     await vi.waitFor(() => {
       expect(coordinator.getCurrentState().ready).toBe(true);
       expect(importService.cache.dataState?.ready).toBe(true);

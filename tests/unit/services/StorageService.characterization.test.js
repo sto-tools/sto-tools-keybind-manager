@@ -93,6 +93,8 @@ describe("StorageService persisted-format characterization", () => {
     });
   });
 
+  // Standalone settings removal is no longer a Storage-owned reset stage.
+  // PreferencesService clear-failure coverage now owns that requirement.
   it.each([
     {
       environment: "space",
@@ -425,14 +427,9 @@ describe("StorageService persisted-format characterization", () => {
       expected: { root: false, backup: true, settings: true },
     },
     {
-      label: "settings removal",
-      removeItemErrorKeys: [SETTINGS_KEY],
-      expected: { root: false, backup: false, settings: true },
-    },
-    {
       label: "reset sentinel write",
       setItemErrorKeys: ["sto_app_reset"],
-      expected: { root: false, backup: false, settings: false },
+      expected: { root: false, backup: false, settings: true },
     },
   ])(
     "invalidates its cache and stays silent after failed $label",
@@ -452,11 +449,22 @@ describe("StorageService persisted-format characterization", () => {
       const service = new StorageService({
         eventBus: eventBusFixture.eventBus,
         version: STORAGE_VERSION,
+        runPreferencesTransition: (_source, operation) =>
+          operation(
+            async () => ({
+              success: true,
+              changed: true,
+              revision: 2,
+              effects: "applied",
+            }),
+            () => {},
+          ),
       });
       services.push(service);
 
       try {
         service.init();
+        const request = vi.spyOn(service, "request");
         eventBusFixture.clearEventHistory();
 
         await expect(service.handleAppReset()).resolves.toBe(false);
@@ -472,6 +480,7 @@ describe("StorageService persisted-format characterization", () => {
         expect(
           eventBusFixture.getEventsOfType("storage:data-reset"),
         ).toHaveLength(0);
+        expect(request).not.toHaveBeenCalled();
       } finally {
         localFixture.destroy();
       }

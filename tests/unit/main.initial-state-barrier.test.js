@@ -12,6 +12,7 @@ const bootstrap = vi.hoisted(() => {
   const state = {
     ComponentStub,
     dataRpcTopics: new Set(),
+    appDependencies: null,
     operations: [],
     initialStateReady: Promise.resolve(),
     rejectInitialState: () => {},
@@ -19,6 +20,7 @@ const bootstrap = vi.hoisted(() => {
     reset() {
       state.operations.length = 0;
       state.dataRpcTopics.clear();
+      state.appDependencies = null;
       state.initialStateReady = new Promise((resolve, reject) => {
         state.resolveInitialState = resolve;
         state.rejectInitialState = reject;
@@ -46,7 +48,9 @@ vi.mock("i18next", () => ({
     init: async () => {
       bootstrap.operations.push("i18next:init");
     },
-    changeLanguage: async () => {},
+    changeLanguage: async () => {
+      bootstrap.operations.push("i18next:change-language");
+    },
     t: (key) => key,
   },
 }));
@@ -117,7 +121,8 @@ vi.mock("../../src/js/components/ui/FileExplorerUI.js", () => ({
 
 vi.mock("../../src/js/app.js", () => ({
   default: class {
-    constructor() {
+    constructor(dependencies) {
+      bootstrap.appDependencies = dependencies;
       bootstrap.operations.push("app:construct");
     }
 
@@ -146,11 +151,11 @@ describe("main DataCoordinator startup barrier", () => {
       "eventBus",
       "i18next",
       "storageService",
-      "stoSync",
-      "stoUI",
     ]) {
       delete window[property];
     }
+    document.body.replaceChildren();
+    vi.restoreAllMocks();
   });
 
   it("does not construct or initialize the app before initial state is ready", async () => {
@@ -169,17 +174,52 @@ describe("main DataCoordinator startup barrier", () => {
       expect(bootstrap.operations).toContain("app:init");
     });
     expect(bootstrap.operations.indexOf("coordinator:init")).toBeLessThan(
-      bootstrap.operations.indexOf("storage:get-settings"),
-    );
-    expect(bootstrap.operations.indexOf("storage:get-settings")).toBeLessThan(
-      bootstrap.operations.indexOf("data:localize"),
-    );
-    expect(bootstrap.operations.indexOf("data:localize")).toBeLessThan(
       bootstrap.operations.indexOf("app:construct"),
     );
     expect(bootstrap.operations.indexOf("app:construct")).toBeLessThan(
       bootstrap.operations.indexOf("app:init"),
     );
+    expect(bootstrap.operations).not.toContain("storage:get-settings");
+    expect(bootstrap.operations).not.toContain("i18next:change-language");
+    expect(bootstrap.operations).not.toContain("data:localize");
+    expect(window).not.toHaveProperty("stoSync");
+    expect(window).not.toHaveProperty("stoUI");
+    expect(bootstrap.appDependencies).toEqual(
+      expect.objectContaining({
+        applyTranslations: expect.any(Function),
+      }),
+    );
+    expect(window.applyTranslations).toBe(
+      bootstrap.appDependencies.applyTranslations,
+    );
+
+    const translated = document.createElement("span");
+    translated.dataset.i18n = "translated_by_injected_capability";
+    document.body.append(translated);
+    bootstrap.appDependencies.applyTranslations(document);
+    expect(translated.textContent).toBe("translated_by_injected_capability");
+  });
+
+  it("waits for DOM readiness after DataCoordinator state is ready", async () => {
+    const readyState = vi
+      .spyOn(document, "readyState", "get")
+      .mockReturnValue("loading");
+    await import("../../src/js/main.js");
+
+    await vi.waitFor(() => {
+      expect(bootstrap.operations).toContain("coordinator:init");
+    });
+    bootstrap.resolveInitialState();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(bootstrap.operations).not.toContain("app:construct");
+    document.dispatchEvent(new Event("DOMContentLoaded"));
+
+    await vi.waitFor(() => {
+      expect(bootstrap.operations).toContain("app:init");
+    });
+    readyState.mockRestore();
   });
 
   it("aborts bootstrap when initial state fails", async () => {

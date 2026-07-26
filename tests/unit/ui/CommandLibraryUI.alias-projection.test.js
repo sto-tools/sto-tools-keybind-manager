@@ -4,7 +4,10 @@ import CommandLibraryUI from "../../../src/js/components/ui/CommandLibraryUI.js"
 import CommandPresentationService from "../../../src/js/components/services/CommandPresentationService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
-import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
+import {
+  createDataCoordinatorState,
+  createPreferencesStateChange,
+} from "../../fixtures/core/componentState.js";
 
 const i18n = {
   t: (key, options = {}) =>
@@ -128,6 +131,39 @@ describe("CommandLibraryUI alias projection", () => {
     expect(
       document.getElementById("commandCategoriesList")?.children.length,
     ).toBeGreaterThan(0);
+  });
+
+  it("rebuilds from accepted preferences after every committed transition", () => {
+    const rebuild = vi
+      .spyOn(ui, "setupCommandLibrary")
+      .mockResolvedValue(undefined);
+    ui.init();
+    rebuild.mockClear();
+
+    fixture.eventBus.emit(
+      "preferences:state-changed",
+      createPreferencesStateChange(
+        { enabledBindsets: ["Primary Bindset", "Secondary Bindset"] },
+        { reason: "project-settings-activated", revision: 2 },
+      ),
+    );
+    fixture.eventBus.emit("preferences:changed", {
+      changes: {
+        enabledBindsets: ["Primary Bindset", "Secondary Bindset"],
+      },
+      settings: ui.cache.preferences,
+    });
+
+    expect(rebuild).toHaveBeenCalledOnce();
+    expect(ui.cache.preferences.enabledBindsets).toEqual([
+      "Primary Bindset",
+      "Secondary Bindset",
+    ]);
+
+    fixture.eventBus.emit("preferences:saved", {
+      settings: ui.cache.preferences,
+    });
+    expect(rebuild).toHaveBeenCalledOnce();
   });
 
   it("contains a synchronous category request failure when the owner is absent", () => {

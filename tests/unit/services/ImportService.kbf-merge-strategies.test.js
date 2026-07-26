@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ImportService from "../../../src/js/components/services/ImportService.js";
-import { createPreferencesState } from "../../fixtures/core/componentState.js";
+import { createPreferencesStateChange } from "../../fixtures/core/componentState.js";
 import {
   createServiceFixture,
   respondWithImportedProfileCommits,
@@ -73,8 +73,8 @@ describe("ImportService KBF merge strategies", () => {
     service.init();
     respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
     fixture.eventBus.emit(
-      "preferences:loaded",
-      createPreferencesState({ bindsetsEnabled: true }),
+      "preferences:state-changed",
+      createPreferencesStateChange({ bindsetsEnabled: true }),
     );
 
     vi.spyOn(service.kbfParser.decoder, "validateFormat").mockReturnValue({
@@ -153,8 +153,11 @@ describe("ImportService KBF merge strategies", () => {
 
   it("uses the cached bindsets preference without issuing a settings query", async () => {
     fixture.eventBus.emit(
-      "preferences:loaded",
-      createPreferencesState({ bindsetsEnabled: false }),
+      "preferences:state-changed",
+      createPreferencesStateChange(
+        { bindsetsEnabled: false },
+        { reason: "settings-replaced", revision: 2 },
+      ),
     );
     service.kbfParser.parseFile.mockResolvedValue({
       ...createParseResult(),

@@ -9,7 +9,7 @@ describe("preferences authoritative snapshot persistence", () => {
   let storageService;
   let preferencesService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
     fixture = createServiceFixture();
     storageService = new StorageService({
@@ -22,6 +22,7 @@ describe("preferences authoritative snapshot persistence", () => {
       storage: storageService,
     });
     preferencesService.init();
+    await preferencesService.initialStateReady;
   });
 
   afterEach(() => {
@@ -48,7 +49,13 @@ describe("preferences authoritative snapshot persistence", () => {
     expect(persisted).toEqual(preferencesService.getSettings());
     expect(persisted).not.toHaveProperty("plugin:layout");
 
-    preferencesService.loadSettings();
+    preferencesService.destroy();
+    preferencesService = new PreferencesService({
+      eventBus: fixture.eventBus,
+      storage: storageService,
+    });
+    preferencesService.init();
+    await preferencesService.initialStateReady;
 
     expect(preferencesService.getSettings()).toEqual(persisted);
     expect(preferencesService.getSettings()).not.toHaveProperty(

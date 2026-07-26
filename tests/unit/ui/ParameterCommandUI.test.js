@@ -4,6 +4,7 @@ import ParameterCommandUI from "../../../src/js/components/ui/ParameterCommandUI
 import { captureCommandEditTarget } from "../../../src/js/components/services/commandChainEditPlanning.js";
 import {
   createDataCoordinatorState,
+  createPreferencesStateChange,
   createSelectionState,
 } from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/index.js";
@@ -52,6 +53,7 @@ describe("ParameterCommandUI lifecycle facade", () => {
   let ui;
   let profile;
   let snapshot;
+  let preferencesRevision;
 
   function publishData({
     authorityEpoch = 7,
@@ -94,9 +96,26 @@ describe("ParameterCommandUI lifecycle facade", () => {
   }
 
   function publishPreferences(bindsetsEnabled) {
-    fixture.eventBus.emit("preferences:loaded", {
-      settings: { bindsetsEnabled },
-    });
+    preferencesRevision += 1;
+    const change = createPreferencesStateChange(
+      { bindsetsEnabled },
+      {
+        reason:
+          preferencesRevision === 1 ? "startup-loaded" : "setting-committed",
+        revision: preferencesRevision,
+      },
+    );
+    fixture.eventBus.emit("preferences:state-changed", change);
+    if (preferencesRevision === 1) {
+      fixture.eventBus.emit("preferences:loaded", {
+        settings: change.state.settings,
+      });
+    } else {
+      fixture.eventBus.emit("preferences:changed", {
+        changes: { bindsetsEnabled },
+        settings: change.state.settings,
+      });
+    }
   }
 
   async function openAdd() {
@@ -160,6 +179,7 @@ describe("ParameterCommandUI lifecycle facade", () => {
     };
     toastUI = { showToast: vi.fn() };
     profile = createProfile();
+    preferencesRevision = 0;
     ui = new ParameterCommandUI({
       eventBus: fixture.eventBus,
       modalManager,

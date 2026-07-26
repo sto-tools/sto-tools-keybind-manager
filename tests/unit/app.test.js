@@ -17,6 +17,7 @@ describe("STOToolsKeybindManager dependencies", () => {
       storageService: { name: "storage" },
       ui: { showToast: () => {} },
       syncService: { name: "sync" },
+      applyTranslations: () => {},
     };
 
     const app = new STOToolsKeybindManager(dependencies);
@@ -25,6 +26,7 @@ describe("STOToolsKeybindManager dependencies", () => {
     expect(app.storageService).toBe(dependencies.storageService);
     expect(app.ui).toBe(dependencies.ui);
     expect(app.syncService).toBe(dependencies.syncService);
+    expect(app.applyTranslations).toBe(dependencies.applyTranslations);
   });
 
   it("does not fall back to timing-dependent window globals", async () => {

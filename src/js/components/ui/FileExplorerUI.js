@@ -25,7 +25,7 @@ export default class FileExplorerUI extends UIComponentBase {
    * @param {{
    *   eventBus?: import('./uiTypes.js').EventBus,
    *   storage?: import('../services/StorageService.js').default,
-   *   ui?: import('./uiTypes.js').UIServiceLike,
+   *   ui?: import('./uiTypes.js').UIServiceLike | null,
    *   fileSystem?: FileSystemService,
    *   document?: Document,
    *   i18n?: import('./uiTypes.js').I18nLike
@@ -34,7 +34,7 @@ export default class FileExplorerUI extends UIComponentBase {
   constructor({
     eventBus,
     storage,
-    ui,
+    ui = null,
     fileSystem,
     document = window.document,
     i18n,
@@ -43,7 +43,7 @@ export default class FileExplorerUI extends UIComponentBase {
     this.componentName = "FileExplorerUI";
 
     this.storage = storage || runtime.storageService || null;
-    this.ui = ui || runtime.stoUI || null;
+    this.ui = ui ?? null;
     this.fileSystem = fileSystem || FileSystemService._getInstance();
     this.document = resolveDocument(document);
     this.i18n = resolveI18n(i18n);

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import SyncService from "../../../src/js/components/services/SyncService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
+import { createPreferencesStateChange } from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 import { addSyncTransitionMethods } from "../../fixtures/services/syncFileSystem.js";
 
@@ -280,13 +281,11 @@ describe("SyncService settings boundary", () => {
     fs.getDirectoryHandle.mockResolvedValue(handle);
     service.invokeRequest = vi.fn().mockResolvedValue(undefined);
     await fixture.eventBus.emit(
-      "preferences:loaded",
-      {
-        settings: {
-          autoSync: true,
-          autoSyncInterval: "change",
-        },
-      },
+      "preferences:state-changed",
+      createPreferencesStateChange({
+        autoSync: true,
+        autoSyncInterval: "change",
+      }),
       { synchronous: true },
     );
     ui.showToast.mockClear();
@@ -307,13 +306,11 @@ describe("SyncService settings boundary", () => {
     fs.getDirectoryHandle.mockResolvedValue(handle);
     service.invokeRequest = vi.fn().mockResolvedValue(undefined);
     await fixture.eventBus.emit(
-      "preferences:loaded",
-      {
-        settings: {
-          autoSync: true,
-          autoSyncInterval: "30",
-        },
-      },
+      "preferences:state-changed",
+      createPreferencesStateChange({
+        autoSync: true,
+        autoSyncInterval: "30",
+      }),
       { synchronous: true },
     );
     ui.showToast.mockClear();

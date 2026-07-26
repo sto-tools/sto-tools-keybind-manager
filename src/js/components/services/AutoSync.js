@@ -4,11 +4,10 @@ import ComponentBase from "../ComponentBase.js";
  * AutoSync – watches for storage changes and triggers stoSync operations.
  */
 export default class AutoSync extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, storage?: import('./serviceTypes.js').Storage, syncManager?: import('./SyncService.js').default, ui?: import('./serviceTypes.js').ToastUI, i18n?: import('./serviceTypes.js').I18n }} [options] */
-  constructor({ eventBus, storage, syncManager, ui, i18n } = {}) {
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, syncManager?: import('./SyncService.js').default, ui?: import('./serviceTypes.js').ToastUI, i18n?: import('./serviceTypes.js').I18n }} [options] */
+  constructor({ eventBus, syncManager, ui, i18n } = {}) {
     super(eventBus);
     this.componentName = "AutoSync";
-    this.storage = storage;
     this.syncManager = syncManager; // instance of SyncService
     this.ui = ui;
     this.i18n =
@@ -72,6 +71,17 @@ export default class AutoSync extends ComponentBase {
     );
   }
 
+  /**
+   * A consumer that starts before the owner reconfigures only when the first
+   * ready canonical snapshot has passed ComponentBase validation and ordering.
+   * Other owner transitions retain their existing semantic triggers below;
+   * sync-folder staging alone remains inert.
+   * @param {import('../../types/events/preferences.js').PreferencesStateChangedEvent} change
+   */
+  onPreferencesStateAccepted({ reason, state }) {
+    if (reason === "startup-loaded" && state.ready) this.setupFromSettings();
+  }
+
   onDestroy() {
     this.disable();
     if (this._indicatorTimeout !== null) {
@@ -88,8 +98,7 @@ export default class AutoSync extends ComponentBase {
   }
 
   setupFromSettings() {
-    if (!this.storage) return;
-    const settings = this.storage.getSettings();
+    const settings = this.cache.preferences;
     if (settings.autoSync) {
       this.enable(settings.autoSyncInterval || "change");
     } else {

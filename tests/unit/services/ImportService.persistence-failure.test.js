@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
-import { createPreferencesState } from "../../fixtures/core/componentState.js";
+import { createPreferencesStateChange } from "../../fixtures/core/componentState.js";
 import {
   createServiceFixture,
   respondWithImportedProfileCommits,
@@ -42,8 +42,8 @@ describe("ImportService persistence failures", () => {
     service.init();
     respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
     fixture.eventBus.emit(
-      "preferences:loaded",
-      createPreferencesState({ bindsetsEnabled: true }),
+      "preferences:state-changed",
+      createPreferencesStateChange({ bindsetsEnabled: true }),
     );
 
     respond(

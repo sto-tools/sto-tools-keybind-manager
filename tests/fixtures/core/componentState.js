@@ -72,13 +72,42 @@ export function createSelectionState(overrides = {}) {
 
 /**
  * @param {Partial<import('../../../src/js/types/events/base.js').KnownPreferencesSettings> & Record<string, unknown>} [settings]
+ * @param {Partial<Pick<import('../../../src/js/types/events/component-state.js').PreferencesStateSnapshot, 'authorityEpoch' | 'ready' | 'revision'>>} [identity]
  * @returns {import('../../../src/js/types/events/component-state.js').ComponentState<'PreferencesService'>}
  */
-export function createPreferencesState(settings = {}) {
+export function createPreferencesState(settings = {}, identity = {}) {
   return {
+    authorityEpoch: identity.authorityEpoch ?? 1,
+    ready: identity.ready ?? true,
+    revision: identity.revision ?? 1,
     settings: {
       ...defaultPreferencesSettings,
       ...settings,
     },
+  };
+}
+
+/**
+ * Build the canonical live publication used by PreferencesService consumers.
+ * Semantic loaded/saved/changed events deliberately do not update caches.
+ *
+ * @param {Partial<import('../../../src/js/types/events/base.js').KnownPreferencesSettings> & Record<string, unknown>} [settings]
+ * @param {{ reason?: import('../../../src/js/types/events/preferences.js').PreferencesStateChangeReason, authorityEpoch?: number, ready?: boolean, revision?: number }} [options]
+ * @returns {import('../../../src/js/types/events/preferences.js').PreferencesStateChangedEvent}
+ */
+export function createPreferencesStateChange(settings = {}, options = {}) {
+  const {
+    reason = "startup-loaded",
+    authorityEpoch = 1,
+    ready = true,
+    revision = 1,
+  } = options;
+  return {
+    reason,
+    state: createPreferencesState(settings, {
+      authorityEpoch,
+      ready,
+      revision,
+    }),
   };
 }

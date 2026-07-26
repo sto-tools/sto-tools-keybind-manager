@@ -147,82 +147,164 @@ describe("ComponentBase late-join state synchronization", () => {
     });
   });
 
-  it("replaces preference caches from complete lifecycle broadcasts", () => {
+  it("replaces preference caches from ordered canonical broadcasts", () => {
     const consumer = new LateJoinConsumer(eventBus);
     components.push(consumer);
     consumer.init();
 
-    const loaded = createPreferencesState({
-      theme: "dark",
-      "plugin:loaded": true,
-    }).settings;
+    const loaded = createPreferencesState(
+      {
+        theme: "dark",
+        "plugin:loaded": true,
+      },
+      { authorityEpoch: 20, revision: 1 },
+    );
     consumer.cache.preferences = { "plugin:stale": true };
-    eventBus.emit("preferences:loaded", { settings: loaded });
-
-    expect(consumer.cache.preferences).toEqual(loaded);
-    expect(consumer.cache.preferences).not.toBe(loaded);
-    expect(consumer.cache.preferences).not.toHaveProperty("plugin:stale");
-
-    loaded.theme = "mutated-after-publication";
-    expect(consumer.cache.preferences.theme).toBe("dark");
-
-    const saved = createPreferencesState({ language: "de" }).settings;
-    eventBus.emit("preferences:saved", { settings: saved });
-
-    expect(consumer.cache.preferences).toEqual(saved);
-    expect(consumer.cache.preferences).not.toHaveProperty("plugin:loaded");
-
-    const changed = createPreferencesState({
-      bindsetsEnabled: true,
-      "plugin:current": "yes",
-    }).settings;
-    eventBus.emit("preferences:changed", {
-      key: "bindsetsEnabled",
-      value: true,
-      settings: changed,
+    eventBus.emit("preferences:state-changed", {
+      reason: "startup-loaded",
+      state: loaded,
     });
 
-    expect(consumer.cache.preferences).toEqual(changed);
+    expect(consumer.cache.preferences).toEqual(loaded.settings);
+    expect(consumer.cache.preferences).not.toBe(loaded.settings);
+    expect(consumer.cache.preferences).not.toHaveProperty("plugin:stale");
+
+    loaded.settings.theme = "mutated-after-publication";
+    expect(consumer.cache.preferences.theme).toBe("dark");
+
+    const saved = createPreferencesState(
+      { language: "de" },
+      { authorityEpoch: 20, revision: 2 },
+    );
+    eventBus.emit("preferences:state-changed", {
+      reason: "setting-committed",
+      state: saved,
+    });
+
+    expect(consumer.cache.preferences).toEqual(saved.settings);
+    expect(consumer.cache.preferences).not.toHaveProperty("plugin:loaded");
+
+    const changed = createPreferencesState(
+      {
+        bindsetsEnabled: true,
+        "plugin:current": "yes",
+      },
+      { authorityEpoch: 20, revision: 3 },
+    );
+    eventBus.emit("preferences:state-changed", {
+      reason: "settings-replaced",
+      state: changed,
+    });
+
+    expect(consumer.cache.preferences).toEqual(changed.settings);
     expect(consumer.cache.preferences).not.toHaveProperty("plugin:loaded");
   });
 
-  it("keeps a narrow runtime fallback for legacy preference patches", () => {
+  it("keeps legacy semantic preference events inert for cache state", () => {
     const consumer = new LateJoinConsumer(eventBus);
     components.push(consumer);
     consumer.init();
 
-    const singleValue = {
-      panels: [{ id: "commands", visible: true }],
-    };
-    const changedValue = {
-      panels: [{ id: "aliases", visible: true }],
-    };
+    const canonical = createPreferencesState(
+      { "plugin:current": true },
+      { authorityEpoch: 30, revision: 1 },
+    );
+    eventBus.emit("preferences:state-changed", {
+      reason: "startup-loaded",
+      state: canonical,
+    });
 
     eventBus.emit("preferences:changed", {
       key: "plugin:single-patch",
-      value: singleValue,
+      value: { panels: [{ id: "commands", visible: true }] },
+      settings: createPreferencesState({ theme: "dark" }).settings,
     });
-    eventBus.emit("preferences:changed", {
-      changes: { "plugin:bulk-patch": changedValue },
+    eventBus.emit("preferences:saved", {
+      settings: createPreferencesState({ language: "de" }).settings,
+    });
+    eventBus.emit("preferences:loaded", {
+      settings: createPreferencesState({ autoSave: false }).settings,
     });
 
-    singleValue.panels[0].visible = false;
-    changedValue.panels[0].visible = false;
+    expect(consumer.cache.preferences).toEqual(canonical.settings);
+    expect(consumer.cache.preferencesState).toMatchObject({
+      authorityEpoch: 30,
+      revision: 1,
+    });
+  });
 
+  it("orders owner-first and consumer-first readiness without exposing pre-ready settings", () => {
+    const consumer = new LateJoinConsumer(eventBus);
+    components.push(consumer);
+    consumer.cache.preferences = { retained: "ready predecessor" };
+    consumer.init();
+
+    const pending = createPreferencesState(
+      { theme: "dark" },
+      { authorityEpoch: 40, ready: false, revision: 0 },
+    );
+    eventBus.emit("preferences:state-changed", {
+      reason: "startup-loaded",
+      state: pending,
+    });
+    expect(consumer.cache.preferencesState).toMatchObject({
+      authorityEpoch: 40,
+      ready: false,
+    });
     expect(consumer.cache.preferences).toEqual({
-      "plugin:single-patch": {
-        panels: [{ id: "commands", visible: true }],
-      },
-      "plugin:bulk-patch": {
-        panels: [{ id: "aliases", visible: true }],
-      },
+      retained: "ready predecessor",
     });
-    expect(consumer.cache.preferences["plugin:single-patch"]).not.toBe(
-      singleValue,
+
+    const ready = createPreferencesState(
+      { theme: "dark" },
+      { authorityEpoch: 40, ready: true, revision: 1 },
     );
-    expect(consumer.cache.preferences["plugin:bulk-patch"]).not.toBe(
-      changedValue,
+    eventBus.emit("preferences:state-changed", {
+      reason: "startup-loaded",
+      state: ready,
+    });
+    expect(consumer.cache.preferences).toEqual(ready.settings);
+  });
+
+  it("rejects duplicates, stale revisions, and delayed predecessor owners", () => {
+    const consumer = new LateJoinConsumer(eventBus);
+    components.push(consumer);
+    consumer.init();
+
+    const first = createPreferencesState(
+      { language: "de" },
+      { authorityEpoch: 50, revision: 2 },
     );
+    const replacement = createPreferencesState(
+      { language: "fr" },
+      { authorityEpoch: 51, revision: 1 },
+    );
+    const publish = (state) =>
+      eventBus.emit("preferences:state-changed", {
+        reason: "settings-replaced",
+        state,
+      });
+
+    publish(first);
+    const acceptedFirst = consumer.cache.preferencesState;
+    publish(structuredClone(first));
+    publish(
+      createPreferencesState(
+        { language: "en" },
+        { authorityEpoch: 50, revision: 1 },
+      ),
+    );
+    expect(consumer.cache.preferencesState).toBe(acceptedFirst);
+
+    publish(replacement);
+    publish(
+      createPreferencesState(
+        { language: "es" },
+        { authorityEpoch: 50, revision: 99 },
+      ),
+    );
+    expect(consumer.cache.preferences.language).toBe("fr");
+    expect(consumer.cache.preferencesState.authorityEpoch).toBe(51);
   });
 
   it("isolates same-class reply topics created in the same millisecond", () => {

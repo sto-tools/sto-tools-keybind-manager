@@ -42,6 +42,35 @@ function materializeImportedSummary(value) {
   return { profiles: /** @type {number} */ (profiles), settings };
 }
 
+/**
+ * @param {unknown} value
+ * @param {boolean} importedSettings
+ * @returns {{ data: 'complete' | 'pending', preferences: 'complete' | 'pending' | 'not-required' } | null}
+ */
+function materializeRestoreActivation(value, importedSettings) {
+  if (!isSafeDataRecord(value)) return null;
+  const data = ownDataValue(value, "data");
+  const preferences = ownDataValue(value, "preferences");
+  if (data !== "complete" && data !== "pending") return null;
+  if (
+    preferences !== "complete" &&
+    preferences !== "pending" &&
+    preferences !== "not-required"
+  ) {
+    return null;
+  }
+  if (importedSettings !== (preferences !== "not-required")) return null;
+  // Preferences activation can only follow successful data activation. A
+  // failure receipt must also leave at least one required target pending.
+  if (
+    (data === "pending" && preferences === "complete") ||
+    (data === "complete" && preferences !== "pending")
+  ) {
+    return null;
+  }
+  return { data, preferences };
+}
+
 /** @param {unknown} value */
 function materializeDenseStringArray(value) {
   try {
@@ -215,7 +244,7 @@ function isArtifactRetryableRestoreFailure(value) {
  * @param {unknown} value
  * @param {string} error
  * @param {Record<string, unknown> | undefined} params
- * @returns {{ currentProfile: string | null, imported: { profiles: number, settings: boolean } } | null}
+ * @returns {{ currentProfile: string | null, imported: { profiles: number, settings: boolean }, activation: { data: 'complete' | 'pending', preferences: 'complete' | 'pending' | 'not-required' } } | null}
  */
 function materializeRestoreActivationReceipt(value, error, params) {
   if (
@@ -230,13 +259,20 @@ function materializeRestoreActivationReceipt(value, error, params) {
 
   const currentProfile = ownDataValue(value, "currentProfile");
   const imported = materializeImportedSummary(ownDataValue(value, "imported"));
-  if (!isCurrentProfile(currentProfile) || !imported) {
+  const activation = imported
+    ? materializeRestoreActivation(
+        ownDataValue(value, "activation"),
+        imported.settings,
+      )
+    : null;
+  if (!isCurrentProfile(currentProfile) || !imported || !activation) {
     return null;
   }
 
   return {
     currentProfile,
     imported,
+    activation,
   };
 }
 
@@ -280,7 +316,7 @@ function materializeFailureParams(error, value) {
  * @returns {
  *   | { kind: 'success' }
  *   | { kind: 'retryable-failure' | 'terminal-failure', error: string, params?: Record<string, unknown>, reason?: string }
- *   | { kind: 'activation-retryable-failure', error: 'project_restore_reload_failed', params: { reason: string }, reason: string, receipt: { currentProfile: string | null, imported: { profiles: number, settings: boolean } } }
+ *   | { kind: 'activation-retryable-failure', error: 'project_restore_reload_failed', params: { reason: string }, reason: string, receipt: { currentProfile: string | null, imported: { profiles: number, settings: boolean }, activation: { data: 'complete' | 'pending', preferences: 'complete' | 'pending' | 'not-required' } } }
  *   | { kind: 'malformed' }
  * }
  */

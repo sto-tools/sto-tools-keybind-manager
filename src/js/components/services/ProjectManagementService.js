@@ -11,6 +11,7 @@ import {
   isProjectImportFailure,
   materializeProjectImportSuccess,
 } from "./projectRestoreResult.js";
+import { classifyPreferencesActivationResult } from "./preferencesActivationResult.js";
 import { stoData } from "../../data.js";
 
 /** @param {unknown} error */
@@ -35,6 +36,20 @@ function getMalformedRestoreReason(i18n) {
   const error =
     i18n?.t("failed_to_load_profile_data") ?? "failed_to_load_profile_data";
   return i18n?.t("import_failed", { error }) ?? "import_failed";
+}
+
+/**
+ * Keep lifecycle cancellation internal while preserving the Preferences
+ * owner's diagnostic reason for every other acknowledged failure.
+ * @param {import('./serviceTypes.js').I18n | null} i18n
+ * @param {ReturnType<typeof classifyPreferencesActivationResult>} result
+ */
+function getPreferencesActivationFailureReason(i18n, result) {
+  if (result.kind !== "failure") return getMalformedRestoreReason(i18n);
+  return result.result.error === "operation_cancelled" ||
+    result.result.params.reason === "operation_cancelled"
+    ? (i18n?.t("failed_to_load_profile_data") ?? "failed_to_load_profile_data")
+    : result.result.params.reason;
 }
 
 /**
@@ -101,13 +116,14 @@ function decodeRestoreRequest(payload) {
  * for mix-in compatibility while the codebase migrates to service instances.
  */
 export default class ProjectManagementService extends ComponentBase {
-  /** @param {{ storage?: import('./serviceTypes.js').Storage | null, ui?: import('./serviceTypes.js').ToastUI | null, app?: unknown, eventBus?: import('./serviceTypes.js').EventBus | null, i18n?: import('./serviceTypes.js').I18n | null }} [options] */
+  /** @param {{ storage?: import('./serviceTypes.js').Storage | null, ui?: import('./serviceTypes.js').ToastUI | null, app?: unknown, eventBus?: import('./serviceTypes.js').EventBus | null, i18n?: import('./serviceTypes.js').I18n | null, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null }} [options] */
   constructor({
     storage = null,
     ui = null,
     app = null,
     eventBus = null,
     i18n = null,
+    runPreferencesTransition = null,
   } = {}) {
     super(eventBus);
     this.componentName = "ProjectManagementService";
@@ -116,11 +132,14 @@ export default class ProjectManagementService extends ComponentBase {
     this.ui = ui;
     this.i18n = i18n;
     this.app = app;
+    this.runPreferencesTransition = runPreferencesTransition;
+    this._restoreLifecycleGeneration = 0;
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
   }
 
   onInit() {
+    this._restoreLifecycleGeneration += 1;
     this.setupEventHandlers();
     this.setupRequestHandlers();
     console.log("[ProjectManagementService] Initialized and ready");
@@ -340,11 +359,78 @@ export default class ProjectManagementService extends ComponentBase {
       };
     }
 
+    if (!this.runPreferencesTransition) {
+      return {
+        success: false,
+        error: "project_restore_import_failed",
+        params: { reason: "preferences_transition_unavailable" },
+        durable: false,
+      };
+    }
+
+    let importDispatched = false;
+    const lifecycleGeneration = this._restoreLifecycleGeneration;
+    try {
+      return await this.runPreferencesTransition(
+        "project-restore",
+        (activatePersistedSettings, assertPreferencesTransition) => {
+          const assertRestoreActive = () => {
+            assertPreferencesTransition?.();
+            if (
+              lifecycleGeneration !== this._restoreLifecycleGeneration ||
+              !this.initialized ||
+              this.destroyed
+            ) {
+              throw new Error("operation_cancelled");
+            }
+          };
+          return this._restoreWithinPreferencesTransition(
+            text,
+            fileName,
+            activatePersistedSettings,
+            assertRestoreActive,
+            () => {
+              importDispatched = true;
+            },
+          );
+        },
+      );
+    } catch (error) {
+      return {
+        success: false,
+        error: "project_restore_import_failed",
+        params: { reason: getErrorMessage(error) },
+        durable: importDispatched ? "indeterminate" : false,
+      };
+    }
+  }
+
+  /**
+   * The Preferences owner invokes this while holding its mutation queue. This
+   * keeps the sequential import writes, Data reload, and optional settings
+   * activation ordered without changing the established partial-write receipt.
+   *
+   * @param {string} text
+   * @param {string} fileName
+   * @param {() => Promise<import('../../types/rpc/parameters-preferences.js').PreferencesActivationResult>} activatePersistedSettings
+   * @param {() => void} assertRestoreActive
+   * @param {() => void} markImportDispatched
+   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'project:restore-from-content'>>}
+   */
+  async _restoreWithinPreferencesTransition(
+    text,
+    fileName,
+    activatePersistedSettings,
+    assertRestoreActive,
+    markImportDispatched,
+  ) {
+    assertRestoreActive();
     // ImportService owns parsing, validation, and durable storage writes.
     const importResponderAvailable =
       this.eventBus?.hasListeners("rpc:import:project-file") === true;
     let result;
     try {
+      markImportDispatched();
       result = await this.request("import:project-file", { content: text }, 0);
     } catch (error) {
       return {
@@ -376,19 +462,29 @@ export default class ProjectManagementService extends ComponentBase {
       };
     }
     console.log("[ProjectManagementService] import result: success");
+    assertRestoreActive();
 
     /**
      * @param {string} reason
+     * @param {Extract<import('../../types/rpc/application.js').ProjectRestoreResult, { error: 'project_restore_reload_failed' }>['activation']} activation
      * @returns {Extract<import('../../types/rpc/application.js').ProjectRestoreResult, { error: 'project_restore_reload_failed' }>}
      */
-    const reloadFailure = (reason) => ({
+    const reloadFailure = (reason, activation) => ({
       success: false,
       error: "project_restore_reload_failed",
       params: { reason },
       durable: true,
       currentProfile: importSuccess.currentProfile,
       imported: importSuccess.imported,
+      activation,
     });
+
+    const pendingActivation = {
+      data: /** @type {const} */ ("pending"),
+      preferences: importSuccess.imported.settings
+        ? /** @type {const} */ ("pending")
+        : /** @type {const} */ ("not-required"),
+    };
 
     try {
       const reload = await this.request("data:reload-state", undefined, 0);
@@ -397,18 +493,47 @@ export default class ProjectManagementService extends ComponentBase {
       if (reloadResult.kind === "failure") {
         return reloadFailure(
           getRestoreReloadFailureReason(this.i18n, reloadResult.error),
+          pendingActivation,
         );
       }
       if (reloadResult.kind === "malformed") {
         return reloadFailure(
           this.i18n?.t("failed_to_load_profile_data") ??
             "failed_to_load_profile_data",
+          pendingActivation,
         );
       }
+      assertRestoreActive();
     } catch (error) {
       return reloadFailure(
         getRestoreReloadFailureReason(this.i18n, getErrorMessage(error)),
+        pendingActivation,
       );
+    }
+
+    if (importSuccess.imported.settings) {
+      const preferencesPendingActivation = {
+        data: /** @type {const} */ ("complete"),
+        preferences: /** @type {const} */ ("pending"),
+      };
+      try {
+        assertRestoreActive();
+        const activation = await activatePersistedSettings();
+        const activationResult =
+          classifyPreferencesActivationResult(activation);
+        if (activationResult.kind !== "success") {
+          return reloadFailure(
+            getPreferencesActivationFailureReason(this.i18n, activationResult),
+            preferencesPendingActivation,
+          );
+        }
+        assertRestoreActive();
+      } catch (error) {
+        return reloadFailure(
+          getRestoreReloadFailureReason(this.i18n, getErrorMessage(error)),
+          preferencesPendingActivation,
+        );
+      }
     }
 
     console.log(
@@ -427,6 +552,7 @@ export default class ProjectManagementService extends ComponentBase {
   // Legacy openProject() removed in favor of restoreApplicationState()
 
   onDestroy() {
+    this._restoreLifecycleGeneration += 1;
     this._responseDetachFunctions.splice(0).forEach((detach) => detach());
   }
 }

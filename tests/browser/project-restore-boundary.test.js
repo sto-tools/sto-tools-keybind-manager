@@ -7,13 +7,11 @@ describe("Project restore checked-bundle boundary", () => {
     const bus = window.eventBus;
     const coordinator = window.dataCoordinator;
     const storage = window.storageService;
-    const ui = window.stoUI;
 
     expect(bus?.hasListeners("rpc:project:restore-from-content")).toBe(true);
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
     expect(storage).toBeTruthy();
-    expect(ui).toBeTruthy();
-    if (!bus || !coordinator || !storage || !ui) return;
+    if (!bus || !coordinator || !storage) return;
 
     const savedStorage = Array.from(
       { length: localStorage.length },
@@ -54,10 +52,12 @@ describe("Project restore checked-bundle boundary", () => {
     const stateEvents = [];
     const profileEvents = [];
     const environmentEvents = [];
+    const toastEvents = [];
     const detachers = [
       bus.on("data:state-changed", (event) => stateEvents.push(event)),
       bus.on("profile:switched", (event) => profileEvents.push(event)),
       bus.on("environment:changed", (event) => environmentEvents.push(event)),
+      bus.on("toast:show", (event) => toastEvents.push(event)),
     ];
     const originalReload = coordinator.reloadState.bind(coordinator);
     const reload = vi
@@ -67,7 +67,6 @@ describe("Project restore checked-bundle boundary", () => {
       success: false,
       error: "browser reload blocked",
     });
-    const toast = vi.spyOn(ui, "showToast");
 
     try {
       await expect(
@@ -82,6 +81,7 @@ describe("Project restore checked-bundle boundary", () => {
         durable: true,
         currentProfile: profileId,
         imported: { profiles: 1, settings: false },
+        activation: { data: "pending", preferences: "not-required" },
       });
       expect(coordinator.getCurrentState()).toBe(beforeOwner);
       expect(stateEvents).toEqual([]);
@@ -91,7 +91,7 @@ describe("Project restore checked-bundle boundary", () => {
         currentProfile: profileId,
         profiles: { [profileId]: { name: "Browser reload failure probe" } },
       });
-      expect(toast).not.toHaveBeenCalled();
+      expect(toastEvents).toEqual([]);
 
       await expect(
         request(bus, "project:restore-from-content", {
@@ -125,10 +125,9 @@ describe("Project restore checked-bundle boundary", () => {
         toEnvironment: "ground",
         environment: "ground",
       });
-      expect(toast).not.toHaveBeenCalled();
+      expect(toastEvents).toEqual([]);
     } finally {
       for (const detach of detachers) detach();
-      toast.mockRestore();
       reload.mockRestore();
       localStorage.clear();
       for (const entry of savedStorage) {

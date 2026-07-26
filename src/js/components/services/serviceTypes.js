@@ -160,6 +160,7 @@
  * @property {Record<string, AliasDefinition>} aliases
  * @property {Record<string, EnvironmentBindingData> | null} builds
  * @property {ServicePreferences} preferences
+ * @property {import('../../types/events/component-state.js').PreferencesStateSnapshot | null} preferencesState
  * @property {string} activeBindset
  * @property {string[]} bindsetNames
  *
@@ -201,8 +202,7 @@
  *   applyTranslations?: (root?: Document | Element | null) => void,
  *   confirmDialog?: ConfirmDialog,
  *   i18next?: I18n,
- *   showDirectoryPicker?: () => Promise<unknown>,
- *   stoUI?: ToastUI
+ *   showDirectoryPicker?: () => Promise<unknown>
  * }} AppWindow
  */
 

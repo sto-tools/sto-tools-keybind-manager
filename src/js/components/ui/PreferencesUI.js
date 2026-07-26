@@ -2,10 +2,6 @@ import UIComponentBase from "../UIComponentBase.js";
 import i18next from "i18next";
 import { resolveDocument } from "./uiTypes.js";
 
-const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
-  globalThis
-);
-
 /** @typedef {string | boolean | number | null | undefined} PreferenceValue */
 /** @typedef {'language' | 'translateGeneratedMessages' | 'autoSave' | 'autoSync' | 'autoSyncInterval' | 'bindToAliasMode' | 'bindsetsEnabled'} SettingKey */
 /** @typedef {{ type: 'boolean' | 'select', element: string }} SettingDefinition */
@@ -71,7 +67,7 @@ function createKnownPreferenceMutation(key, value) {
  * while settings state is consumed from ComponentBase's broadcast-backed cache.
  *
  * Architecture:
- * - Settings loading: showPreferences() → preferences:load-settings → preferences:loaded → cache → updateUI()
+ * - Settings state: preferences:state-changed/late join → cache → updateUI()
  * - User interactions: handleSettingChange() → updateSetting() → preferences:set-setting
  * - Save action: saveAllSettings() → preferences:set-settings or preferences:save-settings
  *
@@ -114,19 +110,8 @@ export default class PreferencesUI extends UIComponentBase {
   }
 
   onInit() {
-    // Use request/response instead of direct service call
-    void this.request("preferences:init")
-      .then(() => {
-        if (!this.destroyed) return this.populatePreferencesModal();
-        return undefined;
-      })
-      .catch((error) => {
-        console.error(
-          "[PreferencesUI] Failed to initialize preferences",
-          error,
-        );
-      });
     this.setupEventListeners();
+    this.populatePreferencesModal();
   }
 
   // UI helpers
@@ -185,21 +170,18 @@ export default class PreferencesUI extends UIComponentBase {
     if (syncBtn) {
       this.onDom(syncBtn, "click", async () => {
         console.log("[PreferencesUI] setSyncFolderBtn clicked");
-        if (runtime.stoSync?.setSyncFolder) {
-          try {
-            const handle = await runtime.stoSync.setSyncFolder(true);
-            console.log("[PreferencesUI] setSyncFolder returned", {
-              hasHandle: !!handle,
-              name: handle?.name,
-            });
-            if (handle) {
-              console.log(
-                "[PreferencesUI] folder display updated from sync:folder-set",
-              );
-            }
-          } catch (err) {
-            console.error("[PreferencesUI] setSyncFolder failed", err);
+        try {
+          const result = await this.request(
+            "sync:select-folder",
+            { autoSync: true },
+            0,
+          );
+          console.log("[PreferencesUI] sync:select-folder returned", result);
+          if (result.success && typeof result.folderName === "string") {
+            this.renderSyncFolderName(result.folderName);
           }
+        } catch (err) {
+          console.error("[PreferencesUI] setSyncFolder failed", err);
         }
       });
     }
@@ -343,25 +325,18 @@ export default class PreferencesUI extends UIComponentBase {
 
   async showPreferences() {
     console.log("[PreferencesUI] showPreferences");
-    // Ask the owner to reload; preferences:loaded synchronously refreshes the
-    // standardized ComponentBase cache before this action reply resolves.
-    await this.request("preferences:load-settings");
     // Discard any unsaved changes from previous session
     this.pendingSettings = {};
-    const settings = { ...this.cache.preferences };
-    Object.entries(settings).forEach(([key, value]) => {
-      if (isPreferenceValue(value)) this.updateUI(key, value);
-    });
-    this.updateFolderDisplay();
+    this.populatePreferencesModal();
     // Use event bus instead of direct modalManager call
     this.emit("modal:show", { modalId: "preferencesModal" });
   }
 
-  async populatePreferencesModal() {
-    // Load current settings via event bus request/response pattern
-    // Settings are automatically applied to UI elements through the updateUI() method
-    // Event listeners are set up in setupEventListeners() and setupSettingControls()
-    await this.request("preferences:load-settings");
+  populatePreferencesModal() {
+    for (const [key, value] of Object.entries(this.cache.preferences)) {
+      if (isPreferenceValue(value)) this.updateUI(key, value);
+    }
+    void this.updateFolderDisplay();
   }
 
   async updateFolderDisplay() {
@@ -371,7 +346,11 @@ export default class PreferencesUI extends UIComponentBase {
       syncFolderPath,
     });
 
-    // Update folder display UI - use correct element ID from HTML
+    this.renderSyncFolderName(syncFolderName);
+  }
+
+  /** @param {unknown} syncFolderName */
+  renderSyncFolderName(syncFolderName) {
     const folderDisplayEl = this.document.getElementById("currentSyncFolder");
 
     if (folderDisplayEl) {

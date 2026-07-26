@@ -74,6 +74,15 @@ export function isSettingsRecord(value) {
   );
 }
 
+/** @param {unknown} value @returns {value is KnownPreferencesSettings & Record<string, unknown>} */
+export function hasCompleteKnownSettings(value) {
+  if (!isSettingsRecord(value)) return false;
+  return Object.entries(knownSettingValidators).every(
+    ([key, validate]) =>
+      Object.prototype.hasOwnProperty.call(value, key) && validate(value[key]),
+  );
+}
+
 /** @param {string} content */
 function storedSettingsByteLength(content) {
   return new TextEncoder().encode(content).byteLength;

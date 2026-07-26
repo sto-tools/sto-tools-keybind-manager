@@ -59,6 +59,7 @@ describe("Persistence failure state integration", () => {
     await coordinator.init();
     preferences = new PreferencesService({ eventBus, storage });
     preferences.init();
+    await preferences.initialStateReady;
   });
 
   afterEach(() => {

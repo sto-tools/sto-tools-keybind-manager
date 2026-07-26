@@ -13,7 +13,7 @@ import {
 } from "./applicationGlobals.harness.js";
 
 describe("application-global compatibility metadata", () => {
-  it("freezes the exact 12-name post-static-data allowlist", () => {
+  it("freezes the exact 10-name post-UI-sync allowlist", () => {
     const expectedNames = [
       "applyTranslations",
       "commandChainUI",
@@ -24,8 +24,6 @@ describe("application-global compatibility metadata", () => {
       "i18next",
       "keyBrowserService",
       "keyBrowserUI",
-      "stoSync",
-      "stoUI",
       "storageService",
     ];
 
@@ -65,16 +63,8 @@ describe("application-global compatibility metadata", () => {
     expect(applicationGlobalAllowlist.eventBus.consumers).toContain(
       "src/js/lib/commandDisplayAdapter.js",
     );
-    expect(applicationGlobalAllowlist.stoSync.consumers).toContain(
-      "tests/browser/storage-boundary.test.js",
-    );
-    expect(applicationGlobalAllowlist.stoUI.consumers).toEqual([
-      "src/js/components/services/StorageService.js",
-      "src/js/components/services/dataCoordinatorDefaultUi.js",
-      "src/js/components/ui/CommandUI.js",
-      "src/js/components/ui/FileExplorerUI.js",
-      "src/js/components/ui/InterfaceModeUI.js",
-    ]);
+    expect(applicationGlobalAllowlist).not.toHaveProperty("stoUI");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("stoSync");
     expect(applicationGlobalAllowlist.commandChainUI.consumers).toEqual([
       "src/js/app.js",
       "browser diagnostics",
@@ -110,6 +100,8 @@ describe("application-global compatibility metadata", () => {
     "COMMANDS",
     "STO_DATA",
     "localizeCommandData",
+    "stoUI",
+    "stoSync",
   ])("does not retain the retired %s exposure", (name) => {
     expect(applicationGlobalAllowlist).not.toHaveProperty(name);
   });
@@ -135,8 +127,7 @@ describe("application-global write guard", () => {
         window.i18next = {};
         window.applyTranslations = () => {};
         Object.assign(window, {
-          storageService: {}, dataCoordinator: {}, stoUI: {},
-          stoSync: {}, eventBus: {}
+          storageService: {}, dataCoordinator: {}, eventBus: {}
         });
       `,
       "src/js/main.js",
@@ -145,6 +136,15 @@ describe("application-global write guard", () => {
 
     expect(messages).toEqual([]);
   });
+
+  it.each(["stoUI", "stoSync"])(
+    "rejects the retired %s writer from its former bootstrap owner",
+    (name) => {
+      expect(messageIds(`window.${name} = {};`, "src/js/main.js")).toEqual([
+        "unallowlisted",
+      ]);
+    },
+  );
 
   it("accepts every app.js and DevMonitor.js writer", () => {
     const appMessages = verify(

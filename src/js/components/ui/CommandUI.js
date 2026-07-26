@@ -56,7 +56,7 @@ export default class CommandUI extends UIComponentBase {
   } = {}) {
     super(eventBus);
     this.componentName = "CommandUI";
-    this.ui = ui || runtime.stoUI || null;
+    this.ui = ui ?? null;
     this.modalManager = modalManager;
     this.parameterCommandUI = parameterCommandUI;
     this.confirmDialog = confirmDialog || runtime.confirmDialog || null;

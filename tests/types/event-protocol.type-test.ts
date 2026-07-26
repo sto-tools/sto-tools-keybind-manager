@@ -33,6 +33,8 @@ import type {
   KeyBrowserViewStateSnapshot,
   KeyCaptureStateSnapshot,
   ParameterCommandEditPayload,
+  PreferencesStateChangeReason,
+  PreferencesStateSnapshot,
   SelectionStateSnapshot,
   StoreEventTopic,
   TypedEventBus,
@@ -187,6 +189,29 @@ type DataSnapshotIsRegisteredExactly = Expect<
 type DataStateEventIsRegisteredExactly = Expect<
   Equal<EventPayload<"data:state-changed">, DataStateChangedPayload>
 >;
+type PreferencesSnapshotIsRegisteredExactly = Expect<
+  Equal<ComponentState<"PreferencesService">, PreferencesStateSnapshot>
+>;
+type PreferencesStateEventIsRegisteredExactly = Expect<
+  Equal<
+    EventPayload<"preferences:state-changed">,
+    {
+      reason: PreferencesStateChangeReason;
+      state: PreferencesStateSnapshot;
+    }
+  >
+>;
+type PreferencesStateReasonsAreClosed = Expect<
+  Equal<
+    PreferencesStateChangeReason,
+    | "startup-loaded"
+    | "setting-committed"
+    | "settings-replaced"
+    | "sync-folder-staged"
+    | "project-settings-activated"
+    | "settings-reset"
+  >
+>;
 type KeyBrowserStateEventIsRegisteredExactly = Expect<
   Equal<EventPayload<"key-browser:state-changed">, KeyBrowserViewStateSnapshot>
 >;
@@ -234,7 +259,8 @@ const bus: TypedEventBus = eventBus;
 const dataCoordinatorState = createDataCoordinatorState();
 // @ts-expect-error PreferencesService, not DataCoordinator, owns settings state.
 dataCoordinatorState.settings;
-const preferencesSettings = createPreferencesState().settings;
+const preferencesState = createPreferencesState();
+const preferencesSettings = preferencesState.settings;
 const keyBrowserViewState: KeyBrowserViewStateSnapshot = {
   authorityEpoch: 1,
   revision: 0,
@@ -366,6 +392,35 @@ bus.emit("command:edit", {
 });
 bus.emit("preferences:loaded", { settings: preferencesSettings });
 bus.emit("preferences:saved", { settings: preferencesSettings });
+bus.on("preferences:state-changed", ({ reason, state }) => {
+  reason.toUpperCase();
+  state.authorityEpoch.toFixed();
+  state.ready.valueOf();
+  state.revision.toFixed();
+  state.settings.language.toUpperCase();
+});
+bus.emit("preferences:state-changed", {
+  reason: "startup-loaded",
+  state: preferencesState,
+});
+bus.emit("preferences:state-changed", {
+  reason: "project-settings-activated",
+  state: preferencesState,
+});
+bus.emit("preferences:state-changed", {
+  reason: "settings-reset",
+  state: preferencesState,
+});
+// @ts-expect-error Canonical Preferences state requires owner ordering metadata.
+bus.emit("preferences:state-changed", {
+  reason: "settings-replaced",
+  state: { settings: preferencesSettings },
+});
+// @ts-expect-error Preferences transition reasons are a closed vocabulary.
+bus.emit("preferences:state-changed", {
+  reason: "settings-loaded",
+  state: preferencesState,
+});
 bus.on("command-presentation:state-changed", (state) => {
   state.authorityEpoch.toFixed();
   state.revision.toFixed();
@@ -703,6 +758,13 @@ bus.on(componentReplyTopic, (reply) => {
     reply.state.capturedChord?.toUpperCase();
     // @ts-expect-error Sender narrowing excludes SelectionService state.
     reply.state.selectedKey;
+  } else if (reply.sender === "PreferencesService") {
+    reply.state.authorityEpoch.toFixed();
+    reply.state.ready.valueOf();
+    reply.state.revision.toFixed();
+    reply.state.settings.language.toUpperCase();
+    // @ts-expect-error Sender narrowing excludes KeyBrowserService state.
+    reply.state.mode;
   }
 });
 bus.emit(componentReplyTopic, {
@@ -734,6 +796,10 @@ bus.emit(componentReplyTopic, {
 bus.emit(componentReplyTopic, {
   sender: "KeyCaptureService",
   state: keyCaptureState,
+});
+bus.emit(componentReplyTopic, {
+  sender: "PreferencesService",
+  state: preferencesState,
 });
 
 const mismatchedComponentReply: ComponentStateReply = {

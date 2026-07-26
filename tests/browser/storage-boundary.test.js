@@ -92,58 +92,44 @@ describe("Persisted storage browser boundary", () => {
 
   it("does not publish sync-folder success when the checked bundle cannot persist its settings", async () => {
     const storage = window.storageService;
-    const sync = window.stoSync;
     const bus = window.eventBus;
     expect(storage).toBeTruthy();
-    expect(sync).toBeTruthy();
+    expect(bus?.hasListeners("rpc:sync:select-folder")).toBe(true);
     expect(
       bus?.hasListeners("rpc:preferences:persist-sync-folder-settings"),
     ).toBe(true);
-    if (!storage || !sync || !bus) return;
+    if (!storage || !bus) return;
 
     const beforeRaw = localStorage.getItem(storage.settingsKey);
     const beforeState = await readPreferencesState(bus);
     const folderSet = [];
     const toasts = [];
+    const stateChanges = [];
+    const saved = [];
+    const changed = [];
     const detachFolderSet = bus.on("sync:folder-set", (payload) =>
       folderSet.push(payload),
     );
     const detachToast = bus.on("toast:show", (payload) => toasts.push(payload));
-    const priorHandle = createSyncDirectoryHandle("Prior Folder");
+    const detachState = bus.on("preferences:state-changed", (payload) =>
+      stateChanges.push(payload),
+    );
+    const detachSaved = bus.on("preferences:saved", (payload) =>
+      saved.push(payload),
+    );
+    const detachChanged = bus.on("preferences:changed", (payload) =>
+      changed.push(payload),
+    );
     const handle = createSyncDirectoryHandle("Quota Folder");
-    let durableHandle = priorHandle;
-    let transitionPending = false;
     const pickerDescriptor = Object.getOwnPropertyDescriptor(
       window,
       "showDirectoryPicker",
     );
+    const picker = vi.fn().mockResolvedValue(handle);
     Object.defineProperty(window, "showDirectoryPicker", {
       configurable: true,
-      value: vi.fn().mockResolvedValue(handle),
+      value: picker,
     });
-    const getState = vi
-      .spyOn(sync.fs, "getSyncDirectoryState")
-      .mockImplementation(async () => ({
-        handle: durableHandle,
-        transitionPending,
-      }));
-    const beginTransition = vi
-      .spyOn(sync.fs, "beginSyncDirectoryTransition")
-      .mockImplementation(async (value) => {
-        durableHandle = value;
-        transitionPending = true;
-      });
-    const completeTransition = vi
-      .spyOn(sync.fs, "completeSyncDirectoryTransition")
-      .mockImplementation(async () => {
-        transitionPending = false;
-      });
-    const restoreState = vi
-      .spyOn(sync.fs, "restoreSyncDirectoryState")
-      .mockImplementation(async (previousState) => {
-        durableHandle = previousState.handle;
-        transitionPending = previousState.transitionPending;
-      });
     const originalSetItem = Storage.prototype.setItem;
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const setItem = vi
@@ -159,31 +145,26 @@ describe("Persisted storage browser boundary", () => {
       });
 
     try {
-      await expect(sync.setSyncFolder(true)).resolves.toBeNull();
+      await expect(
+        request(bus, "sync:select-folder", { autoSync: true }, 0),
+      ).resolves.toEqual({ success: false });
 
+      expect(picker).toHaveBeenCalledOnce();
       expect(await readPreferencesState(bus)).toEqual(beforeState);
       expect(localStorage.getItem(storage.settingsKey)).toBe(beforeRaw);
+      expect(stateChanges).toHaveLength(0);
+      expect(saved).toHaveLength(0);
+      expect(changed).toHaveLength(0);
       expect(folderSet).toHaveLength(0);
       expect(toasts.filter(({ type }) => type === "success")).toHaveLength(0);
-      expect(beginTransition).toHaveBeenCalledOnce();
-      expect(beginTransition).toHaveBeenCalledWith(handle);
-      expect(restoreState).toHaveBeenCalledOnce();
-      expect(restoreState).toHaveBeenCalledWith({
-        handle: priorHandle,
-        transitionPending: false,
-      });
-      expect(completeTransition).not.toHaveBeenCalled();
-      expect(durableHandle).toBe(priorHandle);
-      expect(transitionPending).toBe(false);
     } finally {
       setItem.mockRestore();
-      restoreState.mockRestore();
-      completeTransition.mockRestore();
-      beginTransition.mockRestore();
-      getState.mockRestore();
       error.mockRestore();
       detachFolderSet();
       detachToast();
+      detachState();
+      detachSaved();
+      detachChanged();
       if (pickerDescriptor) {
         Object.defineProperty(window, "showDirectoryPicker", pickerDescriptor);
       } else {

@@ -41,10 +41,10 @@ export async function handleLoadDefaultDataUi(coordinator) {
           return;
         }
       } else {
-        appWindow?.stoUI?.showToast(
-          coordinator.i18n.t("default_profile_exists_no_overwrite"),
-          "warning",
-        );
+        coordinator.emit("toast:show", {
+          message: coordinator.i18n.t("default_profile_exists_no_overwrite"),
+          type: "warning",
+        });
         return;
       }
     }
@@ -54,18 +54,18 @@ export async function handleLoadDefaultDataUi(coordinator) {
     if (!coordinator._isCurrentOperation(operation)) return;
 
     if (result.success) {
-      appWindow?.stoUI?.showToast(
-        coordinator.i18n.t("default_data_loaded_successfully"),
-        "success",
-      );
+      coordinator.emit("toast:show", {
+        message: coordinator.i18n.t("default_data_loaded_successfully"),
+        type: "success",
+      });
       console.log("[DataCoordinator] Default data loaded successfully");
       return;
     }
 
-    appWindow?.stoUI?.showToast(
-      coordinator.i18n.t("default_data_load_failed"),
-      "error",
-    );
+    coordinator.emit("toast:show", {
+      message: coordinator.i18n.t("default_data_load_failed"),
+      type: "error",
+    });
     console.error(
       "[DataCoordinator] Failed to load default data:",
       result.error,
@@ -73,9 +73,9 @@ export async function handleLoadDefaultDataUi(coordinator) {
   } catch (error) {
     if (!coordinator._isCurrentOperation(operation)) return;
     console.error("[DataCoordinator] Error handling load default data:", error);
-    appWindow?.stoUI?.showToast(
-      coordinator.i18n.t("default_data_load_error"),
-      "error",
-    );
+    coordinator.emit("toast:show", {
+      message: coordinator.i18n.t("default_data_load_error"),
+      type: "error",
+    });
   }
 }

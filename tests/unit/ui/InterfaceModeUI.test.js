@@ -96,6 +96,38 @@ describe("InterfaceModeUI", () => {
     expect(interfaceModeUI.domEventListeners).toHaveLength(3); // space, ground, alias
   });
 
+  it("uses only the injected UI capability when ambient stoUI is poisoned", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, "stoUI");
+    Object.defineProperty(globalThis, "stoUI", {
+      configurable: true,
+      get() {
+        throw new Error("ambient stoUI must not be read");
+      },
+    });
+
+    try {
+      const injected = { showToast: vi.fn() };
+      const withInjection = new InterfaceModeUI({
+        eventBus: eventBusFixture.eventBus,
+        ui: injected,
+        document,
+      });
+      const withoutInjection = new InterfaceModeUI({
+        eventBus: eventBusFixture.eventBus,
+        document,
+      });
+
+      expect(withInjection.ui).toBe(injected);
+      expect(withoutInjection.ui).toBeNull();
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(globalThis, "stoUI", descriptor);
+      } else {
+        delete globalThis.stoUI;
+      }
+    }
+  });
+
   it("should set up eventBus.onDom listeners for mode buttons exactly once", () => {
     interfaceModeUI.init();
 

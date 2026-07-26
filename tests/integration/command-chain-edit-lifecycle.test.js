@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CommandChainService from "../../src/js/components/services/CommandChainService.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import { request, respond } from "../../src/js/core/requestResponse.js";
+import { createPreferencesStateChange } from "../fixtures/core/componentState.js";
 import { createServiceFixture } from "../fixtures/index.js";
 
 const initialCommands = [
@@ -65,8 +66,32 @@ describe("CommandChainService edit planning lifecycle", () => {
   let coordinator;
   let service;
   let detachParser;
+  let preferencesRevision;
+
+  function publishPreferences(bindsetsEnabled) {
+    preferencesRevision += 1;
+    const change = createPreferencesStateChange(
+      { bindsetsEnabled },
+      {
+        reason:
+          preferencesRevision === 1 ? "startup-loaded" : "setting-committed",
+        revision: preferencesRevision,
+      },
+    );
+    fixture.eventBus.emit("preferences:state-changed", change);
+    fixture.eventBus.emit(
+      preferencesRevision === 1 ? "preferences:loaded" : "preferences:changed",
+      preferencesRevision === 1
+        ? { settings: change.state.settings }
+        : {
+            changes: { bindsetsEnabled },
+            settings: change.state.settings,
+          },
+    );
+  }
 
   beforeEach(async () => {
+    preferencesRevision = 0;
     fixture = createServiceFixture({
       initialStorageData: { sto_keybind_manager: root },
     });
@@ -91,9 +116,7 @@ describe("CommandChainService edit planning lifecycle", () => {
       expect(service.cache.dataState?.ready).toBe(true);
     });
     fixture.eventBus.emit("selection:state-changed", selection());
-    fixture.eventBus.emit("preferences:loaded", {
-      settings: { bindsetsEnabled: false },
-    });
+    publishPreferences(false);
     fixture.eventBusFixture.clearEventHistory();
   });
 
@@ -249,18 +272,14 @@ describe("CommandChainService edit planning lifecycle", () => {
     const secondEdit = await startListenerEdit();
     await vi.waitFor(() => expect(bindsetParser.calls()).toBe(1));
 
-    fixture.eventBus.emit("preferences:loaded", {
-      settings: { bindsetsEnabled: true },
-    });
+    publishPreferences(true);
     fixture.eventBus.emit("bindset-selector:active-changed", {
       name: "Weapons",
     });
     fixture.eventBus.emit("bindset-selector:active-changed", {
       name: "Primary Bindset",
     });
-    fixture.eventBus.emit("preferences:loaded", {
-      settings: { bindsetsEnabled: false },
-    });
+    publishPreferences(false);
     bindsetParser.first.resolve({ commands: [{ category: "targeting" }] });
 
     await expect(secondEdit.pending).resolves.toBe(false);

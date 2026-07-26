@@ -1,0 +1,66 @@
+{
+  "root": {
+    "version": "1.0.0",
+    "created": "2026-01-01T00:00:00.000Z",
+    "lastModified": "2026-01-01T00:00:00.000Z",
+    "currentProfile": "canonical-profile",
+    "profiles": {
+      "canonical-profile": {
+        "id": "canonical-profile",
+        "name": "Canonical Profile",
+        "currentEnvironment": "space",
+        "migrationVersion": "2.1.1",
+        "builds": {
+          "space": { "keys": { "F1": ["FireAll"] } },
+          "ground": { "keys": {} }
+        },
+        "aliases": {}
+      }
+    },
+    "globalAliases": {},
+    "settings": {
+      "theme": "dark",
+      "language": "fr",
+      "compactView": true,
+      "rootOnlyCompatibility": { "preserved": true }
+    }
+  },
+  "standalone": {
+    "theme": "light",
+    "autoSave": false,
+    "showTooltips": false,
+    "confirmDeletes": false,
+    "maxUndoSteps": 75,
+    "defaultMode": "ground",
+    "compactView": false,
+    "language": "de",
+    "syncFolderName": "Golden Sync",
+    "syncFolderPath": "Selected folder: Golden Sync",
+    "autoSync": true,
+    "autoSyncInterval": "30",
+    "bindToAliasMode": true,
+    "bindsetsEnabled": true,
+    "translateGeneratedMessages": true,
+    "version": "standalone-version",
+    "firstRun": false,
+    "currentProfile": "canonical-profile",
+    "plugin:layout": { "density": "compact" }
+  },
+  "defaults": {
+    "theme": "default",
+    "autoSave": true,
+    "showTooltips": true,
+    "confirmDeletes": true,
+    "maxUndoSteps": 50,
+    "defaultMode": "space",
+    "compactView": false,
+    "language": "en",
+    "syncFolderName": null,
+    "syncFolderPath": null,
+    "autoSync": false,
+    "autoSyncInterval": "change",
+    "bindToAliasMode": false,
+    "bindsetsEnabled": false,
+    "translateGeneratedMessages": false
+  }
+}

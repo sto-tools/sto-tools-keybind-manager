@@ -19,6 +19,13 @@ function installPreferencesMarkup() {
   `;
 }
 
+function publishPreferences(fixture, settings, identity = {}) {
+  fixture.eventBus.emit("preferences:state-changed", {
+    reason: "startup-loaded",
+    state: createPreferencesState(settings, identity),
+  });
+}
+
 describe("PreferencesUI settings cache", () => {
   let fixture;
   let ui;
@@ -44,26 +51,19 @@ describe("PreferencesUI settings cache", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders a freshly loaded broadcast snapshot without querying settings", async () => {
+  it("renders the accepted cached snapshot without querying settings", async () => {
     const settings = createPreferencesState({
       bindToAliasMode: true,
       bindsetsEnabled: true,
       syncFolderName: "Fleet Builds",
       syncFolderPath: "Selected folder: Fleet Builds",
     }).settings;
-    detachHandlers.push(
-      respond(fixture.eventBus, "preferences:load-settings", () => {
-        fixture.eventBus.emit("preferences:loaded", { settings });
-        return undefined;
-      }),
-    );
+    publishPreferences(fixture, settings);
     const request = vi.spyOn(ui, "request");
 
     await ui.showPreferences();
 
-    expect(request.mock.calls.map(([topic]) => topic)).toEqual([
-      "preferences:load-settings",
-    ]);
+    expect(request).not.toHaveBeenCalled();
     expect(ui.cache.preferences).toEqual(settings);
     expect(document.getElementById("bindsetsEnabledCheckbox").checked).toBe(
       true,
@@ -84,7 +84,7 @@ describe("PreferencesUI settings cache", () => {
       bindsetsEnabled: false,
       customPreference: "retained",
     }).settings;
-    fixture.eventBus.emit("preferences:loaded", { settings });
+    publishPreferences(fixture, settings);
     ui.pendingSettings = {
       bindToAliasMode: true,
       bindsetsEnabled: true,
@@ -124,7 +124,7 @@ describe("PreferencesUI settings cache", () => {
       bindToAliasMode: false,
       bindsetsEnabled: false,
     }).settings;
-    fixture.eventBus.emit("preferences:loaded", { settings });
+    publishPreferences(fixture, settings);
     ui.pendingSettings = {
       bindToAliasMode: true,
       bindsetsEnabled: true,
@@ -155,7 +155,7 @@ describe("PreferencesUI settings cache", () => {
       bindToAliasMode: false,
       bindsetsEnabled: false,
     }).settings;
-    fixture.eventBus.emit("preferences:loaded", { settings });
+    publishPreferences(fixture, settings);
     ui.ui = { showToast: vi.fn() };
     ui.pendingSettings = {
       bindToAliasMode: true,
@@ -199,7 +199,7 @@ describe("PreferencesUI settings cache", () => {
 
   it("restores an immediately changed control when persistence returns false", async () => {
     const settings = createPreferencesState({ autoSave: false }).settings;
-    fixture.eventBus.emit("preferences:loaded", { settings });
+    publishPreferences(fixture, settings);
     const checkbox = document.getElementById("autoSaveCheckbox");
     checkbox.checked = true;
     detachHandlers.push(
@@ -220,7 +220,7 @@ describe("PreferencesUI settings cache", () => {
 
   it("restores an immediately changed control when persistence rejects", async () => {
     const settings = createPreferencesState({ autoSave: false }).settings;
-    fixture.eventBus.emit("preferences:loaded", { settings });
+    publishPreferences(fixture, settings);
     const checkbox = document.getElementById("autoSaveCheckbox");
     checkbox.checked = true;
     detachHandlers.push(
@@ -242,7 +242,7 @@ describe("PreferencesUI settings cache", () => {
       bindToAliasMode: false,
       bindsetsEnabled: false,
     }).settings;
-    fixture.eventBus.emit("preferences:loaded", { settings });
+    publishPreferences(fixture, settings);
     ui.pendingSettings = {
       bindToAliasMode: true,
       bindsetsEnabled: true,
@@ -300,13 +300,10 @@ describe("PreferencesUI settings cache", () => {
   });
 
   it("updates the sync-folder display directly from cached state", async () => {
-    fixture.eventBus.emit(
-      "preferences:loaded",
-      createPreferencesState({
-        syncFolderName: "Ground Loadouts",
-        syncFolderPath: "Selected folder: Ground Loadouts",
-      }),
-    );
+    publishPreferences(fixture, {
+      syncFolderName: "Ground Loadouts",
+      syncFolderPath: "Selected folder: Ground Loadouts",
+    });
     const request = vi.spyOn(ui, "request");
 
     await ui.updateFolderDisplay();

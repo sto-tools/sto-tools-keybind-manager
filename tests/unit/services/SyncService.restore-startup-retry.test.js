@@ -151,6 +151,7 @@ describe("SyncService restore startup retry", () => {
       durable: true,
       currentProfile: null,
       imported: { profiles: 0, settings: false },
+      activation: { data: "pending", preferences: "not-required" },
     });
     service.invokeRequest = request;
     stageImport();
@@ -260,6 +261,7 @@ describe("SyncService restore startup retry", () => {
         durable: true,
         currentProfile: null,
         imported: { profiles: 0, settings: false },
+        activation: { data: "pending", preferences: "not-required" },
       })
       .mockResolvedValueOnce(RELOAD_SUCCESS);
     service.invokeRequest = request;

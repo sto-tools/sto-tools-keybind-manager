@@ -205,8 +205,19 @@ export function createStorageFixture(options = {}) {
       }
     }),
 
-    clearAllData: vi.fn(() => {
+    clearSettings: vi.fn(() => {
+      mockLocalStorage.removeItem("sto_keybind_settings");
+      return true;
+    }),
+
+    clearAllData: vi.fn(({ preserveSettings = false } = {}) => {
+      const settings = preserveSettings
+        ? mockLocalStorage.getItem("sto_keybind_settings")
+        : null;
       mockLocalStorage.clear();
+      if (settings !== null) {
+        mockLocalStorage.setItem("sto_keybind_settings", settings);
+      }
       return true;
     }),
 

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import PreferencesService from "../../../src/js/components/services/PreferencesService.js";
 import { extensionPreferenceKey } from "../../../src/js/components/services/preferenceKeys.js";
@@ -8,13 +8,14 @@ describe("PreferencesService mutation boundary", () => {
   let fixture;
   let service;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     fixture = createServiceFixture();
     service = new PreferencesService({
       storage: fixture.storage,
       eventBus: fixture.eventBus,
     });
     service.init();
+    await service.initialStateReady;
     fixture.storage.saveSettings.mockClear();
     fixture.eventBusFixture.clearEventHistory();
   });
@@ -32,6 +33,9 @@ describe("PreferencesService mutation boundary", () => {
     ).toHaveLength(0);
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:changed"),
+    ).toHaveLength(0);
+    expect(
+      fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
     ).toHaveLength(0);
   }
 
@@ -97,5 +101,80 @@ describe("PreferencesService mutation boundary", () => {
 
     expectNoMutation(before);
     expect({}.polluted).toBeUndefined();
+  });
+
+  it("rejects descriptor-hostile single-setting RPC envelopes without invoking accessors", async () => {
+    const before = service.getCurrentState();
+    const keyGetter = vi.fn(() => "autoSave");
+    const nestedGetter = vi.fn(() => "compact");
+    const accessorEnvelope = { value: false };
+    Object.defineProperty(accessorEnvelope, "key", {
+      enumerable: true,
+      get: keyGetter,
+    });
+    const nested = {};
+    Object.defineProperty(nested, "density", {
+      enumerable: true,
+      get: nestedGetter,
+    });
+    const hostileProxy = new Proxy(
+      { key: "autoSave", value: false },
+      {
+        ownKeys() {
+          throw new Error("producer reflection failure");
+        },
+      },
+    );
+
+    for (const payload of [
+      { key: "autoSave", value: false, extra: true },
+      accessorEnvelope,
+      {
+        key: extensionPreferenceKey("plugin:layout"),
+        value: nested,
+        extension: true,
+      },
+      hostileProxy,
+    ]) {
+      await expect(
+        fixture.eventBus.request("preferences:set-setting", payload),
+      ).rejects.toThrow();
+    }
+
+    expect(keyGetter).not.toHaveBeenCalled();
+    expect(nestedGetter).not.toHaveBeenCalled();
+    expectNoMutation(before);
+  });
+
+  it("rejects descriptor-hostile bulk RPC payloads without invoking accessors", async () => {
+    const before = service.getCurrentState();
+    const settingGetter = vi.fn(() => false);
+    const accessorPayload = {};
+    Object.defineProperty(accessorPayload, "autoSave", {
+      enumerable: true,
+      get: settingGetter,
+    });
+    const hiddenPayload = {};
+    Object.defineProperty(hiddenPayload, "autoSave", {
+      enumerable: false,
+      value: false,
+    });
+    const hostileProxy = new Proxy(
+      { autoSave: false },
+      {
+        getOwnPropertyDescriptor() {
+          throw new Error("producer reflection failure");
+        },
+      },
+    );
+
+    for (const payload of [accessorPayload, hiddenPayload, hostileProxy]) {
+      await expect(
+        fixture.eventBus.request("preferences:set-settings", payload),
+      ).rejects.toThrow("Invalid preferences settings payload");
+    }
+
+    expect(settingGetter).not.toHaveBeenCalled();
+    expectNoMutation(before);
   });
 });

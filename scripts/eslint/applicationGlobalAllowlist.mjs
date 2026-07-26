@@ -32,7 +32,6 @@ export const applicationGlobalAllowlist = deepFreeze({
       "DOM translation bridge, optionally wrapped by development tracing.",
     consumers: [
       "src/js/components/services/ModalManagerService.js",
-      "src/js/components/services/PreferencesService.js",
       "src/js/dev/DevMonitor.js",
     ],
     compatibilityOwner: "main.js",
@@ -64,32 +63,6 @@ export const applicationGlobalAllowlist = deepFreeze({
     removalGate:
       "Browser boundary probes use typed event and RPC contracts exclusively.",
     writers: [writer("src/js/main.js", "dataCoordinator")],
-  },
-  stoUI: {
-    classification: "bootstrap compatibility",
-    purpose:
-      "Legacy toast and UI utility facade for remaining fallback consumers.",
-    consumers: [
-      "src/js/components/services/StorageService.js",
-      "src/js/components/services/dataCoordinatorDefaultUi.js",
-      "src/js/components/ui/CommandUI.js",
-      "src/js/components/ui/FileExplorerUI.js",
-      "src/js/components/ui/InterfaceModeUI.js",
-    ],
-    compatibilityOwner: "main.js",
-    removalGate: "Every remaining toast and UI utility consumer is injected.",
-    writers: [writer("src/js/main.js", "stoUI")],
-  },
-  stoSync: {
-    classification: "bootstrap compatibility",
-    purpose: "Sync-folder selection bridge used by preferences UI.",
-    consumers: [
-      "src/js/components/ui/PreferencesUI.js",
-      "tests/browser/storage-boundary.test.js",
-    ],
-    compatibilityOwner: "main.js",
-    removalGate: "Preferences UI receives the sync capability directly.",
-    writers: [writer("src/js/main.js", "stoSync")],
   },
   eventBus: {
     classification: "bootstrap compatibility",

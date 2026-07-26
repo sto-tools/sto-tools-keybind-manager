@@ -18,7 +18,9 @@ import type {
   KeyViewMode,
 } from "../../src/js/types/events/base.js";
 import type {
+  ProjectRestorePendingActivation,
   ProjectRestoreResult,
+  SyncFolderSelectionResult,
   SyncProjectResult,
 } from "../../src/js/types/rpc/application.js";
 import type {
@@ -63,8 +65,11 @@ type ParameterCommandBuildRequest = Expect<
 type KnownTopic = Expect<
   "parser:clear-cache" extends RpcKnownTopic ? true : false
 >;
-type PreferenceInitResult = Expect<
-  Equal<RpcResult<"preferences:init">, undefined>
+type RetiredPreferencesStartupTopics = Expect<
+  Equal<
+    Extract<RpcKnownTopic, "preferences:init" | "preferences:load-settings">,
+    never
+  >
 >;
 type KeyViewModeRequest = Expect<
   Equal<RpcRequest<"key:cycle-view-mode">, RpcEmptyPayload>
@@ -115,6 +120,29 @@ type PreferenceMutationResult = Expect<
 type PreferencesMutationResult = Expect<
   Equal<RpcResult<"preferences:set-settings">, boolean>
 >;
+type PreferencesActivationRequest = Expect<
+  Equal<
+    RpcRequest<"preferences:activate-persisted-settings">,
+    { source: "project-restore" | "application-reset" }
+  >
+>;
+type PreferencesActivationResultIsExact = Expect<
+  Equal<
+    RpcResult<"preferences:activate-persisted-settings">,
+    | {
+        success: true;
+        changed: boolean;
+        revision: number;
+        effects: "applied" | "degraded";
+      }
+    | {
+        success: false;
+        error: "preferences_activation_failed" | "operation_cancelled";
+        params: { reason: string };
+        retryable: true;
+      }
+  >
+>;
 type SyncFolderSettingsRequest = Expect<
   Equal<
     RpcRequest<"preferences:persist-sync-folder-settings">,
@@ -128,6 +156,19 @@ type SyncFolderSettingsRequest = Expect<
 >;
 type SyncFolderSettingsResult = Expect<
   Equal<RpcResult<"preferences:persist-sync-folder-settings">, boolean>
+>;
+type SyncFolderSelectionRequest = Expect<
+  Equal<RpcRequest<"sync:select-folder">, { autoSync: boolean }>
+>;
+type SyncFolderSelectionResultIsExact = Expect<
+  Equal<RpcResult<"sync:select-folder">, SyncFolderSelectionResult>
+>;
+type ProjectRestorePendingActivationIsExact = Expect<
+  Equal<
+    ProjectRestorePendingActivation,
+    | { data: "pending"; preferences: "pending" | "not-required" }
+    | { data: "complete"; preferences: "pending" }
+  >
 >;
 type SyncFolderExportRequest = Expect<
   Equal<RpcRequest<"export:sync-to-folder">, { dirHandle: SyncDirectoryHandle }>
@@ -575,10 +616,18 @@ async function exerciseCoreApi() {
     const durable: true = restoreResult.durable;
     const currentProfile: string | null = restoreResult.currentProfile;
     const importedSettings: boolean = restoreResult.imported.settings;
+    const dataActivation: "complete" | "pending" =
+      restoreResult.activation.data;
+    const preferencesActivationProgress:
+      | "complete"
+      | "pending"
+      | "not-required" = restoreResult.activation.preferences;
     void reason;
     void durable;
     void currentProfile;
     void importedSettings;
+    void dataActivation;
+    void preferencesActivationProgress;
   } else if (restoreResult.error === "project_restore_import_failed") {
     const reason: string = restoreResult.params.reason;
     const durable: false | "indeterminate" = restoreResult.durable;
@@ -621,6 +670,37 @@ async function exerciseCoreApi() {
     durable: "indeterminate",
   };
   void indeterminateRestore;
+  const pendingActivationRestore: ProjectRestoreResult = {
+    success: false,
+    error: "project_restore_reload_failed",
+    params: { reason: "preferences activation unavailable" },
+    imported: { profiles: 2, settings: true },
+    currentProfile: "captain",
+    durable: true,
+    activation: { data: "complete", preferences: "pending" },
+  };
+  void pendingActivationRestore;
+  const impossibleCompletedActivation: ProjectRestoreResult = {
+    success: false,
+    error: "project_restore_reload_failed",
+    params: { reason: "activation unexpectedly failed" },
+    imported: { profiles: 2, settings: true },
+    currentProfile: "captain",
+    durable: true,
+    // @ts-expect-error A failure receipt must retain at least one pending target.
+    activation: { data: "complete", preferences: "complete" },
+  };
+  void impossibleCompletedActivation;
+  // @ts-expect-error Durable reload failures require exact activation progress.
+  const incompleteActivationRestore: ProjectRestoreResult = {
+    success: false,
+    error: "project_restore_reload_failed",
+    params: { reason: "activation unavailable" },
+    imported: { profiles: 2, settings: true },
+    currentProfile: "captain",
+    durable: true,
+  };
+  void incompleteActivationRestore;
 
   const importResult = await request(eventBus, "import:project-file", {
     content: '{"type":"project","data":{}}',
@@ -673,11 +753,35 @@ async function exerciseCoreApi() {
     }
   }
 
+  const folderSelection = await request(eventBus, "sync:select-folder", {
+    autoSync: true,
+  });
+  if (folderSelection.success) {
+    folderSelection.folderName.toUpperCase();
+  } else {
+    // @ts-expect-error Failed selection results never expose a folder name.
+    folderSelection.folderName;
+  }
+  // @ts-expect-error Folder selection is a required-payload action.
+  request(eventBus, "sync:select-folder");
+  // @ts-expect-error Folder selection requires an exact boolean flag.
+  request(eventBus, "sync:select-folder", { autoSync: "true" });
+  // @ts-expect-error Folder selection rejects undeclared request fields.
+  request(eventBus, "sync:select-folder", { autoSync: true, extra: true });
+
   await request(eventBus, "preferences:persist-sync-folder-settings", {
     syncFolderName: "Fleet Builds",
     syncFolderPath: "Selected folder: Fleet Builds",
     syncFolderFallback: false,
     autoSync: true,
+  });
+  // @ts-expect-error Fixed sync-folder envelopes reject undeclared fields.
+  await request(eventBus, "preferences:persist-sync-folder-settings", {
+    syncFolderName: "Fleet Builds",
+    syncFolderPath: "Selected folder: Fleet Builds",
+    syncFolderFallback: false,
+    autoSync: true,
+    language: "de",
   });
   // @ts-expect-error The compatibility flag is normalized to false.
   await request(eventBus, "preferences:persist-sync-folder-settings", {
@@ -690,6 +794,17 @@ async function exerciseCoreApi() {
   await request(eventBus, "preferences:set-setting", {
     key: "autoSave",
     value: false,
+  });
+  await request(eventBus, "preferences:set-setting", {
+    key: "autoSave",
+    value: false,
+    extension: false,
+  });
+  // @ts-expect-error Fixed setting envelopes reject undeclared fields.
+  await request(eventBus, "preferences:set-setting", {
+    key: "autoSave",
+    value: false,
+    extra: true,
   });
   const pluginLayoutKey: ExtensionPreferenceKey =
     extensionPreferenceKey("plugin:layout");
@@ -764,6 +879,38 @@ async function exerciseCoreApi() {
   });
   // @ts-expect-error Bulk mutations retain known preference value types.
   request(eventBus, "preferences:set-settings", { autoSave: "yes" });
+  const preferencesActivation = await request(
+    eventBus,
+    "preferences:activate-persisted-settings",
+    { source: "project-restore" },
+  );
+  if (preferencesActivation.success) {
+    preferencesActivation.changed.valueOf();
+    preferencesActivation.revision.toFixed();
+    preferencesActivation.effects.toUpperCase();
+    // @ts-expect-error Success receipts do not expose a failure code.
+    preferencesActivation.error;
+  } else {
+    preferencesActivation.error.toUpperCase();
+    preferencesActivation.params.reason.toUpperCase();
+    preferencesActivation.retryable.valueOf();
+    // @ts-expect-error Failure receipts do not claim a revision.
+    preferencesActivation.revision;
+  }
+  request(eventBus, "preferences:activate-persisted-settings", {
+    source: "application-reset",
+  });
+  // @ts-expect-error Activation requires a closed source discriminator.
+  request(eventBus, "preferences:activate-persisted-settings", {
+    source: "reload",
+  });
+  // @ts-expect-error Activation requires a payload.
+  request(eventBus, "preferences:activate-persisted-settings");
+  // @ts-expect-error Activation payloads are exact at direct call sites.
+  request(eventBus, "preferences:activate-persisted-settings", {
+    source: "project-restore",
+    extra: true,
+  });
 
   const dynamicResult = await request(eventBus, dynamicTopic, { value: 1 });
   type DynamicResult = Expect<
@@ -796,6 +943,39 @@ async function exerciseCoreApi() {
   }));
   respond(eventBus, "command-presentation:toggle-category", () => true);
   respond(eventBus, "command-presentation:toggle-group", () => false);
+  respond(eventBus, "sync:select-folder", () => ({
+    success: true,
+    folderName: "Fleet Builds",
+  }));
+  respond(eventBus, "sync:select-folder", () => ({ success: false }));
+  // @ts-expect-error Successful selection replies require the detached name.
+  respond(eventBus, "sync:select-folder", () => ({ success: true }));
+  const leakedFolderSelectionResult: SyncFolderSelectionResult = {
+    success: true,
+    folderName: "Fleet Builds",
+    // @ts-expect-error Selection replies never expose the browser-owned handle.
+    handle: {},
+  };
+  void leakedFolderSelectionResult;
+  respond(eventBus, "preferences:activate-persisted-settings", () => ({
+    success: true,
+    changed: false,
+    revision: 2,
+    effects: "applied",
+  }));
+  respond(eventBus, "preferences:activate-persisted-settings", () => ({
+    success: false,
+    error: "operation_cancelled",
+    params: { reason: "operation_cancelled" },
+    retryable: true,
+  }));
+  // @ts-expect-error Activation effect status is a closed vocabulary.
+  respond(eventBus, "preferences:activate-persisted-settings", () => ({
+    success: true,
+    changed: false,
+    revision: 2,
+    effects: "partial",
+  }));
   // @ts-expect-error Command-presentation actions return booleans.
   respond(eventBus, "command-presentation:toggle-category", () => "true");
   // @ts-expect-error View-mode actions return only a closed mode.
@@ -804,9 +984,18 @@ async function exerciseCoreApi() {
     void dirHandle;
     return undefined;
   });
+  // @ts-expect-error Preferences startup is an owned readiness barrier, not RPC.
+  request(eventBus, "preferences:init");
+  // @ts-expect-error Preference snapshots arrive through canonical state broadcasts.
+  request(eventBus, "preferences:load-settings");
+  // @ts-expect-error Preference snapshots are broadcast and cached, never queried.
+  request(eventBus, "preferences:get-settings");
+  // @ts-expect-error The Preferences startup responder is retired.
   respond(eventBus, "preferences:init", () => undefined);
-  // @ts-expect-error No-result responders cannot accidentally publish a value.
-  respond(eventBus, "preferences:init", () => true);
+  // @ts-expect-error The Preferences state-read responder is retired.
+  respond(eventBus, "preferences:load-settings", () => ({}));
+  // @ts-expect-error PreferencesService does not expose a state-query responder.
+  respond(eventBus, "preferences:get-settings", () => ({}));
   // @ts-expect-error Registered responders must return the topic result type.
   respond(eventBus, "parser:parse-command-string", () => ({ success: true }));
 
@@ -1115,9 +1304,12 @@ void syncCompensationFailure;
 void unknownSyncFailure;
 void (0 as unknown as ParameterCommandBuildResult);
 void (0 as unknown as ParameterCommandBuildRequest);
-void (0 as unknown as PreferenceInitResult);
+void (0 as unknown as RetiredPreferencesStartupTopics);
+void (0 as unknown as PreferencesActivationRequest);
+void (0 as unknown as PreferencesActivationResultIsExact);
 void (0 as unknown as KeyViewModeRequest);
 void (0 as unknown as KeyViewModeResult);
 void (0 as unknown as SyncFolderSettingsRequest);
 void (0 as unknown as SyncFolderSettingsResult);
+void (0 as unknown as ProjectRestorePendingActivationIsExact);
 void (0 as unknown as SyncProjectResultIsExact);

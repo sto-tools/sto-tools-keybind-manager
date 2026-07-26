@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import ImportService from "../../src/js/components/services/ImportService.js";
 import ProjectManagementService from "../../src/js/components/services/ProjectManagementService.js";
+import PreferencesService from "../../src/js/components/services/PreferencesService.js";
 import StorageService from "../../src/js/components/services/StorageService.js";
-import SyncService from "../../src/js/components/services/SyncService.js";
 import { MAX_PROJECT_JSON_BYTES } from "../../src/js/components/services/jsonDataBoundary.js";
 import HeaderMenuUI from "../../src/js/components/ui/HeaderMenuUI.js";
 import {
@@ -16,49 +16,12 @@ import {
   assertMundaneSettingsFinalRootFailure,
   rejectFinalProjectRootWrite,
 } from "../fixtures/services/projectRestore.js";
-
-const destinationRoot = {
-  version: "1.0.0",
-  created: "2026-01-01T00:00:00.000Z",
-  lastModified: "2026-01-01T00:00:00.000Z",
-  currentProfile: "existing",
-  profiles: {
-    existing: {
-      name: "Existing",
-      description: "Destination profile",
-      currentEnvironment: "space",
-      migrationVersion: "2.1.1",
-      builds: { space: { keys: {} }, ground: { keys: {} } },
-      aliases: {},
-    },
-  },
-  globalAliases: {},
-  settings: {},
-};
-
-const importedProject = {
-  version: "1.0.0",
-  exported: "2026-07-17T00:00:00.000Z",
-  type: "project",
-  data: {
-    profiles: {
-      imported: {
-        id: "imported",
-        name: "Imported",
-        description: "Authoritative reload target",
-        currentEnvironment: "ground",
-        migrationVersion: "2.1.1",
-        builds: {
-          space: { keys: {} },
-          ground: { keys: { G: ["Sprint", "Aim"] } },
-        },
-        aliases: {},
-      },
-    },
-    settings: { theme: "light", language: "de" },
-    currentProfile: "imported",
-  },
-};
+import {
+  assertResetSerializesProjectRestore,
+  assertSyncRetriesOnlyDurableActivation,
+  destinationRoot,
+  importedProject,
+} from "../fixtures/services/projectImportOwnerChain.js";
 
 describe("project import authoritative owner chain", () => {
   let eventBusFixture;
@@ -67,6 +30,7 @@ describe("project import authoritative owner chain", () => {
   let coordinator;
   let importer;
   let projectManager;
+  let preferences;
   let sync;
 
   beforeEach(async () => {
@@ -102,18 +66,39 @@ describe("project import authoritative owner chain", () => {
       eventBus: eventBusFixture.eventBus,
       storage,
     });
+    const preferencesI18n = {
+      language: "en",
+      t: (key) => key,
+      changeLanguage: vi.fn(async (language) => {
+        preferencesI18n.language = language;
+      }),
+    };
+    preferences = new PreferencesService({
+      eventBus: eventBusFixture.eventBus,
+      storage,
+      i18n: preferencesI18n,
+      localizeCommands: () => {},
+      applyTranslations: () => {},
+    });
     projectManager = new ProjectManagementService({
       eventBus: eventBusFixture.eventBus,
       storage,
       ui: { showToast: vi.fn() },
       i18n: { t: (key) => key },
+      runPreferencesTransition: (source, operation) =>
+        preferences.runExternalActivationTransition(source, operation),
     });
 
     storage.init();
     coordinator.init();
+    preferences.init();
     await vi.waitFor(() => {
       expect(coordinator.getCurrentState().ready).toBe(true);
     });
+    await preferences.initialStateReady;
+    storage.setPreferencesTransitionRunner((source, operation) =>
+      preferences.runExternalActivationTransition(source, operation),
+    );
     importer.init();
     projectManager.init();
   });
@@ -122,6 +107,7 @@ describe("project import authoritative owner chain", () => {
     if (sync && !sync.destroyed) sync.destroy();
     projectManager?.destroy();
     importer?.destroy();
+    preferences?.destroy();
     coordinator?.destroy();
     storage?.destroy();
     eventBusFixture?.destroy();
@@ -200,7 +186,19 @@ describe("project import authoritative owner chain", () => {
       version: "destination-version",
       firstRun: false,
     });
+    expect(preferences.getCurrentState()).toMatchObject({
+      settings: { theme: "light", language: "de" },
+    });
     expect(projectManager.ui.showToast).not.toHaveBeenCalled();
+  });
+
+  it("serializes application reset behind an in-flight project restore", async () => {
+    await assertResetSerializesProjectRestore({
+      storage,
+      projectManager,
+      coordinator,
+      preferences,
+    });
   });
 
   it("rejects an oversized project at the direct chooser before reading or importing it", async () => {
@@ -212,6 +210,8 @@ describe("project import authoritative owner chain", () => {
       storage,
       ui: { showToast },
       i18n: { t: (key) => key },
+      runPreferencesTransition: (source, operation) =>
+        preferences.runExternalActivationTransition(source, operation),
     });
     const headerMenu = new HeaderMenuUI({
       eventBus: realEventBusFixture.eventBus,
@@ -342,13 +342,14 @@ describe("project import authoritative owner chain", () => {
     expect(projectManager.ui.showToast).not.toHaveBeenCalled();
   });
 
-  it("keeps acknowledged mundane settings when quota blocks the final root write", async () => {
-    await assertMundaneSettingsFinalRootFailure({
+  it("keeps acknowledged mundane settings after final-root failure and activates them on restart", async () => {
+    preferences = await assertMundaneSettingsFinalRootFailure({
       storage,
       coordinator,
       eventBus: eventBusFixture.eventBus,
       projectManager,
       importedProject,
+      preferences,
     });
   });
 
@@ -370,6 +371,7 @@ describe("project import authoritative owner chain", () => {
       durable: true,
       currentProfile: "imported",
       imported: { profiles: 1, settings: true },
+      activation: { data: "pending", preferences: "pending" },
     });
     expect(reloadState).toHaveBeenCalledOnce();
     expect(coordinator.getCurrentState()).toBe(beforeState);
@@ -396,133 +398,13 @@ describe("project import authoritative owner chain", () => {
   });
 
   it("retries only durable activation after a sync import reload failure", async () => {
-    const content = JSON.stringify(importedProject);
-    const text = vi.fn().mockResolvedValue(content);
-    const getFile = vi.fn().mockResolvedValue({
-      size: new TextEncoder().encode(content).byteLength,
-      text,
-    });
-    const getFileHandle = vi.fn().mockResolvedValue({
-      kind: "file",
-      name: "project.json",
-      getFile,
-    });
-    const queryPermission = vi.fn().mockResolvedValue("granted");
-    const requestPermission = vi.fn().mockResolvedValue("granted");
-    const directory = {
-      kind: "directory",
-      name: "Fleet Builds",
-      queryPermission,
-      requestPermission,
-      getDirectoryHandle: vi.fn(),
-      getFileHandle,
-    };
-    const getSyncDirectoryState = vi.fn().mockResolvedValue({
-      handle: directory,
-      transitionPending: false,
-    });
-    const ui = { showToast: vi.fn() };
-    sync = new SyncService({
-      eventBus: eventBusFixture.eventBus,
-      fs: { getSyncDirectoryState },
-      ui,
-      i18n: {
-        t: (key, params) => (params?.error ? `${key}:${params.error}` : key),
-      },
-    });
-    sync.init();
-
-    const restoreFromProjectContent = vi.spyOn(
+    sync = await assertSyncRetriesOnlyDurableActivation({
+      eventBusFixture,
+      storage,
+      coordinator,
+      importer,
       projectManager,
-      "restoreFromProjectContent",
-    );
-    const importProjectFile = vi.spyOn(importer, "importProjectFile");
-    const saveProfile = vi.spyOn(storage, "saveProfile");
-    const saveSettings = vi.spyOn(storage, "saveSettings");
-    const saveAllData = vi.spyOn(storage, "saveAllData");
-    const realReloadState = coordinator.reloadState.bind(coordinator);
-    const reloadState = vi
-      .spyOn(coordinator, "reloadState")
-      .mockResolvedValueOnce({ success: false, error: "reload blocked" })
-      .mockImplementation(realReloadState);
-    const publications = [];
-    eventBusFixture.eventBus.on("data:state-changed", ({ reason }) => {
-      if (reason === "state-reloaded") publications.push("state");
+      preferences,
     });
-    eventBusFixture.eventBus.on("profile:switched", () => {
-      publications.push("profile");
-    });
-    eventBusFixture.eventBus.on("environment:changed", () => {
-      publications.push("environment");
-    });
-    const beforeState = coordinator.getCurrentState();
-
-    sync.stagePendingSyncDecision("import", null);
-    await sync.applyPendingSyncDecision();
-
-    await expect(
-      restoreFromProjectContent.mock.results[0].value,
-    ).resolves.toEqual({
-      success: false,
-      error: "project_restore_reload_failed",
-      params: { reason: "reload blocked" },
-      durable: true,
-      currentProfile: "imported",
-      imported: { profiles: 1, settings: true },
-    });
-    expect(getSyncDirectoryState).toHaveBeenCalledOnce();
-    expect(queryPermission).toHaveBeenCalledOnce();
-    expect(requestPermission).not.toHaveBeenCalled();
-    expect(getFileHandle).toHaveBeenCalledOnce();
-    expect(getFile).toHaveBeenCalledOnce();
-    expect(text).toHaveBeenCalledOnce();
-    expect(restoreFromProjectContent).toHaveBeenCalledOnce();
-    expect(importProjectFile).toHaveBeenCalledOnce();
-    expect(saveProfile).toHaveBeenCalledOnce();
-    expect(saveSettings).toHaveBeenCalledOnce();
-    expect(saveAllData).toHaveBeenCalledTimes(2);
-    expect(reloadState).toHaveBeenCalledOnce();
-    expect(coordinator.getCurrentState()).toBe(beforeState);
-    expect(publications).toEqual([]);
-    expect(sync.pendingSyncAction).toBe("import");
-    expect(sync.awaitingSyncDecisionApply).toBe(true);
-    expect(storage.getAllData()).toMatchObject({
-      currentProfile: "imported",
-      profiles: { imported: { name: "Imported" } },
-    });
-
-    getSyncDirectoryState.mockResolvedValue({
-      handle: null,
-      transitionPending: false,
-    });
-    queryPermission.mockResolvedValue("denied");
-    text.mockResolvedValue("changed after durable import");
-
-    await sync.applyPendingSyncDecision();
-
-    expect(reloadState).toHaveBeenCalledTimes(2);
-    expect(getSyncDirectoryState).toHaveBeenCalledOnce();
-    expect(queryPermission).toHaveBeenCalledOnce();
-    expect(requestPermission).not.toHaveBeenCalled();
-    expect(getFileHandle).toHaveBeenCalledOnce();
-    expect(getFile).toHaveBeenCalledOnce();
-    expect(text).toHaveBeenCalledOnce();
-    expect(restoreFromProjectContent).toHaveBeenCalledOnce();
-    expect(importProjectFile).toHaveBeenCalledOnce();
-    expect(saveProfile).toHaveBeenCalledOnce();
-    expect(saveSettings).toHaveBeenCalledOnce();
-    expect(saveAllData).toHaveBeenCalledTimes(2);
-    expect(publications).toEqual(["state", "profile", "environment"]);
-    expect(coordinator.getCurrentState()).toMatchObject({
-      currentProfile: "imported",
-      currentEnvironment: "ground",
-    });
-    expect(sync.pendingSyncAction).toBeNull();
-    expect(sync.awaitingSyncDecisionApply).toBe(false);
-    expect(sync.deferredImportContent).toBeNull();
-    expect(ui.showToast.mock.calls).toEqual([
-      ["failed_to_import_project:reload blocked", "error"],
-      ["project_imported_from_sync_folder", "success"],
-    ]);
   });
 });

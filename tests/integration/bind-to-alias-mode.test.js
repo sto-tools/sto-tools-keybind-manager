@@ -59,6 +59,7 @@ describe("Bind-to-Alias Mode Integration", () => {
     });
     preferencesService.defaultSettings.bindToAliasMode = false;
     preferencesService.init();
+    await preferencesService.initialStateReady;
 
     // Create ExportService with i18n
     const exportService = new ExportService({
@@ -67,20 +68,6 @@ describe("Bind-to-Alias Mode Integration", () => {
       i18n: mockI18n,
     });
     exportService.init();
-
-    // initializeCache is called by init(); no manual call needed
-
-    // Debug: Check if ExportService receives preference events
-    exportService.addEventListener("preferences:changed", (data) => {
-      console.log(
-        "[ExportService Test] Received preferences:changed event:",
-        data,
-      );
-      console.log(
-        "[ExportService Test] Current cache after event:",
-        exportService.cache.preferences,
-      );
-    });
 
     dataCoordinator = new DataCoordinator({
       storage: serviceFixture.storage,
@@ -110,7 +97,7 @@ describe("Bind-to-Alias Mode Integration", () => {
 
   describe("Preference Management", () => {
     it("should store and retrieve bind-to-alias mode setting", async () => {
-      const { preferencesService } = fixture;
+      let { preferencesService } = fixture;
 
       // Default should be false
       expect(preferencesService.getSetting("bindToAliasMode")).toBe(false);
@@ -121,7 +108,14 @@ describe("Bind-to-Alias Mode Integration", () => {
 
       // Should persist across save/load
       await preferencesService.saveSettings();
-      preferencesService.loadSettings();
+      preferencesService.destroy();
+      preferencesService = new PreferencesService({
+        storage: fixture.storage,
+        eventBus: fixture.eventBus,
+      });
+      preferencesService.init();
+      await preferencesService.initialStateReady;
+      fixture.preferencesService = preferencesService;
       expect(preferencesService.getSetting("bindToAliasMode")).toBe(true);
     });
   });
@@ -221,18 +215,8 @@ describe("Bind-to-Alias Mode Integration", () => {
     it("should generate bind-to-alias export when mode is enabled", async () => {
       const { preferencesService, exportService } = fixture;
 
-      console.log(
-        "[Test Debug] ExportService cache before setting:",
-        exportService.cache.preferences,
-      );
-
       // Enable bind-to-alias mode
       await preferencesService.setSetting("bindToAliasMode", true);
-
-      console.log(
-        "[Test Debug] ExportService cache after setting:",
-        exportService.cache.preferences,
-      );
 
       // Create test profile with keybinds
       const profile = {

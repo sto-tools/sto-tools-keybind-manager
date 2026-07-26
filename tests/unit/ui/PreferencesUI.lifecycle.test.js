@@ -6,15 +6,15 @@ import { createEventBusFixture } from "../../fixtures/index.js";
 const ownedTopicCounts = {
   "preferences:show": 1,
   "sync:folder-set": 1,
-  // One standardized ComponentBase cache listener plus one PreferencesUI
-  // AutoSync notification listener.
-  "preferences:changed": 2,
+  "preferences:changed": 1,
+  "preferences:state-changed": 1,
 };
 
 function installMarkup() {
   document.body.innerHTML = `
     <button id="savePreferencesBtn" type="button">Save</button>
     <button id="setSyncFolderBtn" type="button">Set folder</button>
+    <span id="currentSyncFolder"></span>
   `;
 }
 
@@ -42,7 +42,9 @@ function expectOwnedTopicCounts(eventBus, multiplier) {
 function createOwner(eventBus) {
   const ui = new PreferencesUI({ eventBus, document });
   const spies = {
-    request: vi.spyOn(ui, "request").mockResolvedValue(undefined),
+    request: vi
+      .spyOn(ui, "request")
+      .mockResolvedValue({ success: true, folderName: "Fleet Builds" }),
     populate: vi
       .spyOn(ui, "populatePreferencesModal")
       .mockResolvedValue(undefined),
@@ -82,21 +84,23 @@ function expectOneOwnedDispatch(owner) {
   expect(owner.spies.updateFolder).toHaveBeenCalledOnce();
   expect(owner.spies.notifyAutoSync).toHaveBeenCalledOnce();
   expect(owner.spies.save).toHaveBeenCalledOnce();
-  expect(owner.spies.request).not.toHaveBeenCalled();
+  expect(owner.spies.request).toHaveBeenCalledOnce();
+  expect(owner.spies.request).toHaveBeenCalledWith(
+    "sync:select-folder",
+    { autoSync: true },
+    0,
+  );
 }
 
 describe("PreferencesUI lifecycle ownership", () => {
   let fixture;
   let owners;
-  let setSyncFolder;
 
   beforeEach(() => {
     installMarkup();
     fixture = createEventBusFixture();
     installFunctionalDomRouter(fixture.eventBus);
     owners = [];
-    setSyncFolder = vi.fn().mockResolvedValue({ name: "Fleet Builds" });
-    vi.stubGlobal("stoSync", { setSyncFolder });
   });
 
   afterEach(() => {
@@ -121,13 +125,11 @@ describe("PreferencesUI lifecycle ownership", () => {
     dispatchOwnedInteractions(fixture.eventBus);
     await flushAsyncHandlers();
     expectOneOwnedDispatch(owner);
-    expect(setSyncFolder).toHaveBeenCalledOnce();
 
     owner.ui.destroy();
     expectOwnedTopicCounts(fixture.eventBus, 0);
 
     clearOwnerSpies(owner);
-    setSyncFolder.mockClear();
     dispatchOwnedInteractions(fixture.eventBus);
     await flushAsyncHandlers();
     expect(owner.spies.show).not.toHaveBeenCalled();
@@ -135,18 +137,15 @@ describe("PreferencesUI lifecycle ownership", () => {
     expect(owner.spies.notifyAutoSync).not.toHaveBeenCalled();
     expect(owner.spies.save).not.toHaveBeenCalled();
     expect(owner.spies.request).not.toHaveBeenCalled();
-    expect(setSyncFolder).not.toHaveBeenCalled();
 
     owner.ui.init();
     await flushAsyncHandlers();
     expectOwnedTopicCounts(fixture.eventBus, 1);
 
     clearOwnerSpies(owner);
-    setSyncFolder.mockClear();
     dispatchOwnedInteractions(fixture.eventBus);
     await flushAsyncHandlers();
     expectOneOwnedDispatch(owner);
-    expect(setSyncFolder).toHaveBeenCalledOnce();
   });
 
   it("leaves only the replacement UI live after predecessor teardown", async () => {
@@ -164,7 +163,6 @@ describe("PreferencesUI lifecycle ownership", () => {
 
     clearOwnerSpies(predecessor);
     clearOwnerSpies(replacement);
-    setSyncFolder.mockClear();
     dispatchOwnedInteractions(fixture.eventBus);
     await flushAsyncHandlers();
 
@@ -174,6 +172,42 @@ describe("PreferencesUI lifecycle ownership", () => {
     expect(predecessor.spies.save).not.toHaveBeenCalled();
     expect(predecessor.spies.request).not.toHaveBeenCalled();
     expectOneOwnedDispatch(replacement);
-    expect(setSyncFolder).toHaveBeenCalledOnce();
+  });
+
+  it("uses only the typed action when the retired ambient bridge is poisoned", async () => {
+    const ambientSetSyncFolder = vi.fn(() => {
+      throw new Error("ambient stoSync must not be read");
+    });
+    vi.stubGlobal("stoSync", { setSyncFolder: ambientSetSyncFolder });
+    const owner = createOwner(fixture.eventBus);
+    owners.push(owner);
+    owner.ui.init();
+
+    document.getElementById("setSyncFolderBtn")?.click();
+    await flushAsyncHandlers();
+
+    expect(owner.spies.request).toHaveBeenCalledWith(
+      "sync:select-folder",
+      { autoSync: true },
+      0,
+    );
+    expect(document.getElementById("currentSyncFolder")?.textContent).toBe(
+      "Fleet Builds",
+    );
+    expect(ambientSetSyncFolder).not.toHaveBeenCalled();
+  });
+
+  it("leaves the displayed folder unchanged when selection is not successful", async () => {
+    const owner = createOwner(fixture.eventBus);
+    owners.push(owner);
+    owner.spies.request.mockResolvedValue({ success: false });
+    owner.ui.init();
+    const display = document.getElementById("currentSyncFolder");
+    if (display) display.textContent = "Existing Folder";
+
+    document.getElementById("setSyncFolderBtn")?.click();
+    await flushAsyncHandlers();
+
+    expect(display?.textContent).toBe("Existing Folder");
   });
 });

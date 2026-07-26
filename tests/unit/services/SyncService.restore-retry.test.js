@@ -4,6 +4,7 @@ import ProjectManagementService from "../../../src/js/components/services/Projec
 import SyncService from "../../../src/js/components/services/SyncService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
+import { createRequestBackedPreferencesTransition } from "../../fixtures/services/projectRestore.js";
 
 const PROJECT_CONTENT = '{"type":"project","data":{"profiles":{}}}';
 const PROJECT_FILE = {
@@ -28,6 +29,7 @@ const DURABLE_RELOAD_FAILURE = {
   durable: true,
   currentProfile: null,
   imported: { profiles: 0, settings: false },
+  activation: { data: "pending", preferences: "not-required" },
 };
 
 describe("SyncService restore retry ownership", () => {
@@ -143,6 +145,7 @@ describe("SyncService restore retry ownership", () => {
     expect(service.pendingRestoreActivationReceipt).toEqual({
       currentProfile: null,
       imported: { profiles: 0, settings: false },
+      activation: { data: "pending", preferences: "not-required" },
     });
     expect(service.deferredImportContent).toEqual(PROJECT_FILE);
     expect(service.pendingSyncAction).toBe("import");
@@ -181,6 +184,7 @@ describe("SyncService restore retry ownership", () => {
     expect(service.pendingRestoreActivationReceipt).toEqual({
       currentProfile: null,
       imported: { profiles: 0, settings: false },
+      activation: { data: "pending", preferences: "not-required" },
     });
     expect(service.pendingSyncAction).toBe("import");
 
@@ -212,6 +216,7 @@ describe("SyncService restore retry ownership", () => {
     expect(service.pendingRestoreActivationReceipt).toEqual({
       currentProfile: null,
       imported: { profiles: 0, settings: false },
+      activation: { data: "pending", preferences: "not-required" },
     });
     expect(service.pendingSyncAction).toBe("import");
     expect(request.mock.calls).toEqual([
@@ -260,6 +265,9 @@ describe("SyncService restore retry ownership", () => {
       const projectManager = new ProjectManagementService({
         eventBus: fixture.eventBus,
         i18n: service.i18n,
+        runPreferencesTransition: createRequestBackedPreferencesTransition(
+          () => projectManager,
+        ),
       });
       projectManager.init();
       const restoreRequest = vi.spyOn(service, "invokeRequest");
@@ -395,6 +403,7 @@ describe("SyncService restore retry ownership", () => {
         durable: true,
         currentProfile: null,
         imported: { profiles: 0, settings: false },
+        activation: { data: "pending", preferences: "not-required" },
       }),
     ],
   ])(

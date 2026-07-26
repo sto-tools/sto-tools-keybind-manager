@@ -107,8 +107,10 @@ export default class CommandLibraryUI extends UIComponentBase {
       this.applySearchFilter(filter);
     });
 
-    // Listen for preferences saved to refresh command library (e.g., bindsets toggled)
-    this.addEventListener("preferences:saved", () => {
+    // Rebuild after every committed preference transition, including settings
+    // activated from project restore or application reset. The canonical state
+    // publication has already updated ComponentBase's cache at this point.
+    this.addEventListener("preferences:changed", () => {
       // Re-setup the library to reflect new preference-dependent commands
       this.setupCommandLibrary();
     });

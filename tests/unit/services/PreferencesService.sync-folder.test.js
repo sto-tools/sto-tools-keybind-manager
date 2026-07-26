@@ -23,7 +23,7 @@ describe("PreferencesService sync folder mutation", () => {
   let service;
   let consumers;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     fixture = createServiceFixture();
     service = new PreferencesService({
       storage: fixture.storage,
@@ -31,6 +31,7 @@ describe("PreferencesService sync folder mutation", () => {
     });
     consumers = [];
     service.init();
+    await service.initialStateReady;
     fixture.storage.saveSettings.mockClear();
     fixture.eventBusFixture.clearEventHistory();
   });
@@ -45,7 +46,10 @@ describe("PreferencesService sync folder mutation", () => {
   });
 
   it("persists, adopts, and publishes a full cache snapshot without applying or saving", async () => {
-    service.settings["plugin:layout"] = { density: "compact" };
+    await service.setExtensionSetting("plugin:layout", { density: "compact" });
+    fixture.storage.saveSettings.mockClear();
+    fixture.eventBusFixture.clearEventHistory();
+    const before = service.getCurrentState();
     const applySettings = vi.spyOn(service, "applySettings");
 
     await expect(
@@ -73,6 +77,15 @@ describe("PreferencesService sync folder mutation", () => {
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:loaded"),
     ).toHaveLength(1);
+    const [canonical] = fixture.eventBusFixture.getEventsOfType(
+      "preferences:state-changed",
+    );
+    expect(canonical.data).toEqual({
+      reason: "sync-folder-staged",
+      state: service.getCurrentState(),
+    });
+    expect(canonical.data.state).toBe(service.getCurrentState());
+    expect(service.getCurrentState().revision).toBe(before.revision + 1);
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:saved"),
     ).toHaveLength(0);
@@ -122,6 +135,9 @@ describe("PreferencesService sync folder mutation", () => {
       expect(
         fixture.eventBusFixture.getEventsOfType("preferences:changed"),
       ).toHaveLength(0);
+      expect(
+        fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
+      ).toHaveLength(0);
     },
   );
 
@@ -140,6 +156,43 @@ describe("PreferencesService sync folder mutation", () => {
     ).rejects.toThrow("Invalid sync folder settings mutation");
 
     expect(service.getCurrentState()).toEqual(before);
+    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+  });
+
+  it("rejects descriptor-hostile envelopes without invoking accessors", async () => {
+    const before = service.getCurrentState();
+    const folderNameGetter = vi.fn(() => "Fleet Builds");
+    const accessorMutation = {
+      syncFolderPath: mutation.syncFolderPath,
+      syncFolderFallback: false,
+      autoSync: true,
+    };
+    Object.defineProperty(accessorMutation, "syncFolderName", {
+      enumerable: true,
+      get: folderNameGetter,
+    });
+    const hiddenMutation = { ...mutation };
+    Object.defineProperty(hiddenMutation, "autoSync", {
+      enumerable: false,
+      value: true,
+    });
+    const hostileProxy = new Proxy(mutation, {
+      ownKeys() {
+        throw new Error("producer reflection failure");
+      },
+    });
+
+    for (const payload of [accessorMutation, hiddenMutation, hostileProxy]) {
+      await expect(
+        fixture.eventBus.request(
+          "preferences:persist-sync-folder-settings",
+          payload,
+        ),
+      ).rejects.toThrow("Invalid sync folder settings mutation");
+    }
+
+    expect(folderNameGetter).not.toHaveBeenCalled();
+    expect(service.getCurrentState()).toBe(before);
     expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
   });
 });

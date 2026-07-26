@@ -60,6 +60,35 @@ describe("CommandUI", () => {
     expect(commandUI.request).not.toHaveBeenCalled();
   });
 
+  it("uses only the injected UI capability when ambient stoUI is poisoned", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, "stoUI");
+    Object.defineProperty(globalThis, "stoUI", {
+      configurable: true,
+      get() {
+        throw new Error("ambient stoUI must not be read");
+      },
+    });
+
+    try {
+      const injected = createStubUI();
+      const withInjection = new CommandUI({
+        eventBus,
+        ui: injected,
+        document,
+      });
+      const withoutInjection = new CommandUI({ eventBus, document });
+
+      expect(withInjection.ui).toBe(injected);
+      expect(withoutInjection.ui).toBeNull();
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(globalThis, "stoUI", descriptor);
+      } else {
+        delete globalThis.stoUI;
+      }
+    }
+  });
+
   it("waits without a transport deadline for a source import to settle", async () => {
     document.body.innerHTML = `
       <select id="importSourceSelect">

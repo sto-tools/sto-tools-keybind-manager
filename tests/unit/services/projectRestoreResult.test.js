@@ -10,6 +10,10 @@ import {
 } from "../../../src/js/components/services/projectRestoreResult.js";
 
 const imported = { profiles: 2, settings: true };
+const pendingImportedSettingsActivation = {
+  data: "pending",
+  preferences: "pending",
+};
 const restoreSuccess = {
   success: true,
   currentProfile: "alpha",
@@ -113,6 +117,7 @@ describe("project restore result boundary", () => {
       durable: true,
       currentProfile: "alpha",
       imported,
+      activation: pendingImportedSettingsActivation,
     };
     const storageFailure = {
       success: false,
@@ -131,9 +136,13 @@ describe("project restore result boundary", () => {
       receipt: {
         currentProfile: "alpha",
         imported: { profiles: 2, settings: true },
+        activation: { data: "pending", preferences: "pending" },
       },
     });
     expect(classifiedReload.receipt.imported).not.toBe(imported);
+    expect(classifiedReload.receipt.activation).not.toBe(
+      pendingImportedSettingsActivation,
+    );
     expect(classifyProjectRestoreResult(storageFailure)).toMatchObject({
       kind: "terminal-failure",
       error: "storage_write_failed",
@@ -200,6 +209,7 @@ describe("project restore result boundary", () => {
         durable: true,
         currentProfile: null,
         imported: { profiles: 0, settings: false },
+        activation: { data: "pending", preferences: "not-required" },
       }),
     ).toEqual({
       kind: "activation-retryable-failure",
@@ -209,8 +219,38 @@ describe("project restore result boundary", () => {
       receipt: {
         currentProfile: null,
         imported: { profiles: 0, settings: false },
+        activation: { data: "pending", preferences: "not-required" },
       },
     });
+  });
+
+  it.each([
+    ["missing status", undefined],
+    ["unknown data status", { data: "failed", preferences: "pending" }],
+    [
+      "settings marked not required",
+      { data: "pending", preferences: "not-required" },
+    ],
+    [
+      "Preferences completed before data",
+      { data: "pending", preferences: "complete" },
+    ],
+    [
+      "failure with no pending target",
+      { data: "complete", preferences: "complete" },
+    ],
+  ])("keeps a durable receipt with %s terminal", (_label, activation) => {
+    expect(
+      classifyProjectRestoreResult({
+        success: false,
+        error: "project_restore_reload_failed",
+        params: { reason: "activation unavailable" },
+        durable: true,
+        currentProfile: "alpha",
+        imported,
+        ...(activation === undefined ? {} : { activation }),
+      }),
+    ).toMatchObject({ kind: "terminal-failure" });
   });
 
   it("keeps accessor- and proxy-backed storage receipts terminal", () => {
@@ -269,6 +309,7 @@ describe("project restore result boundary", () => {
       params: { reason: "reload unavailable" },
       durable: true,
       imported: { profiles: 2, settings: true },
+      activation: pendingImportedSettingsActivation,
     };
     Object.defineProperty(accessorFailure, "currentProfile", {
       get() {
@@ -289,6 +330,7 @@ describe("project restore result boundary", () => {
         durable: true,
         currentProfile: "alpha",
         imported: inheritedImported,
+        activation: pendingImportedSettingsActivation,
       }),
     ).toMatchObject({ kind: "terminal-failure" });
   });
@@ -315,6 +357,7 @@ describe("project restore result boundary", () => {
         durable: true,
         currentProfile: "alpha",
         imported: importedProxy,
+        activation: pendingImportedSettingsActivation,
       },
       { get: topLevelGet },
     );
@@ -327,6 +370,7 @@ describe("project restore result boundary", () => {
       receipt: {
         currentProfile: "alpha",
         imported: { profiles: 2, settings: true },
+        activation: { data: "pending", preferences: "pending" },
       },
     });
     expect(topLevelGet).not.toHaveBeenCalled();

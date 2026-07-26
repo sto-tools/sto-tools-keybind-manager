@@ -1,10 +1,6 @@
 import UIComponentBase from "../UIComponentBase.js";
 import { resolveDocument } from "./uiTypes.js";
 
-const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
-  globalThis
-);
-
 /**
  * @param {unknown} value
  * @returns {value is import('./uiTypes.js').Environment}
@@ -45,7 +41,7 @@ export default class InterfaceModeUI extends UIComponentBase {
   } = {}) {
     super(bus);
     this.componentName = "InterfaceModeUI";
-    this.ui = ui || runtime.stoUI || null;
+    this.ui = ui ?? null;
     this.profileUI = profileUI;
     this.document = resolveDocument(document);
 

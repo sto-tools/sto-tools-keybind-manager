@@ -15,6 +15,7 @@ import {
   nextComponentReplyTopic,
 } from "../core/componentState.js";
 import { adoptDataStateSnapshot } from "./services/dataState.js";
+import { adoptPreferencesStateSnapshot } from "./services/preferencesState.js";
 
 /** @typedef {typeof import('../core/eventBus.js').default} CoreEventBus */
 /** @typedef {CoreEventBus} EventBus */
@@ -52,6 +53,7 @@ import { adoptDataStateSnapshot } from "./services/dataState.js";
  *   preferences: import('./services/serviceTypes.js').ServicePreferences & Record<string, unknown> & {
  *     translateGeneratedMessages?: boolean
  *   },
+ *   preferencesState: import('../types/events/component-state.js').PreferencesStateSnapshot | null,
  *   cachedSelections: import('../types/events/base.js').SelectionCache,
  *   editingContext?: import('../types/events/base.js').EditingContext | null,
  *   activeCommandChainBindset?: string,
@@ -89,6 +91,7 @@ export default class ComponentBase {
       aliases: {},
       builds: {},
       preferences: {},
+      preferencesState: null,
       activeBindset: "Primary Bindset",
       bindsetNames: ["Primary Bindset"],
       dataState: null,
@@ -176,6 +179,7 @@ export default class ComponentBase {
         aliases: {},
         builds: {},
         preferences: {},
+        preferencesState: null,
         activeBindset: "Primary Bindset",
         bindsetNames: ["Primary Bindset"],
         dataState: null,
@@ -265,36 +269,10 @@ export default class ComponentBase {
       },
     );
 
-    // Cache preference changes
-    this.addEventListener("preferences:changed", (data) => {
-      if (data.settings) {
-        this._replacePreferences(data.settings);
-      } else if (data.changes) {
-        // Narrow runtime compatibility for older patch-only producers.
-        // Update cached preferences with the changes
-        Object.assign(this.cache.preferences, structuredClone(data.changes));
-      } else if (
-        data.key &&
-        Object.prototype.hasOwnProperty.call(data, "value")
-      ) {
-        // Handle legacy single preference change format
-        Object.defineProperty(this.cache.preferences, data.key, {
-          value: structuredClone(data.value),
-          configurable: true,
-          enumerable: true,
-          writable: true,
-        });
-      }
-    });
-
-    // Listen for initial preferences loading
-    this.addEventListener("preferences:loaded", (data) => {
-      console.log(`[${this.componentName}] preferences:loaded received:`, data);
-      if (data.settings) {
-        this._replacePreferences(data.settings);
-        console.log(
-          `[${this.componentName}] Updated preferences cache from preferences:loaded`,
-        );
+    this.addEventListener("preferences:state-changed", ({ reason, state }) => {
+      const accepted = this._cachePreferencesState(state);
+      if (accepted) {
+        this.onPreferencesStateAccepted({ reason, state: accepted });
       }
     });
 
@@ -307,17 +285,6 @@ export default class ComponentBase {
     this.addEventListener("bindsets:changed", (data) => {
       if (data.names && Array.isArray(data.names)) {
         this.cache.bindsetNames = data.names;
-      }
-    });
-
-    // Also listen for preferences:saved events which contain full settings
-    this.addEventListener("preferences:saved", (data) => {
-      console.log(`[${this.componentName}] preferences:saved received:`, data);
-      if (data.settings) {
-        this._replacePreferences(data.settings);
-        console.log(
-          `[${this.componentName}] Updated preferences cache from preferences:saved`,
-        );
       }
     });
   }
@@ -348,6 +315,16 @@ export default class ComponentBase {
    */
   onInit() {
     // Override in subclasses
+  }
+
+  /**
+   * Hook invoked only after a canonical PreferencesService publication has
+   * passed validation and ordering and replaced this component's cache.
+   * @param {import('../types/events/preferences.js').PreferencesStateChangedEvent} _change
+   */
+  onPreferencesStateAccepted(_change) {
+    void _change;
+    // Override in subclasses that need to react to accepted owner state.
   }
 
   /**
@@ -675,15 +652,14 @@ export default class ComponentBase {
 
     // Handle PreferencesService state
     if (sender === "PreferencesService" && state) {
-      // Cache preferences settings
-      if (state.settings && typeof state.settings === "object") {
-        this._replacePreferences(state.settings);
+      if (this._cachePreferencesState(state)) {
         console.log(
           `[ComponentBase] ${this.getComponentName()} cached PreferencesService state:`,
           {
             bindToAliasMode: this.cache.preferences.bindToAliasMode,
             bindsetsEnabled: this.cache.preferences.bindsetsEnabled,
-            settingsCount: Object.keys(state.settings).length,
+            ready: this.cache.preferencesState?.ready,
+            settingsCount: Object.keys(this.cache.preferences).length,
           },
         );
       }
@@ -804,6 +780,23 @@ export default class ComponentBase {
    */
   _replacePreferences(settings) {
     this.cache.preferences = structuredClone(settings);
+  }
+
+  /**
+   * Cache an ordered immutable PreferencesService snapshot. Pre-ready state is
+   * retained for ordering but cannot replace the last ready settings view.
+   * @param {unknown} state
+   * @returns {import('../types/events/component-state.js').PreferencesStateSnapshot | null}
+   */
+  _cachePreferencesState(state) {
+    const accepted = adoptPreferencesStateSnapshot(
+      state,
+      this.cache.preferencesState,
+    );
+    if (!accepted) return null;
+    this.cache.preferencesState = accepted;
+    if (accepted.ready) this._replacePreferences(accepted.settings);
+    return accepted;
   }
 
   /**

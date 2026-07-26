@@ -9,7 +9,7 @@ import { request } from "../../src/js/core/requestResponse.js";
 import { getCommandCategories } from "../../src/js/data/commandCatalog.js";
 import { STOCommandParser } from "../../src/js/lib/STOCommandParser.js";
 import {
-  createPreferencesState,
+  createPreferencesStateChange,
   createSelectionState,
 } from "../fixtures/core/componentState.js";
 import { createRealServiceFixture } from "../fixtures/index.js";
@@ -100,6 +100,7 @@ describe("Parameter command EventBus owner pipeline", () => {
   let parameterUI;
   let toastUI;
   let detachers;
+  let preferencesRevision;
 
   function listen(topic, handler) {
     const detach = eventBus.on(topic, handler);
@@ -124,9 +125,26 @@ describe("Parameter command EventBus owner pipeline", () => {
       }),
       { synchronous: true },
     );
+    preferencesRevision += 1;
+    const preferencesChange = createPreferencesStateChange(
+      { bindsetsEnabled },
+      {
+        reason:
+          preferencesRevision === 1 ? "startup-loaded" : "setting-committed",
+        revision: preferencesRevision,
+      },
+    );
+    await eventBus.emit("preferences:state-changed", preferencesChange, {
+      synchronous: true,
+    });
     await eventBus.emit(
-      "preferences:loaded",
-      createPreferencesState({ bindsetsEnabled }),
+      preferencesRevision === 1 ? "preferences:loaded" : "preferences:changed",
+      preferencesRevision === 1
+        ? { settings: preferencesChange.state.settings }
+        : {
+            changes: { bindsetsEnabled },
+            settings: preferencesChange.state.settings,
+          },
       { synchronous: true },
     );
     await eventBus.emit(
@@ -173,6 +191,7 @@ describe("Parameter command EventBus owner pipeline", () => {
     });
     eventBus = fixture.eventBus;
     detachers = [];
+    preferencesRevision = 0;
     const i18n = {
       t: (key, options) => options?.defaultValue || key,
     };

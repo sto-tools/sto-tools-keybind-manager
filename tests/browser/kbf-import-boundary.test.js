@@ -130,6 +130,7 @@ describe("KBF import browser boundary", () => {
     const beforeRoot = localStorage.getItem(storage.storageKey);
     const beforeSettings = localStorage.getItem(storage.settingsKey);
     const beforeProfile = structuredClone(beforeState.profiles[profileId]);
+    const originalSettings = structuredClone(consumer.cache.preferences);
     const originalBindsetsEnabled = consumer.cache.preferences.bindsetsEnabled;
     const originalLanguage = window.i18next.language;
     let input = null;
@@ -272,19 +273,13 @@ describe("KBF import browser boundary", () => {
       expect(document.body.classList).not.toContain("modal-open");
     } finally {
       await window.i18next.changeLanguage(originalLanguage);
-      if (typeof originalBindsetsEnabled === "boolean") {
-        await request(bus, "preferences:set-setting", {
-          key: "bindsetsEnabled",
-          value: originalBindsetsEnabled,
-        });
-      }
+      await request(bus, "preferences:set-settings", originalSettings);
       if (localStorage.getItem(storage.settingsKey) !== beforeSettings) {
         if (beforeSettings === null) {
           localStorage.removeItem(storage.settingsKey);
         } else {
           localStorage.setItem(storage.settingsKey, beforeSettings);
         }
-        await request(bus, "preferences:load-settings");
       }
       if (beforeRoot === null) localStorage.removeItem(storage.storageKey);
       else localStorage.setItem(storage.storageKey, beforeRoot);

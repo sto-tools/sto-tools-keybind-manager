@@ -8,6 +8,7 @@ import {
   createEventBusFixture,
   createLocalStorageFixture,
 } from "../fixtures/core/index.js";
+import { createRequestBackedPreferencesTransition } from "../fixtures/services/projectRestore.js";
 
 const destinationRoot = {
   version: "1.0.0",
@@ -72,6 +73,9 @@ describe("project restore no-replay boundary", () => {
       eventBus: eventBusFixture.eventBus,
       storage,
       i18n: { t: (key) => key },
+      runPreferencesTransition: createRequestBackedPreferencesTransition(
+        () => projectManager,
+      ),
     });
     sync = null;
 

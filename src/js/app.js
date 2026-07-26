@@ -62,17 +62,26 @@ export default class STOToolsKeybindManager {
    *   i18n?: any,
    *   storageService?: any,
    *   ui?: any,
-   *   syncService?: any
+   *   syncService?: any,
+   *   applyTranslations?: (root?: Document | Element | null) => void
    * }} [dependencies]
    */
-  constructor({ i18n, storageService, ui, syncService } = {}) {
+  constructor({
+    i18n,
+    storageService,
+    ui,
+    syncService,
+    applyTranslations,
+  } = {}) {
     this.i18n = i18n;
     this.storageService = storageService;
     this.ui = ui;
     this.syncService = syncService;
+    this.applyTranslations = applyTranslations ?? (() => {});
     this.store = store;
     this.autoSyncManager = null; // created later when dependencies available
     this.ownedComponents = new OwnedComponentStack(this);
+    this.detachStoragePreferencesTransition = null;
 
     this.profileUI = null;
     this.aliasService = null;
@@ -160,6 +169,25 @@ export default class STOToolsKeybindManager {
       if (!this.i18n || !storageService || !stoUI || !this.syncService) {
         throw new Error("Required dependencies not loaded");
       }
+
+      // Preferences is the first app-owned authority. No downstream component
+      // may initialize against default or partially applied settings.
+      this.preferencesService = create(PreferencesService, {
+        storage: storageService,
+        eventBus,
+        i18n: this.i18n,
+        applyTranslations: this.applyTranslations,
+      });
+      const preferencesService = this.preferencesService;
+      preferencesService.init();
+      await preferencesService.initialStateReady;
+      /** @type {import('./components/services/PreferencesService.js').default['runExternalActivationTransition']} */
+      const runPreferencesTransition = (source, operation) =>
+        preferencesService.runExternalActivationTransition(source, operation);
+      this.detachStoragePreferencesTransition =
+        storageService.setPreferencesTransitionRunner?.(
+          runPreferencesTransition,
+        ) ?? null;
 
       this.modalManagerService = create(ModalManagerService, {
         eventBus,
@@ -260,6 +288,8 @@ export default class STOToolsKeybindManager {
         app: this,
         eventBus,
         i18n: this.i18n,
+        runPreferencesTransition: (source, operation) =>
+          preferencesService.runExternalActivationTransition(source, operation),
       });
 
       this.projectManagementService.init();
@@ -392,14 +422,8 @@ export default class STOToolsKeybindManager {
       this.vfxManagerService.init();
       this.vfxManagerUI.init();
 
-      this.preferencesService = create(PreferencesService, {
-        storage: storageService,
-        eventBus,
-        i18n: this.i18n,
-      });
       this.preferencesUI = create(PreferencesUI, { eventBus, ui: stoUI });
       this.preferencesManager = this.preferencesUI;
-      this.preferencesService.init();
       this.preferencesUI.init();
 
       this.aliasBrowserService.init();
@@ -417,7 +441,6 @@ export default class STOToolsKeybindManager {
 
       this.autoSyncManager = create(AutoSync, {
         eventBus,
-        storage: storageService,
         syncManager: this.syncService,
         ui: stoUI,
         i18n: this.i18n,
@@ -515,6 +538,8 @@ export default class STOToolsKeybindManager {
       }
       this.initialized = false;
 
+      this.detachStoragePreferencesTransition?.();
+      this.detachStoragePreferencesTransition = null;
       await this.ownedComponents.destroyAll();
 
       if (stoUI?.showToast) {

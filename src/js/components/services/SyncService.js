@@ -9,7 +9,7 @@ import {
   decodeSyncDirectoryPermissionEffects,
   ensureSyncDirectoryPermission,
 } from "./syncFolderBoundary.js";
-import { selectSyncFolder } from "./syncFolderSelectionOrchestrator.js";
+import { selectSyncFolder as orchestrateSyncFolderSelection } from "./syncFolderSelectionOrchestrator.js";
 
 // Re-export the helper so existing imports (especially tests) continue to work
 export const writeFile = fsWriteFile;
@@ -17,6 +17,38 @@ export const writeFile = fsWriteFile;
 /** @param {unknown} error */
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** @type {import('../../types/rpc/application.js').SyncFolderSelectionResult} */
+const folderSelectionFailed = Object.freeze({ success: false });
+
+/**
+ * @param {unknown} payload
+ * @returns {boolean | null}
+ */
+function decodeFolderSelectionRequest(payload) {
+  try {
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      Array.isArray(payload)
+    ) {
+      return null;
+    }
+    const prototype = Object.getPrototypeOf(payload);
+    if (prototype !== Object.prototype && prototype !== null) return null;
+    const keys = Reflect.ownKeys(payload);
+    if (keys.length !== 1 || keys[0] !== "autoSync") return null;
+    const descriptor = Object.getOwnPropertyDescriptor(payload, "autoSync");
+    return descriptor &&
+      descriptor.enumerable === true &&
+      Object.prototype.hasOwnProperty.call(descriptor, "value") &&
+      typeof descriptor.value === "boolean"
+      ? descriptor.value
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export default class SyncService extends ComponentBase {
@@ -37,7 +69,7 @@ export default class SyncService extends ComponentBase {
     this.pendingSyncAction = null;
     /** @type {{ content: string, fileName: string } | null} */
     this.deferredImportContent = null;
-    /** @type {{ currentProfile: string | null, imported: { profiles: number, settings: boolean } } | null} */
+    /** @type {{ currentProfile: string | null, imported: { profiles: number, settings: boolean }, activation: { data: 'complete' | 'pending', preferences: 'complete' | 'pending' | 'not-required' } } | null} */
     this.pendingRestoreActivationReceipt = null;
     this._syncDecisionGeneration = 0;
     this._syncDecisionApplyInFlight = false;
@@ -76,6 +108,9 @@ export default class SyncService extends ComponentBase {
         "sync:sync-project",
         ({ source } = /** @type {{ source?: string }} */ ({})) =>
           this.syncProject(source),
+      ),
+      this.respond("sync:select-folder", (payload) =>
+        this.selectFolderFromAction(payload),
       ),
     );
   }
@@ -191,9 +226,50 @@ export default class SyncService extends ComponentBase {
     );
   }
 
-  // Set sync folder and optionally enable auto-sync
+  /**
+   * Run the browser selection workflow and retain the stable folder metadata
+   * materialized at capability ingress.
+   *
+   * @param {unknown} autoSync
+   * @returns {Promise<import('../../types/sync-boundary.js').CommittedSyncFolderSelection | null>}
+   */
+  async selectSyncFolder(autoSync = false) {
+    return orchestrateSyncFolderSelection(this, autoSync);
+  }
+
+  /**
+   * Set the sync folder while preserving the direct method's raw-handle
+   * result for capability-owning callers.
+   *
+   * @param {unknown} autoSync
+   * @returns {Promise<import('../../types/sync-boundary.js').SyncDirectoryHandle | null>}
+   */
   async setSyncFolder(autoSync = false) {
-    return selectSyncFolder(this, autoSync);
+    const selection = await this.selectSyncFolder(autoSync);
+    return selection?.handle ?? null;
+  }
+
+  /**
+   * Keep the browser-owned directory handle inside the sync owner while
+   * returning the folder name required by the requesting UI.
+   * @param {unknown} payload
+   * @returns {Promise<import('../../types/rpc/application.js').SyncFolderSelectionResult>}
+   */
+  async selectFolderFromAction(payload) {
+    const autoSync = decodeFolderSelectionRequest(payload);
+    if (autoSync === null) return folderSelectionFailed;
+
+    try {
+      const selection = await this.selectSyncFolder(autoSync);
+      if (!selection) return folderSelectionFailed;
+      return Object.freeze({
+        success: true,
+        folderName: selection.folderName,
+      });
+    } catch (error) {
+      console.error("[SyncService] sync folder action failed", error);
+      return folderSelectionFailed;
+    }
   }
 
   /**

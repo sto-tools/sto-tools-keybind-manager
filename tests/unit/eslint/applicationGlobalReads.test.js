@@ -17,7 +17,6 @@ describe("application-global read guard", () => {
       verifyReads(
         `
           const runtime = globalThis;
-          runtime.stoUI?.showToast("saved");
           runtime.confirmDialog?.confirm("continue");
           window.document.querySelector("main");
         `,
@@ -89,7 +88,7 @@ describe("application-global read guard", () => {
         `,
         "src/js/components/ui/CommandUI.js",
       ),
-    ).toEqual(["unallowlisted", "dynamic", "opaque"]);
+    ).toEqual(["unallowlisted", "unallowlisted", "dynamic", "opaque"]);
   });
 
   it("does not count producer writes or native browser access as reads", () => {
@@ -112,7 +111,18 @@ describe("application-global read guard", () => {
       readMessageIds("export {};", "src/js/components/ui/CommandUI.js", {
         enforceDeclaredReaders: true,
       }),
-    ).toEqual(["stale", "stale"]);
+    ).toEqual(["stale"]);
+  });
+
+  it.each([
+    "src/js/components/services/dataCoordinatorDefaultUi.js",
+    "src/js/components/ui/CommandUI.js",
+    "src/js/components/ui/FileExplorerUI.js",
+    "src/js/components/ui/InterfaceModeUI.js",
+  ])("rejects the retired stoUI exposure in %s", (file) => {
+    expect(readMessageIds("void globalThis.stoUI;", file)).toEqual([
+      "unallowlisted",
+    ]);
   });
 
   it("records only live production consumers for retired bridges", () => {
@@ -128,12 +138,20 @@ describe("application-global read guard", () => {
     expect(applicationGlobalAllowlist.commandChainUI.consumers).not.toContain(
       "src/js/components/ui/CommandLibraryUI.js",
     );
-    expect(applicationGlobalAllowlist.stoUI.consumers).not.toContain(
-      "src/js/components/ui/CommandChainUI.js",
-    );
+    expect(applicationGlobalAllowlist).not.toHaveProperty("stoUI");
     expect(
       applicationGlobalAllowlist.applyTranslations.consumers,
     ).not.toContain("src/js/components/ui/CommandChainUI.js");
+    expect(
+      applicationGlobalAllowlist.applyTranslations.consumers,
+    ).not.toContain("src/js/components/services/PreferencesService.js");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("stoSync");
+    expect(
+      readMessageIds(
+        "void globalThis.stoSync;",
+        "src/js/components/ui/PreferencesUI.js",
+      ),
+    ).toEqual(["unallowlisted"]);
     expect(
       readMessageIds(
         "void globalThis.inputDialog;",

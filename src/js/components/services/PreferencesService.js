@@ -3,131 +3,158 @@ import { localizeCommands as defaultLocalizeCommands } from "../../data.js";
 import { extensionPreferenceKey } from "./preferenceKeys.js";
 import {
   hasValidKnownSettingValue,
-  isDataRecord,
   isKnownSettingKey,
-  isSettingsRecord,
   sanitizeStoredSettings,
-  sanitizeStoredSettingsPatch,
 } from "./settingsDataBoundary.js";
+import {
+  applyOtherPreferences,
+  applyPreferenceEffects,
+  PreferencesApplicationEffectsError,
+  reportPreferencesActivationError,
+  updatePreferenceThemeToggle,
+} from "./preferencesApplicationEffects.js";
+import { createDefaultPreferencesSettings } from "./preferencesDefaults.js";
+import {
+  invalidMutationError,
+  materializePreferencesActivationRequest,
+  requirePreferenceMutation,
+} from "./preferencesMutationBoundary.js";
+import {
+  activatePersistedPreferences,
+  commitPreferenceSetting,
+  persistSyncFolderPreferenceSettings,
+  preferencesActivationFailure,
+  replacePreferenceSettings,
+  runExternalPreferencesActivation,
+} from "./preferencesOwnerMutationOperations.js";
+import {
+  createPreferencesStateSnapshot,
+  isCurrentPreferencesStateAuthority,
+  nextPreferencesStateAuthorityEpoch,
+} from "./preferencesState.js";
+import {
+  preparePreferencesTransition,
+  publishPreferencesTransitionReceipts,
+  settlePreferencesMutation,
+} from "./preferencesTransitionState.js";
 
 /** @typedef {import('../../types/events/base.js').KnownPreferenceKey} KnownPreferenceKey */
 /** @typedef {import('../../types/events/base.js').KnownPreferencesSettings} KnownPreferencesSettings */
-/** @typedef {import('../../types/events/base.js').PreferenceMutation} PreferenceMutation */
 /** @typedef {import('../../types/events/base.js').PreferencesSettings} PreferencesSettings */
 /** @typedef {import('../../types/events/base.js').SettingsRecord} SettingsRecord */
+/** @typedef {import('../../types/rpc/parameters-preferences.js').PreferencesActivationResult} PreferencesActivationResult */
+/** @typedef {import('../../types/rpc/parameters-preferences.js').PreferencesActivationSource} PreferencesActivationSource */
 /** @typedef {import('../../types/rpc/parameters-preferences.js').SyncFolderSettingsMutation} SyncFolderSettingsMutation */
 
-/** @param {unknown} value @returns {value is PreferenceMutation} */
-function isPreferenceMutation(value) {
-  if (!isDataRecord(value) || typeof value.key !== "string") return false;
-  if (isKnownSettingKey(value.key)) {
-    return (
-      value.extension !== true &&
-      hasValidKnownSettingValue(value.key, value.value)
-    );
-  }
-  return value.extension === true;
-}
-
-/** @param {unknown} value @returns {value is SyncFolderSettingsMutation} */
-function isSyncFolderSettingsMutation(value) {
-  if (!isDataRecord(value)) return false;
-  const keys = Object.keys(value);
-  return (
-    keys.length === 4 &&
-    keys.every(
-      (key) =>
-        key === "syncFolderName" ||
-        key === "syncFolderPath" ||
-        key === "syncFolderFallback" ||
-        key === "autoSync",
-    ) &&
-    typeof value.syncFolderName === "string" &&
-    typeof value.syncFolderPath === "string" &&
-    value.syncFolderFallback === false &&
-    typeof value.autoSync === "boolean"
-  );
-}
-
-/** @param {unknown} value */
-function invalidMutationError(value) {
-  const key =
-    isDataRecord(value) && typeof value.key === "string" ? value.key : "";
-  return new TypeError(
-    key
-      ? `Invalid value or mutation path for preference "${key}"`
-      : "Invalid preference mutation payload",
-  );
-}
-
-const appWindow =
-  typeof window === "undefined"
-    ? null
-    : /** @type {import('./serviceTypes.js').AppWindow} */ (window);
+// DOM and i18n are shared process capabilities. Serializing application work
+// across owner lifecycles ensures a delayed predecessor finishes before its
+// replacement reapplies the winning state.
+let preferencesEffectTail = Promise.resolve();
 
 /**
  * PreferencesService – persistent user settings (theme, language, etc.)
  * Pure logic / no DOM querying.  UI interactions live in PreferencesUI.
  */
 export default class PreferencesService extends ComponentBase {
-  /** @param {{ storage?: import('./serviceTypes.js').Storage, eventBus?: import('./serviceTypes.js').EventBus, i18n?: import('./serviceTypes.js').I18n, localizeCommands?: typeof defaultLocalizeCommands }} [options] */
-  constructor({ storage, eventBus, i18n, localizeCommands } = {}) {
+  /** @param {{ storage?: import('./serviceTypes.js').Storage, eventBus?: import('./serviceTypes.js').EventBus, i18n?: import('./serviceTypes.js').I18n, localizeCommands?: typeof defaultLocalizeCommands, applyTranslations?: (root?: Document | Element | null) => void }} [options] */
+  constructor({
+    storage,
+    eventBus,
+    i18n,
+    localizeCommands,
+    applyTranslations,
+  } = {}) {
     super(eventBus);
     this.componentName = "PreferencesService";
     this.storage = storage;
     this.i18n = i18n;
     this.localizeCommands = localizeCommands ?? defaultLocalizeCommands;
+    this.applyTranslations = applyTranslations ?? (() => {});
 
     // Defaults
     /** @type {PreferencesSettings} */
-    this.defaultSettings = {
-      theme: "default",
-      autoSave: true,
-      showTooltips: true,
-      confirmDeletes: true,
-      maxUndoSteps: 50,
-      defaultMode: "space",
-      compactView: false,
-      language: "en",
-      syncFolderName: null,
-      syncFolderPath: null,
-      autoSync: false,
-      autoSyncInterval: "change",
-      bindToAliasMode: false,
-      bindsetsEnabled: false,
-      translateGeneratedMessages: false,
-    };
+    this.defaultSettings = createDefaultPreferencesSettings();
 
     // Runtime copy
     /** @type {PreferencesSettings} */
     this.settings = { ...this.defaultSettings };
+    this._lifecycleGeneration = 0;
+    this._stateAuthorityEpoch = 0;
+    this._stateRevision = 0;
+    this._languageActivationDirty = true;
+    /** @type {import('../../types/events/component-state.js').PreferencesStateSnapshot | null} */
+    this._currentStateSnapshot = null;
+    /** @type {Promise<import('../../types/events/component-state.js').PreferencesStateSnapshot | null>} */
+    this.initialStateReady = Promise.resolve(null);
+    /** @type {((state: import('../../types/events/component-state.js').PreferencesStateSnapshot) => void) | null} */
+    this._resolveInitialState = null;
+    /** @type {((error: unknown) => void) | null} */
+    this._rejectInitialState = null;
+    this._mutationTail = Promise.resolve();
+    this._effectInvocationInProgress = false;
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
+  }
+
+  init() {
+    if (this.initialized) return;
+    this._beginLifecycle();
+    super.init();
+  }
+
+  _beginLifecycle() {
+    this._lifecycleGeneration += 1;
+    this._stateAuthorityEpoch = nextPreferencesStateAuthorityEpoch();
+    this._stateRevision = 0;
+    this._languageActivationDirty = true;
+    this.settings = { ...this.defaultSettings };
+    this._currentStateSnapshot = createPreferencesStateSnapshot(this.settings, {
+      authorityEpoch: this._stateAuthorityEpoch,
+      ready: false,
+      revision: 0,
+    });
+    this.initialStateReady = new Promise((resolve, reject) => {
+      this._resolveInitialState = resolve;
+      this._rejectInitialState = reject;
+    });
+    // Lifecycle owners may be initialized by callers that do not observe the
+    // barrier. Keep the public promise rejecting while preventing an unhandled
+    // rejection from masking the actual startup error.
+    void this.initialStateReady.catch(() => undefined);
+  }
+
+  /** @param {number} generation */
+  _assertCurrentLifecycle(generation) {
+    if (
+      generation !== this._lifecycleGeneration ||
+      !isCurrentPreferencesStateAuthority(this._stateAuthorityEpoch) ||
+      !this.initialized ||
+      this.destroyed
+    ) {
+      throw new Error("operation_cancelled");
+    }
   }
 
   attachResponders() {
     if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
     this._responseDetachFunctions = [
-      this.respond("preferences:init", () => {
-        this.loadSettings();
-        this.applySettings();
-        return undefined;
-      }),
-      this.respond("preferences:load-settings", () => {
-        this.loadSettings();
-        return undefined;
+      this.respond("preferences:activate-persisted-settings", (payload) => {
+        const request = materializePreferencesActivationRequest(payload);
+        return request
+          ? this.activatePersistedSettings(request.source)
+          : preferencesActivationFailure(
+              new TypeError("invalid_preferences_activation_request"),
+            );
       }),
       this.respond("preferences:persist-sync-folder-settings", (mutation) =>
         this.persistSyncFolderSettings(mutation),
       ),
       this.respond("preferences:save-settings", () => this.saveSettings()),
       this.respond("preferences:set-setting", (mutation) => {
-        if (!isPreferenceMutation(mutation)) {
-          throw invalidMutationError(mutation);
-        }
-        return mutation.extension === true
-          ? this.setExtensionSetting(mutation.key, mutation.value)
-          : this.setSetting(mutation.key, mutation.value);
+        const request = requirePreferenceMutation(mutation);
+        return request.extension === true
+          ? this.setExtensionSetting(request.key, request.value)
+          : this.setSetting(request.key, request.value);
       }),
       this.respond("preferences:set-settings", (newSettings) =>
         this.setSettings(newSettings),
@@ -163,43 +190,90 @@ export default class PreferencesService extends ComponentBase {
   }
 
   onInit() {
-    this.attachResponders();
-    this.setupEventListeners();
-    this.loadSettings();
-    this.applySettings();
+    const generation = this._lifecycleGeneration;
+    const resolveInitialState = this._resolveInitialState;
+    const rejectInitialState = this._rejectInitialState;
+    void this._loadInitialState(generation).then(
+      (snapshot) => {
+        resolveInitialState?.(snapshot);
+        if (this._resolveInitialState === resolveInitialState) {
+          this._resolveInitialState = null;
+          this._rejectInitialState = null;
+        }
+      },
+      (error) => {
+        rejectInitialState?.(error);
+        if (this._rejectInitialState === rejectInitialState) {
+          this._resolveInitialState = null;
+          this._rejectInitialState = null;
+        }
+      },
+    );
   }
 
-  // Persistence helpers
-  loadSettings() {
+  /**
+   * Read and apply the durable settings once, then expose the first ready owner
+   * snapshot. Storage read failures retain the established defaults fallback;
+   * language or application failures reject readiness without publishing ready.
+   * @param {number} generation
+   */
+  async _loadInitialState(generation) {
+    /** @type {PreferencesSettings} */
+    let nextSettings = { ...this.defaultSettings };
     try {
       if (this.storage) {
         const stored = this.storage.getSettings();
-        this.settings = sanitizeStoredSettings(stored, this.defaultSettings);
+        nextSettings = sanitizeStoredSettings(stored, this.defaultSettings);
       }
       console.log("[PreferencesService] loadSettings", {
-        settings: { ...this.settings },
+        settings: { ...nextSettings },
       });
     } catch (err) {
       console.error("[PreferencesService] loadSettings failed", err);
-      this.settings = { ...this.defaultSettings };
+      nextSettings = { ...this.defaultSettings };
     }
 
-    // Loading is also the startup publication path. Always announce the
-    // complete current snapshot so consumers initialized before this service
-    // receive defaults even when storage is absent or unreadable.
+    this._assertCurrentLifecycle(generation);
+    this.settings = nextSettings;
+    this._stateRevision = 1;
+    await this.applySettings({ generation, localizeCommands: true });
+    this._assertCurrentLifecycle(generation);
+    this._languageActivationDirty = false;
+    this._currentStateSnapshot = createPreferencesStateSnapshot(this.settings, {
+      authorityEpoch: this._stateAuthorityEpoch,
+      ready: true,
+      revision: this._stateRevision,
+    });
+    this.attachResponders();
+    this.setupEventListeners();
+    this._publishState("startup-loaded");
+    this._assertCurrentLifecycle(generation);
     this.emit("preferences:loaded", { settings: this.getSettings() });
+    this._assertCurrentLifecycle(generation);
+    return this.getCurrentState();
   }
 
-  async saveSettings() {
-    if (!this.storage) return false;
-    const settings = this.getSettings();
-    const ok = this.persistSettings(settings);
-    console.log("[PreferencesService] saveSettings", {
-      ok,
-      settings,
+  saveSettings() {
+    const generation = this._readyMutationGeneration();
+    const publication = this._enqueueMutation(() => {
+      this._assertCurrentLifecycle(generation);
+      if (!this.storage) return { ok: false, settlement: null };
+      const settings = this.getSettings();
+      const ok = this.persistSettings(settings);
+      console.log("[PreferencesService] saveSettings", { ok, settings });
+      if (!ok) return { ok: false, settlement: null };
+      this._assertCurrentLifecycle(generation);
+      return publishPreferencesTransitionReceipts(
+        this,
+        generation,
+        settings,
+        null,
+        null,
+      );
     });
-    if (ok) await this.publishSavedSettings(settings);
-    return Boolean(ok);
+    return settlePreferencesMutation(publication, () =>
+      this._assertCurrentLifecycle(generation),
+    );
   }
 
   // Accessors
@@ -238,77 +312,42 @@ export default class PreferencesService extends ComponentBase {
 
   /** @param {string} key @param {unknown} value @returns {Promise<boolean>} */
   commitSetting(key, value) {
-    const candidate = this.getSettings();
-    Object.defineProperty(candidate, key, {
-      value,
-      configurable: true,
-      enumerable: true,
-      writable: true,
-    });
-    const decoded = sanitizeStoredSettingsPatch(candidate);
-    if (decoded.repaired) throw invalidMutationError({ key, value });
-    const nextSettings = /** @type {PreferencesSettings} */ (decoded.value);
-    console.log("[PreferencesService] setSetting", { key, value });
-    if (!this.persistSettings(nextSettings)) return Promise.resolve(false);
-
-    this.settings = nextSettings;
-    const savedPublication = this.publishSavedSettings(nextSettings);
-    this.applySettings();
-    this.emit("preferences:changed", {
-      key,
-      value: structuredClone(nextSettings[key]),
-      settings: this.getSettings(),
-    });
-    return savedPublication.then(() => true);
+    return commitPreferenceSetting(this, key, value);
   }
 
   /** @param {SettingsRecord} [newSettings] @returns {Promise<boolean>} */
   setSettings(newSettings = {}) {
-    const decoded = sanitizeStoredSettingsPatch(newSettings);
-    if (!isSettingsRecord(newSettings) || decoded.repaired) {
-      throw new TypeError("Invalid preferences settings payload");
-    }
-    const oldSettings = this.getSettings();
-    const nextSettings = sanitizeStoredSettings(
-      decoded.value,
-      this.defaultSettings,
-    );
-    console.log("[PreferencesService] setSettings", {
-      changed: Object.keys(newSettings),
-    });
-    if (!this.persistSettings(nextSettings)) return Promise.resolve(false);
+    return replacePreferenceSettings(this, newSettings);
+  }
 
-    this.settings = nextSettings;
-    const savedPublication = this.publishSavedSettings(nextSettings);
-    this.applySettings();
+  /**
+   * Re-read the standalone durable settings record after another authoritative
+   * workflow has replaced it. The transition joins the owner mutation queue
+   * and is fully prepared before adoption. Project restore only reads the
+   * record written by import; application reset clears it inside the same
+   * serialized owner transition before adopting defaults.
+   * @param {PreferencesActivationSource} source
+   * @returns {Promise<PreferencesActivationResult>}
+   */
+  async activatePersistedSettings(source) {
+    return activatePersistedPreferences(this, source);
+  }
 
-    // Emit a single event with all the changes
-    /** @type {Record<string, unknown>} */
-    const changes = {};
-    const candidateKeys = new Set([
-      ...Object.keys(oldSettings),
-      ...Object.keys(nextSettings),
-    ]);
-    for (const key of candidateKeys) {
-      const existed = Object.prototype.hasOwnProperty.call(oldSettings, key);
-      const exists = Object.prototype.hasOwnProperty.call(nextSettings, key);
-      if (
-        existed !== exists ||
-        !Object.is(oldSettings[key], nextSettings[key])
-      ) {
-        // An absent extension setting is represented as undefined in the
-        // delta. The complete settings snapshot remains authoritative.
-        changes[key] = nextSettings[key];
-      }
-    }
-
-    if (Object.keys(changes).length > 0) {
-      this.emit("preferences:changed", {
-        changes: structuredClone(changes),
-        settings: this.getSettings(),
-      });
-    }
-    return savedPublication.then(() => true);
+  /**
+   * Serialize an external durable workflow with its optional activation of the
+   * standalone settings record. This is a narrow composition capability, not a
+   * state-access API.
+   *
+   * @template Result
+   * @param {PreferencesActivationSource} source
+   * @param {(
+   *   activatePersistedSettings: () => Promise<PreferencesActivationResult>,
+   *   assertTransitionActive: () => void
+   * ) => Result | Promise<Result>} operation
+   * @returns {Promise<Result>}
+   */
+  runExternalActivationTransition(source, operation) {
+    return runExternalPreferencesActivation(this, source, operation);
   }
 
   /**
@@ -317,36 +356,19 @@ export default class PreferencesService extends ComponentBase {
    * by the Preferences modal Save action, remains SyncService's established
    * import/overwrite trigger.
    * @param {SyncFolderSettingsMutation} mutation
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
   persistSyncFolderSettings(mutation) {
-    if (!isSyncFolderSettingsMutation(mutation)) {
-      throw new TypeError("Invalid sync folder settings mutation");
-    }
-    const candidate = { ...this.getSettings(), ...structuredClone(mutation) };
-    const decoded = sanitizeStoredSettingsPatch(candidate);
-    if (decoded.repaired) {
-      throw new TypeError("Invalid sync folder settings mutation");
-    }
-    const nextSettings = sanitizeStoredSettings(
-      decoded.value,
-      this.defaultSettings,
-    );
-    if (!this.persistSettings(nextSettings)) return false;
-
-    this.settings = nextSettings;
-    // This is the same complete cache-replacement publication produced by the
-    // historical UI reload after SyncService wrote the settings record. It
-    // deliberately does not trigger application/change/save side effects.
-    this.emit("preferences:loaded", { settings: this.getSettings() });
-    return true;
+    return persistSyncFolderPreferenceSettings(this, mutation);
   }
 
   /** @param {PreferencesSettings} settings @returns {boolean} */
   persistSettings(settings) {
     if (!this.storage) return false;
-    return Boolean(
-      this.storage.saveSettings(structuredClone(settings), { replace: true }),
+    return (
+      this.storage.saveSettings(structuredClone(settings), {
+        replace: true,
+      }) === true
     );
   }
 
@@ -364,61 +386,155 @@ export default class PreferencesService extends ComponentBase {
     );
   }
 
+  _readyMutationGeneration() {
+    const generation = this._lifecycleGeneration;
+    if (this._effectInvocationInProgress) {
+      throw new Error("preferences_effect_in_progress");
+    }
+    if (!this._currentStateSnapshot?.ready) {
+      throw new Error("preferences_not_ready");
+    }
+    this._assertCurrentLifecycle(generation);
+    return generation;
+  }
+
+  /**
+   * Serialize owner transitions, but release the queue as soon as publications
+   * are invoked. Callers await saved-listener settlement outside this tail.
+   * @template Result
+   * @param {() => Result | Promise<Result>} operation
+   * @returns {Promise<Result>}
+   */
+  _enqueueMutation(operation) {
+    const result = this._mutationTail.then(operation);
+    this._mutationTail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  /**
+   * Guard only the synchronous entry into a one-way effect capability. The
+   * guard is released before a returned promise is awaited, so unrelated
+   * concurrent user mutations still queue normally.
+   * @template Result
+   * @param {() => Result} capability
+   * @returns {Result}
+   */
+  _invokeEffectCollaborator(capability) {
+    this._effectInvocationInProgress = true;
+    try {
+      return capability();
+    } finally {
+      this._effectInvocationInProgress = false;
+    }
+  }
+
+  /**
+   * Attempt every required application effect before exposing the new state.
+   * Once persistence has accepted a transition, activation degradation cannot
+   * revoke durable success: publish the canonical owner snapshot and let the
+   * normal saved/changed receipts continue after logging the effect failure.
+   * @param {import('../../types/events/component-state.js').PreferencesStateSnapshot} state
+   * @param {import('../../types/events/preferences.js').PreferencesStateChangeReason} reason
+   * @param {{ generation: number, localizeCommands: boolean }} application
+   */
+  async _applyAndPublishTransition(state, reason, application) {
+    /** @type {unknown} */
+    let applicationError;
+    let effectsDegraded = false;
+    try {
+      await this.applySettings(application);
+    } catch (error) {
+      applicationError = error;
+      effectsDegraded = true;
+    }
+    this._assertCurrentLifecycle(application.generation);
+    this._currentStateSnapshot = state;
+    this._publishState(reason, state);
+    this._assertCurrentLifecycle(application.generation);
+    reportPreferencesActivationError(applicationError);
+    return {
+      effectsDegraded,
+      languageActivationFailed:
+        applicationError instanceof PreferencesApplicationEffectsError
+          ? applicationError.languageActivationFailed
+          : Boolean(effectsDegraded && application.localizeCommands),
+    };
+  }
+
+  /**
+   * @param {PreferencesSettings} settings
+   */
+  _prepareSettingsTransition(settings) {
+    return preparePreferencesTransition(
+      settings,
+      this._stateAuthorityEpoch,
+      this._stateRevision,
+    );
+  }
+
+  /** @param {ReturnType<typeof preparePreferencesTransition>} prepared */
+  _adoptPreparedTransition(prepared) {
+    this.settings = prepared.settings;
+    this._stateRevision = prepared.state.revision;
+    return prepared.state;
+  }
+
+  /**
+   * @param {import('../../types/events/preferences.js').PreferencesStateChangeReason} reason
+   * @param {import('../../types/events/component-state.js').PreferencesStateSnapshot} [state]
+   */
+  _publishState(reason, state = this.getCurrentState()) {
+    this.emit("preferences:state-changed", { reason, state });
+    return state;
+  }
+
   // Late-join state sharing
   // Provide current settings so late-joining components can use them without
   // making explicit RPC requests that may race the service startup.
   /** @returns {import('../../types/events/component-state.js').ComponentState<'PreferencesService'>} */
   getCurrentState() {
-    return {
-      settings: this.getSettings(),
-    };
+    if (!this._currentStateSnapshot) {
+      throw new Error("PreferencesService state is unavailable before init");
+    }
+    return this._currentStateSnapshot;
   }
 
   // Application of settings
-  applySettings() {
-    this.applyTheme();
-    this.applyLanguage();
-    this.applyOtherSettings();
+  /** @param {{ generation?: number, localizeCommands?: boolean }} [options] */
+  async applySettings({
+    generation = this._lifecycleGeneration,
+    localizeCommands = false,
+  } = {}) {
+    const application = preferencesEffectTail.then(() =>
+      this._applySettingsNow({ generation, localizeCommands }),
+    );
+    preferencesEffectTail = application.then(
+      () => undefined,
+      () => undefined,
+    );
+    return application;
   }
 
-  applyTheme() {
-    if (typeof document === "undefined") return;
-    const theme = this.settings.theme || "default";
-
-    // Use documentElement for data-theme attribute (matches CSS)
-    if (theme === "dark") {
-      document.documentElement.setAttribute("data-theme", "dark");
-    } else {
-      document.documentElement.removeAttribute("data-theme");
-    }
-
-    this.updateThemeToggleButton(theme);
-  }
-
-  async applyLanguage() {
-    const lang = this.settings.language || "en";
-
-    if (this.i18n && this.i18n.language !== lang) {
-      await this.i18n.changeLanguage(lang);
-    }
-
-    // Apply translations to the document
-    if (typeof appWindow?.applyTranslations === "function") {
-      appWindow.applyTranslations();
-    }
-
-    this.updateLanguageFlag(lang);
+  /** @param {{ generation: number, localizeCommands: boolean }} options */
+  async _applySettingsNow({ generation, localizeCommands }) {
+    this._assertCurrentLifecycle(generation);
+    await applyPreferenceEffects({
+      settings: this.settings,
+      i18n: this.i18n,
+      localizeCommands: this.localizeCommands,
+      applyTranslations: this.applyTranslations,
+      localizeCommandCatalog: localizeCommands,
+      assertCurrent: () => this._assertCurrentLifecycle(generation),
+      invokeCollaborator: (capability) =>
+        this._invokeEffectCollaborator(capability),
+    });
   }
 
   applyOtherSettings() {
-    // Compact view flag toggles a body class
-    if (typeof document !== "undefined") {
-      if (this.settings.compactView) {
-        document.body.classList.add("compact-view");
-      } else {
-        document.body.classList.remove("compact-view");
-      }
-    }
+    applyOtherPreferences(this.settings);
   }
 
   // Theme Management
@@ -432,60 +548,20 @@ export default class PreferencesService extends ComponentBase {
 
   /** @param {string} theme */
   updateThemeToggleButton(theme) {
-    if (typeof document === "undefined") return;
-
-    const themeToggleBtn = document.getElementById("themeToggleBtn");
-    const themeToggleText = document.getElementById("themeToggleText");
-    const themeIcon = themeToggleBtn?.querySelector("i");
-
-    if (themeToggleBtn && themeToggleText && themeIcon) {
-      if (theme === "dark") {
-        themeIcon.className = "fas fa-sun";
-        themeToggleText.setAttribute("data-i18n", "light_mode");
-        themeToggleText.textContent =
-          this.i18n?.t("light_mode") ?? "light_mode";
-      } else {
-        themeIcon.className = "fas fa-moon";
-        themeToggleText.setAttribute("data-i18n", "dark_mode");
-        themeToggleText.textContent = this.i18n?.t("dark_mode") ?? "dark_mode";
-      }
-    }
+    updatePreferenceThemeToggle(theme, this.i18n);
   }
 
   // Language Management
   /** @param {string} lang */
   async changeLanguage(lang) {
-    // Update settings
-    const persisted = await this.setSetting("language", lang);
-    if (!persisted) return false;
-
-    // Re-localize command data with new language
-    this.localizeCommands(this.i18n);
-
-    // Emit event for other components to re-render with new language
-    this.emit("language:changed", { language: lang });
-    return true;
-  }
-
-  /** @param {string} lang */
-  updateLanguageFlag(lang) {
-    if (typeof document === "undefined") return;
-
-    const flag = document.getElementById("languageFlag");
-    /** @type {Record<string, string>} */
-    const flagClasses = {
-      en: "fi fi-gb",
-      de: "fi fi-de",
-      es: "fi fi-es",
-      fr: "fi fi-fr",
-    };
-
-    if (flag) {
-      flag.className = flagClasses[lang] || "fi fi-gb";
-    }
+    return this.setSetting("language", lang);
   }
 
   onDestroy() {
+    this._lifecycleGeneration += 1;
+    this._rejectInitialState?.(new Error("operation_cancelled"));
+    this._resolveInitialState = null;
+    this._rejectInitialState = null;
     for (const detach of this._responseDetachFunctions) detach();
     this._responseDetachFunctions = [];
   }

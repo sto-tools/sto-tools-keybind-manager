@@ -34,6 +34,55 @@ describe("preferences save sequencing", () => {
     vi.restoreAllMocks();
   });
 
+  it("rejects acknowledgement when an async saved listener replaces the owner", async () => {
+    preferencesService = new PreferencesService({
+      eventBus: fixture.eventBus,
+      storage: fixture.storage,
+    });
+    preferencesService.init();
+    await preferencesService.initialStateReady;
+
+    let markListenerStarted = () => {};
+    const listenerStarted = new Promise((resolve) => {
+      markListenerStarted = resolve;
+    });
+    let releaseListener = () => {};
+    const listenerPending = new Promise((resolve) => {
+      releaseListener = resolve;
+    });
+    let successorReady;
+    const detach = fixture.eventBus.on("preferences:saved", async () => {
+      markListenerStarted();
+      await listenerPending;
+      preferencesService.destroy();
+      preferencesService.init();
+      successorReady = preferencesService.initialStateReady;
+    });
+
+    const mutation = preferencesService.setSetting("theme", "dark");
+    let settled = false;
+    void mutation.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    await listenerStarted;
+    expect(settled).toBe(false);
+
+    releaseListener();
+    await expect(mutation).rejects.toThrow("operation_cancelled");
+    expect(successorReady).toBeDefined();
+    await expect(successorReady).resolves.toMatchObject({
+      ready: true,
+      revision: 1,
+      settings: { theme: "dark" },
+    });
+    detach();
+  });
+
   it("keeps a real save pending past the default deadline, then settles and exports once", async () => {
     vi.useFakeTimers();
     const directoryHandle =
@@ -80,12 +129,13 @@ describe("preferences save sequencing", () => {
     modalManager.init();
     syncService.init();
     preferencesService.init();
+    await preferencesService.initialStateReady;
     fixture.storage.saveSettings.mockClear();
 
     syncService.awaitingSyncDecisionApply = true;
     syncService.pendingSyncAction = "overwrite";
     syncService.invokeRequest = vi.fn(async () => undefined);
-    preferencesUI.cache.preferences = preferencesService.getSettings();
+    preferencesUI.init();
     preferencesUI.pendingSettings = { bindToAliasMode: true };
 
     const save = preferencesUI.saveAllSettings(false);

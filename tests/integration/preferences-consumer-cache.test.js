@@ -39,6 +39,7 @@ describe("preferences consumer cache lifecycle", () => {
       storage: fixture.storage,
     });
     preferencesService.init();
+    await preferencesService.initialStateReady;
     expect(importService.cache.preferences.bindsetsEnabled).toBe(false);
 
     // ImportUI starts after PreferencesService in production. Its registration

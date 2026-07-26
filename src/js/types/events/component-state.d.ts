@@ -96,6 +96,10 @@ export interface InterfaceModeStateSnapshot {
 }
 
 export interface PreferencesStateSnapshot {
+  /** Monotonic identity of the PreferencesService lifecycle owning this state. */
+  authorityEpoch: number;
+  ready: boolean;
+  revision: number;
   settings: PreferencesSettings;
 }
 
@@ -116,8 +120,9 @@ export interface StorageServiceCapability {
     settings: Record<string, unknown>,
     options?: { replace?: boolean },
   ): boolean;
+  clearSettings(): boolean;
   createBackup(): void;
-  clearAllData(): boolean;
+  clearAllData(options?: { preserveSettings?: boolean }): boolean;
 }
 
 export interface StorageStateSnapshot {

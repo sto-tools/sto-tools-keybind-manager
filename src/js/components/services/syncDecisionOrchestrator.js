@@ -3,6 +3,7 @@ import {
   classifyDataReloadResult,
   classifyProjectRestoreResult,
 } from "./projectRestoreResult.js";
+import { classifyPreferencesActivationResult } from "./preferencesActivationResult.js";
 
 /** @param {unknown} error */
 function getErrorMessage(error) {
@@ -38,6 +39,33 @@ function getActivationFailureDetail(service, result) {
   return service.i18n.t("import_failed", {
     error: service.i18n.t("failed_to_load_profile_data"),
   });
+}
+
+/**
+ * @param {import('./SyncService.js').default} service
+ * @param {ReturnType<typeof classifyPreferencesActivationResult>} result
+ */
+function getPreferencesActivationFailureDetail(service, result) {
+  if (result.kind !== "failure") {
+    return service.i18n.t("import_failed", {
+      error: service.i18n.t("failed_to_load_profile_data"),
+    });
+  }
+  return result.result.error === "operation_cancelled" ||
+    result.result.params.reason === "operation_cancelled"
+    ? service.i18n.t("failed_to_load_profile_data")
+    : result.result.params.reason;
+}
+
+/**
+ * @param {{ data: 'complete' | 'pending', preferences: 'complete' | 'pending' | 'not-required' }} activation
+ */
+function isRestoreActivationComplete(activation) {
+  return (
+    activation.data === "complete" &&
+    (activation.preferences === "complete" ||
+      activation.preferences === "not-required")
+  );
 }
 
 /**
@@ -125,6 +153,7 @@ export async function applyPendingSyncDecision(service) {
     ? {
         currentProfile: service.pendingRestoreActivationReceipt.currentProfile,
         imported: { ...service.pendingRestoreActivationReceipt.imported },
+        activation: { ...service.pendingRestoreActivationReceipt.activation },
       }
     : null;
   const retainedRestoreWork =
@@ -173,44 +202,114 @@ export async function applyPendingSyncDecision(service) {
 
     if (action === "import") {
       if (activationReceipt) {
-        let reloadResult;
-        try {
-          const reload = await service.invokeRequest(
-            "data:reload-state",
-            undefined,
-            0,
-          );
-          if (!isCurrentDecision()) return;
-          reloadResult = classifyDataReloadResult(reload);
-        } catch (error) {
-          if (!isCurrentDecision()) return;
+        let nextReceipt = activationReceipt;
+        if (nextReceipt.activation.data === "pending") {
+          let reloadResult;
+          try {
+            const reload = await service.invokeRequest(
+              "data:reload-state",
+              undefined,
+              0,
+            );
+            if (!isCurrentDecision()) return;
+            reloadResult = classifyDataReloadResult(reload);
+          } catch (error) {
+            if (!isCurrentDecision()) return;
+            retainDecision = true;
+            showRestoreToast(
+              service,
+              service.i18n.t("failed_to_import_project", {
+                error: getErrorMessage(error),
+              }),
+              "error",
+            );
+            return;
+          }
+
+          if (reloadResult.kind !== "success") {
+            retainDecision = true;
+            showRestoreToast(
+              service,
+              service.i18n.t("failed_to_import_project", {
+                error: getActivationFailureDetail(service, reloadResult),
+              }),
+              "error",
+            );
+            return;
+          }
+
+          nextReceipt = {
+            ...nextReceipt,
+            activation: { ...nextReceipt.activation, data: "complete" },
+          };
+          service.pendingRestoreActivationReceipt = nextReceipt;
+        }
+
+        if (nextReceipt.activation.preferences === "pending") {
+          let preferencesResult;
+          try {
+            const activation = await service.invokeRequest(
+              "preferences:activate-persisted-settings",
+              { source: "project-restore" },
+              0,
+            );
+            if (!isCurrentDecision()) return;
+            preferencesResult = classifyPreferencesActivationResult(activation);
+          } catch (error) {
+            if (!isCurrentDecision()) return;
+            retainDecision = true;
+            showRestoreToast(
+              service,
+              service.i18n.t("failed_to_import_project", {
+                error: getErrorMessage(error),
+              }),
+              "error",
+            );
+            return;
+          }
+
+          if (preferencesResult.kind !== "success") {
+            retainDecision = true;
+            showRestoreToast(
+              service,
+              service.i18n.t("failed_to_import_project", {
+                error: getPreferencesActivationFailureDetail(
+                  service,
+                  preferencesResult,
+                ),
+              }),
+              "error",
+            );
+            return;
+          }
+
+          nextReceipt = {
+            ...nextReceipt,
+            activation: {
+              ...nextReceipt.activation,
+              preferences: "complete",
+            },
+          };
+          service.pendingRestoreActivationReceipt = nextReceipt;
+        }
+
+        if (!isRestoreActivationComplete(nextReceipt.activation)) {
           retainDecision = true;
           showRestoreToast(
             service,
             service.i18n.t("failed_to_import_project", {
-              error: getErrorMessage(error),
+              error: service.i18n.t("failed_to_load_profile_data"),
             }),
             "error",
           );
           return;
         }
 
-        if (reloadResult.kind === "success") {
-          showRestoreToast(
-            service,
-            service.i18n.t("project_imported_from_sync_folder"),
-            "success",
-          );
-        } else {
-          retainDecision = true;
-          showRestoreToast(
-            service,
-            service.i18n.t("failed_to_import_project", {
-              error: getActivationFailureDetail(service, reloadResult),
-            }),
-            "error",
-          );
-        }
+        showRestoreToast(
+          service,
+          service.i18n.t("project_imported_from_sync_folder"),
+          "success",
+        );
         return;
       }
 

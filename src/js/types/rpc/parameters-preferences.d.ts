@@ -94,6 +94,28 @@ export type SyncFolderSettingsMutation = {
   autoSync: boolean;
 };
 
+export type PreferencesActivationSource =
+  | "project-restore"
+  | "application-reset";
+
+export type PreferencesActivationSuccess = {
+  success: true;
+  changed: boolean;
+  revision: number;
+  effects: "applied" | "degraded";
+};
+
+export type PreferencesActivationFailure = {
+  success: false;
+  error: "preferences_activation_failed" | "operation_cancelled";
+  params: { reason: string };
+  retryable: true;
+};
+
+export type PreferencesActivationResult =
+  | PreferencesActivationSuccess
+  | PreferencesActivationFailure;
+
 export type CommandParseResult = {
   originalString: string;
   commands: ParsedCommand[];
@@ -127,8 +149,10 @@ export interface ParameterPreferenceRpcProtocol {
     },
     CommandParseResult
   >;
-  "preferences:init": NoPayloadRpc<undefined>;
-  "preferences:load-settings": NoPayloadRpc<undefined>;
+  "preferences:activate-persisted-settings": RequiredRpc<
+    { source: PreferencesActivationSource },
+    PreferencesActivationResult
+  >;
   "preferences:persist-sync-folder-settings": RequiredRpc<
     SyncFolderSettingsMutation,
     boolean

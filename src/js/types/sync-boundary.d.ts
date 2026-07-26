@@ -32,6 +32,16 @@ export interface SyncDirectoryCapability {
   ): Promise<unknown>;
 }
 
+/**
+ * Successful folder-selection metadata materialized at the browser boundary.
+ * The raw handle stays available to the sync owner while consumers use the
+ * stable name captured during capability decoding.
+ */
+export interface CommittedSyncFolderSelection {
+  readonly handle: SyncDirectoryHandle;
+  readonly folderName: string;
+}
+
 export type SyncDirectoryCapabilityDecodeResult =
   | { success: true; value: SyncDirectoryCapability }
   | { success: false; error: "invalid_directory_capability" };

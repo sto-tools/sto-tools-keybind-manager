@@ -157,6 +157,7 @@ async function compensateTransition(service, previousState, primaryError) {
  * @param {boolean} autoSync
  * @param {{ accepted: true, action: 'import' | 'overwrite' | null, deferredContent: { content: string, fileName: string } | null }} decision
  * @param {() => boolean} isCurrentSelection
+ * @returns {Promise<import('../../types/sync-boundary.js').CommittedSyncFolderSelection | null>}
  */
 async function commitFolderSelection(
   service,
@@ -229,7 +230,10 @@ async function commitFolderSelection(
       { handle: rawHandle },
       { synchronous: true },
     );
-    return rawHandle;
+    return Object.freeze({
+      handle: rawHandle,
+      folderName: directory.name,
+    });
   });
 }
 
@@ -239,7 +243,7 @@ async function commitFolderSelection(
  *
  * @param {import('./SyncService.js').default} service
  * @param {unknown} autoSync
- * @returns {Promise<import('../../types/sync-boundary.js').SyncDirectoryHandle | null>}
+ * @returns {Promise<import('../../types/sync-boundary.js').CommittedSyncFolderSelection | null>}
  */
 export async function selectSyncFolder(service, autoSync = false) {
   const selectionGeneration = ++service._folderSelectionGeneration;

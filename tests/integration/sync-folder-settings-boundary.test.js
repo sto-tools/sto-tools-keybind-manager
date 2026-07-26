@@ -39,7 +39,11 @@ describe("sync folder settings owner integration", () => {
   let ui;
   let fs;
 
-  function setup({ rejectSettingsWrite = false, handle, priorHandle = null }) {
+  async function setup({
+    rejectSettingsWrite = false,
+    handle,
+    priorHandle = null,
+  }) {
     localStorageFixture = createLocalStorageFixture({
       initialData: {
         sto_keybind_settings: {
@@ -79,6 +83,7 @@ describe("sync folder settings owner integration", () => {
     // Preferences owner announces its complete initial snapshot.
     sync.init();
     preferences.init();
+    await preferences.initialStateReady;
     vi.spyOn(sync, "isFirefox").mockReturnValue(false);
     vi.spyOn(sync, "isSecureContext").mockReturnValue(true);
     vi.stubGlobal("showDirectoryPicker", vi.fn().mockResolvedValue(handle));
@@ -97,7 +102,7 @@ describe("sync folder settings owner integration", () => {
   it("preserves a concurrent owner mutation and defers import until explicit save", async () => {
     const projectContent = '{"type":"project","data":{}}';
     const handle = createHandle(projectContent);
-    setup({ handle });
+    await setup({ handle });
     /** @type {(value: boolean) => void} */
     let resolveImportDecision = () => {};
     const importDecision = new Promise((resolve) => {
@@ -173,7 +178,7 @@ describe("sync folder settings owner integration", () => {
   it("keeps the preferences owner silent when real storage rejects the folder mutation", async () => {
     const handle = createHandle();
     const priorHandle = createHandle(null, "Prior Folder");
-    setup({ rejectSettingsWrite: true, handle, priorHandle });
+    await setup({ rejectSettingsWrite: true, handle, priorHandle });
     const beforeOwner = preferences.getCurrentState();
     const beforeDisk = localStorage.getItem("sto_keybind_settings");
     const folderSet = vi.fn();
@@ -213,7 +218,7 @@ describe("sync folder settings owner integration", () => {
 
   it("removes a newly selected capability when the owner rejects its first settings write", async () => {
     const handle = createHandle();
-    setup({ rejectSettingsWrite: true, handle });
+    await setup({ rejectSettingsWrite: true, handle });
     const beforeOwner = preferences.getCurrentState();
 
     await expect(sync.setSyncFolder(true)).resolves.toBeNull();
@@ -228,7 +233,7 @@ describe("sync folder settings owner integration", () => {
 
   it("consumes one staged decision once across overlapping saved publications", async () => {
     const handle = createHandle();
-    setup({ handle, priorHandle: handle });
+    await setup({ handle, priorHandle: handle });
     /** @type {(value: ReturnType<typeof createHandle>) => void} */
     let releaseHandle = () => {};
     fs.getDirectoryHandle.mockImplementationOnce(

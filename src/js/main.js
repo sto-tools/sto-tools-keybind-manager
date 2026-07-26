@@ -1,6 +1,6 @@
 import "./core/constants.js";
 import eventBus from "./core/eventBus.js";
-import { localizeCommands, stoData } from "./data.js";
+import { stoData } from "./data.js";
 import i18next from "i18next";
 import en from "../i18n/en.json";
 import de from "../i18n/de.json";
@@ -45,45 +45,6 @@ const dataService = new DataService({
   // Retain the temporary localization compatibility bridge for audited consumers.
   window.i18next = i18next;
 
-  // Create new StorageService component with i18n support
-  const storageService = new StorageService({ eventBus, i18n: i18next });
-  storageService.init();
-
-  // Initialize the compatibility late-join owner.
-  dataService.init();
-
-  // Create DataCoordinator - the single source of truth for profile data operations
-  const dataCoordinator = new DataCoordinator({
-    eventBus,
-    storage: storageService,
-    i18n: i18next,
-  });
-  dataCoordinator.init();
-  try {
-    await dataCoordinator.initialStateReady;
-  } catch (error) {
-    console.error("DataCoordinator initialization failed:", error);
-    for (const component of [dataCoordinator, dataService, storageService]) {
-      if (typeof component.destroy === "function") component.destroy();
-    }
-    return;
-  }
-
-  // Get settings from the new StorageService and update language if needed
-  const settings = storageService.getSettings();
-  if (settings.language && settings.language !== "en") {
-    await i18next.changeLanguage(settings.language);
-  }
-
-  // Initialize DevMonitor after i18next is available
-  if (devMonitor.isDevelopment) {
-    console.log(
-      "🔧 DevMonitor: Development mode detected, monitoring tools available",
-    );
-  }
-
-  localizeCommands(i18next);
-
   /** @param {Document | Element | null} [root] */
   function applyTranslations(root = document) {
     const translationRoot = root || document;
@@ -103,43 +64,65 @@ const dataService = new DataService({
       .querySelectorAll("[data-i18n-placeholder]")
       .forEach((el) => {
         const key = el.getAttribute("data-i18n-placeholder");
-        if (key) {
-          el.setAttribute("placeholder", i18next.t(key));
-        }
+        if (key) el.setAttribute("placeholder", i18next.t(key));
       });
 
     translationRoot.querySelectorAll("[data-i18n-title]").forEach((el) => {
       const key = el.getAttribute("data-i18n-title");
-      if (key) {
-        el.setAttribute("title", i18next.t(key));
-      }
+      if (key) el.setAttribute("title", i18next.t(key));
     });
 
     translationRoot.querySelectorAll("[data-i18n-alt]").forEach((el) => {
       const key = el.getAttribute("data-i18n-alt");
-      if (key) {
-        el.setAttribute("alt", i18next.t(key));
-      }
+      if (key) el.setAttribute("alt", i18next.t(key));
     });
   }
 
+  // Retain the compatibility bridge for the remaining audited modal/dev users.
   window.applyTranslations = applyTranslations;
 
-  // Apply translations and set up version display
-  function initializeUI() {
-    applyTranslations();
+  // Create new StorageService component with i18n support
+  const storageService = new StorageService({ eventBus, i18n: i18next });
+  storageService.init();
 
-    // Update version in header (about modal version is now handled by AboutModalUI)
-    const appVersionElement = document.getElementById("appVersion");
-    if (appVersionElement) {
-      appVersionElement.textContent = DISPLAY_VERSION;
+  // Initialize the compatibility late-join owner.
+  dataService.init();
+
+  // Create DataCoordinator - the profile-data authority. PreferencesService
+  // becomes the separate settings authority inside the app startup barrier.
+  const dataCoordinator = new DataCoordinator({
+    eventBus,
+    storage: storageService,
+    i18n: i18next,
+  });
+  dataCoordinator.init();
+  try {
+    await dataCoordinator.initialStateReady;
+  } catch (error) {
+    console.error("DataCoordinator initialization failed:", error);
+    for (const component of [dataCoordinator, dataService, storageService]) {
+      if (typeof component.destroy === "function") component.destroy();
     }
+    return;
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initializeUI);
-  } else {
-    initializeUI();
+    await new Promise((resolve) =>
+      document.addEventListener("DOMContentLoaded", resolve, { once: true }),
+    );
+  }
+
+  // Initialize DevMonitor after i18next is available
+  if (devMonitor.isDevelopment) {
+    console.log(
+      "🔧 DevMonitor: Development mode detected, monitoring tools available",
+    );
+  }
+
+  // Preferences owns initial translation; bootstrap only supplies version text.
+  const appVersionElement = document.getElementById("appVersion");
+  if (appVersionElement) {
+    appVersionElement.textContent = DISPLAY_VERSION;
   }
 
   // Create dependencies first. ExportService and KeyService are app-owned.
@@ -170,7 +153,7 @@ const dataService = new DataService({
   const toastService = new ToastService({ eventBus });
   toastService.init();
 
-  // Create UI compatibility facade for legacy components
+  // Create the local UI capability facade injected into composed consumers.
   const stoUI = {
     showToast: (
       /** @type {string} */ message,
@@ -209,13 +192,10 @@ const dataService = new DataService({
   });
   stoSync.init();
 
-  // Minimal global assignments - only what's absolutely necessary for legacy compatibility
+  // Minimal global assignments retained for checked-bundle compatibility.
   Object.assign(window, {
     storageService, // Required by some legacy components and tests
     dataCoordinator, // Required by other services
-    // stoExport removed - now managed by app.js
-    stoUI, // Required by many components for toast notifications
-    stoSync, // Required by sync UI components
     eventBus, // Required for component communication debugging
   });
 
@@ -225,6 +205,7 @@ const dataService = new DataService({
     storageService,
     ui: stoUI,
     syncService: stoSync,
+    applyTranslations,
   });
 
   // App instance is not exposed globally; components communicate via eventBus.

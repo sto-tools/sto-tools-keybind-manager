@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ProjectManagementService from "../../../src/js/components/services/ProjectManagementService.js";
 import { MAX_PROJECT_JSON_BYTES } from "../../../src/js/components/services/jsonDataBoundary.js";
 import { createServiceFixture } from "../../fixtures/index.js";
+import { createRequestBackedPreferencesTransition } from "../../fixtures/services/projectRestore.js";
 
 /** @param {{ name: string, size: number, text: () => Promise<string> }} file */
 function installSelectedFile(file) {
@@ -38,6 +39,9 @@ describe("ProjectManagementService restore UI and ownership", () => {
           return key;
         },
       },
+      runPreferencesTransition: createRequestBackedPreferencesTransition(
+        () => service,
+      ),
     });
     services.push(service);
     service.ui = { showToast: vi.fn() };
@@ -93,6 +97,7 @@ describe("ProjectManagementService restore UI and ownership", () => {
       durable: true,
       currentProfile: "profile-42",
       imported: { profiles: 2, settings: true },
+      activation: { data: "pending", preferences: "pending" },
     };
     vi.spyOn(service, "restoreFromProjectContent").mockResolvedValue(outcome);
     const input = document.createElement("input");
@@ -136,6 +141,7 @@ describe("ProjectManagementService restore UI and ownership", () => {
         durable: true,
         currentProfile: "profile-42",
         imported: { profiles: 2, settings: true },
+        activation: { data: "pending", preferences: "pending" },
       },
     ],
   ])(

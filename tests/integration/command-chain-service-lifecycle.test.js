@@ -192,7 +192,10 @@ describe("CommandChainService lifecycle facade", () => {
       }),
     );
     owners.preferences.setState(
-      createPreferencesState({ bindsetsEnabled: true, bindToAliasMode: true }),
+      createPreferencesState(
+        { bindsetsEnabled: true, bindToAliasMode: true },
+        { revision: 2 },
+      ),
     );
     owners.bindset.setState(bindsetState("Tactical"));
 

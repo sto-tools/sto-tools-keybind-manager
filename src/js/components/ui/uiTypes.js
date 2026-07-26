@@ -88,10 +88,8 @@
  *
  * @typedef {{
  *   storageService?: import('../services/StorageService.js').default,
- *   stoUI?: UIServiceLike,
  *   confirmDialog?: ConfirmDialogLike,
- *   applyTranslations?: (element?: Document | Element | null) => void,
- *   stoSync?: { setSyncFolder: (autoSync?: boolean) => Promise<FileSystemDirectoryHandle | null> }
+ *   applyTranslations?: (element?: Document | Element | null) => void
  * }} RuntimeGlobals
  */
 

@@ -35,8 +35,10 @@ describe("SyncService lifecycle ownership", () => {
 
   it("owns its responder and workflow subscriptions across reinit and replacement", async () => {
     const expectedCounts = {
+      "rpc:sync:select-folder": 1,
       "rpc:sync:sync-project": 1,
-      "preferences:saved": 2,
+      "preferences:saved": 1,
+      "preferences:state-changed": 1,
       "modal:hidden": 1,
       "sto-app-ready": 1,
     };

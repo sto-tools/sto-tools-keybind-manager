@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import ProjectManagementService from "../../../src/js/components/services/ProjectManagementService.js";
 import { createServiceFixture } from "../../fixtures/index.js";
+import { createRequestBackedPreferencesTransition } from "../../fixtures/services/projectRestore.js";
+
+const PREFERENCES_ACTIVATION_SUCCESS = {
+  success: true,
+  changed: true,
+  revision: 2,
+  effects: "applied",
+};
 
 describe("ProjectManagementService.restoreFromProjectContent", () => {
   let fixture;
@@ -26,6 +34,9 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
           return key;
         },
       },
+      runPreferencesTransition: createRequestBackedPreferencesTransition(
+        () => service,
+      ),
     });
     services.push(service);
     service.ui = { showToast: vi.fn() };
@@ -61,7 +72,11 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
             environment: "space",
           };
         }
-        return { success: true };
+        if (topic === "preferences:activate-persisted-settings") {
+          expect(payload).toEqual({ source: "project-restore" });
+          return PREFERENCES_ACTIVATION_SUCCESS;
+        }
+        throw new Error(`Unexpected request for topic ${topic}`);
       });
     const result = await service.restoreFromProjectContent(
       '{"fake":true}',
@@ -74,7 +89,16 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
       0,
     );
     expect(requestMock).toHaveBeenCalledWith("data:reload-state", undefined, 0);
-    expect(requestMock).toHaveBeenCalledTimes(2);
+    expect(requestMock).toHaveBeenCalledWith(
+      "preferences:activate-persisted-settings",
+      { source: "project-restore" },
+      0,
+    );
+    expect(requestMock.mock.calls.map(([topic]) => topic)).toEqual([
+      "import:project-file",
+      "data:reload-state",
+      "preferences:activate-persisted-settings",
+    ]);
     expect(service.ui.showToast).not.toHaveBeenCalled();
     expect(result).toEqual({
       success: true,
@@ -354,6 +378,7 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
       durable: true,
       currentProfile: "profile-42",
       imported: { profiles: 2, settings: true },
+      activation: { data: "pending", preferences: "pending" },
     });
     expect(requestMock).toHaveBeenCalledTimes(2);
     expect(service.ui.showToast).not.toHaveBeenCalled();
@@ -386,6 +411,7 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
       durable: true,
       currentProfile: null,
       imported: { profiles: 1, settings: false },
+      activation: { data: "pending", preferences: "not-required" },
     });
     expect(requestMock).toHaveBeenCalledTimes(2);
     expect(service.ui.showToast).not.toHaveBeenCalled();
@@ -418,6 +444,7 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
       durable: true,
       currentProfile: "profile-42",
       imported: { profiles: 1, settings: false },
+      activation: { data: "pending", preferences: "not-required" },
     });
     expect(requestMock).toHaveBeenCalledTimes(2);
     expect(service.ui.showToast).not.toHaveBeenCalled();
@@ -450,6 +477,7 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
       durable: true,
       currentProfile: "profile-42",
       imported: { profiles: 1, settings: false },
+      activation: { data: "pending", preferences: "not-required" },
     });
     expect(requestMock).toHaveBeenCalledTimes(2);
     expect(service.ui.showToast).not.toHaveBeenCalled();
@@ -485,6 +513,7 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
         durable: true,
         currentProfile: "profile-42",
         imported: { profiles: 2, settings: true },
+        activation: { data: "pending", preferences: "pending" },
       });
       expect(requestMock).toHaveBeenCalledTimes(2);
       expect(service.ui.showToast).not.toHaveBeenCalled();
