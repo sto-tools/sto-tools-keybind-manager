@@ -1,12 +1,13 @@
+import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
 
 describe("Key view mode checked-bundle boundary", () => {
   it("cycles through every owned mode and restores the starting mode", async () => {
-    const ui = window.keyBrowserUI;
-    const service = window.keyBrowserService;
-    const bus = window.eventBus;
+    const ui = runtime().keyBrowserUI;
+    const service = runtime().keyBrowserService;
+    const bus = runtime().eventBus;
     const toggle = document.getElementById("toggleKeyViewBtn");
     const storageKey = "keyViewMode";
     const beforeStored = localStorage.getItem(storageKey);

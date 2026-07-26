@@ -46,6 +46,8 @@ class DevMonitor {
     this.originalI18nExists = null;
     /** @type {ReturnType<typeof setInterval> | null} */
     this.cssCheckInterval = null;
+    /** @type {Readonly<Record<string, unknown>> | null} */
+    this.runtimeDiagnostics = null;
 
     // Safety check - only enable in development
     this.isDevelopment = this.checkDevelopmentMode();
@@ -67,6 +69,60 @@ class DevMonitor {
     this.i18n = i18n;
     this.originalI18nT = null;
     this.originalI18nExists = null;
+  }
+
+  /**
+   * Register the composed runtime handles exposed to development diagnostics.
+   *
+   * The registration record is copied and frozen so console consumers cannot
+   * replace its handles. The services themselves remain live objects.
+   *
+   * @param {Record<string, unknown>} runtime
+   * @returns {Readonly<Record<string, unknown>> | null}
+   */
+  registerRuntimeDiagnostics(runtime) {
+    if (!this.isDevelopment) {
+      console.warn(
+        "DevMonitor: Runtime diagnostics only available in development mode",
+      );
+      return null;
+    }
+
+    this.runtimeDiagnostics = Object.freeze({ ...runtime });
+    return this.runtimeDiagnostics;
+  }
+
+  /**
+   * Get the current development runtime registration.
+   *
+   * @returns {Readonly<Record<string, unknown>> | null}
+   */
+  getRuntimeDiagnostics() {
+    if (!this.isDevelopment) {
+      console.warn(
+        "DevMonitor: Runtime diagnostics only available in development mode",
+      );
+      return null;
+    }
+
+    return this.runtimeDiagnostics;
+  }
+
+  /**
+   * Clear the current development runtime registration.
+   *
+   * @returns {boolean}
+   */
+  clearRuntimeDiagnostics() {
+    if (!this.isDevelopment) {
+      console.warn(
+        "DevMonitor: Runtime diagnostics only available in development mode",
+      );
+      return false;
+    }
+
+    this.runtimeDiagnostics = null;
+    return true;
   }
 
   checkDevelopmentMode() {
@@ -530,6 +586,8 @@ if (devMonitor.isDevelopment) {
 - devMonitor.clearStats()            // Clear all tracking data
 - devMonitor.disableAll()            // Disable all tracking
 - devMonitor.getStatus()             // Get current status
+- devMonitor.getRuntimeDiagnostics() // Get composed runtime handles
+- devMonitor.clearRuntimeDiagnostics() // Clear composed runtime handles
   `);
 }
 

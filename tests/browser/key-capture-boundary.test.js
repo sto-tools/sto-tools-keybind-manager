@@ -1,8 +1,9 @@
+import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
 
-/** @param {typeof window.eventBus} bus */
+/** @param {typeof import("../../src/js/core/eventBus.js").default} bus */
 async function readKeyCaptureState(bus) {
   const replyTopic = `component:registered:reply:browser-key-capture:${Date.now()}-${Math.random()}`;
   /** @type {import('../../src/js/types/events/component-state.js').KeyCaptureStateSnapshot | undefined} */
@@ -43,10 +44,10 @@ function button(id) {
 
 describe("Key-capture checked-bundle boundary", () => {
   it("captures, confirms, persists, cancels, and reopens through the checked bundle", async () => {
-    const bus = window.eventBus;
-    const coordinator = window.dataCoordinator;
-    const storage = window.storageService;
-    const chainUi = window.commandChainUI;
+    const bus = runtime().eventBus;
+    const coordinator = runtime().dataCoordinator;
+    const storage = runtime().storageService;
+    const chainUi = runtime().commandChainUI;
     const addKey = button("addKeyBtn");
     const modal = document.getElementById("keySelectionModal");
 

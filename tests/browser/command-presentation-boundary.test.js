@@ -1,3 +1,4 @@
+import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
@@ -48,9 +49,9 @@ function categoryNodes(categoryId) {
 
 describe("Command presentation checked-bundle boundary", () => {
   it("projects and copies an inert preview before presentation clicks converge through the hidden owner", async () => {
-    const bus = window.eventBus;
-    const chainUi = window.commandChainUI;
-    const coordinator = window.dataCoordinator;
+    const bus = runtime().eventBus;
+    const chainUi = runtime().commandChainUI;
+    const coordinator = runtime().dataCoordinator;
     const categoryId = "system";
     const categoryStorageKey = `commandCategory_${categoryId}_collapsed`;
     const groupStorageKeyPrefix = "commandGroup_";

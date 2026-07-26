@@ -38,7 +38,7 @@ describe("application-global read guard", () => {
     ).toEqual(Array(3).fill("unallowlisted"));
   });
 
-  it("rejects unknown and wrong-file reads through every global spelling", () => {
+  it("rejects unknown and retired reads through every global spelling", () => {
     expect(
       readMessageIds(
         `
@@ -54,7 +54,7 @@ describe("application-global read guard", () => {
       "unallowlisted",
       "unallowlisted",
       "unallowlisted",
-      "wrongReader",
+      "unallowlisted",
     ]);
   });
 
@@ -138,12 +138,12 @@ describe("application-global read guard", () => {
     ).toEqual([]);
   });
 
-  it("ratchets stale production reader metadata", () => {
+  it("records no application reader metadata for app composition", () => {
     expect(
       readMessageIds("export {};", "src/js/app.js", {
         enforceDeclaredReaders: true,
       }),
-    ).toEqual(Array(3).fill("stale"));
+    ).toEqual([]);
   });
 
   it.each([
@@ -157,7 +157,7 @@ describe("application-global read guard", () => {
     ]);
   });
 
-  it("records only live production consumers for retired bridges", () => {
+  it("records only the deliberate development diagnostic consumers", () => {
     expect(applicationGlobalAllowlist).not.toHaveProperty("stoFileExplorer");
     expect(applicationGlobalAllowlist).not.toHaveProperty("inputDialog");
     expect(applicationGlobalAllowlist).not.toHaveProperty("stoKeybinds");
@@ -167,14 +167,22 @@ describe("application-global read guard", () => {
     expect(applicationGlobalAllowlist).not.toHaveProperty(
       "localizeCommandData",
     );
-    expect(applicationGlobalAllowlist.commandChainUI.consumers).not.toContain(
-      "src/js/components/ui/CommandLibraryUI.js",
-    );
     expect(applicationGlobalAllowlist).not.toHaveProperty("stoUI");
     expect(applicationGlobalAllowlist).not.toHaveProperty("stoSync");
     expect(applicationGlobalAllowlist).not.toHaveProperty("confirmDialog");
     expect(applicationGlobalAllowlist).not.toHaveProperty("i18next");
     expect(applicationGlobalAllowlist).not.toHaveProperty("applyTranslations");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("storageService");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("dataCoordinator");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("eventBus");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("commandChainUI");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("keyBrowserUI");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("keyBrowserService");
+    expect(applicationGlobalAllowlist.devMonitor.consumers).toEqual([
+      "development console",
+      "tests/browser-setup.js",
+      "tests/fixtures/ui/applicationRuntime.js",
+    ]);
     expect(
       readMessageIds(
         "void globalThis.stoSync;",
@@ -202,6 +210,30 @@ describe("application-global read guard", () => {
         "src/js/components/ui/VFXManagerUI.js",
       ),
     ).toEqual(["unallowlisted"]);
+  });
+
+  it.each([
+    ["storageService", "src/js/main.js"],
+    ["dataCoordinator", "src/js/main.js"],
+    ["eventBus", "src/js/lib/commandDisplayAdapter.js"],
+    ["commandChainUI", "src/js/app.js"],
+    ["keyBrowserUI", "src/js/app.js"],
+    ["keyBrowserService", "src/js/app.js"],
+  ])("rejects the retired %s read in %s", (name, file) => {
+    expect(readMessageIds(`void globalThis.${name};`, file)).toEqual([
+      "unallowlisted",
+    ]);
+  });
+
+  it.each([
+    "tests/browser-setup.js",
+    "tests/fixtures/ui/applicationRuntime.js",
+  ])("accepts the explicit DevMonitor diagnostic read in %s", (file) => {
+    expect(
+      verifyReads("void window.devMonitor;", file, {
+        enforceDeclaredReaders: true,
+      }),
+    ).toEqual([]);
   });
 });
 

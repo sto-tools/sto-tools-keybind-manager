@@ -1,8 +1,9 @@
+import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it } from "vitest";
 
 describe("File Explorer startup boundary", () => {
   it("opens through its initialized event consumer without a late callback", () => {
-    const bus = window.eventBus;
+    const bus = runtime().eventBus;
     const openButton = document.getElementById("fileExplorerBtn");
     const modal = document.getElementById("fileExplorerModal");
 

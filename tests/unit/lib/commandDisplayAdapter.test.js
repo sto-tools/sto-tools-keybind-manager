@@ -1,12 +1,36 @@
 import { describe, it, beforeEach, afterEach, expect } from "vitest";
 import { createServiceFixture } from "../../fixtures/index.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
+import defaultEventBus from "../../../src/js/core/eventBus.js";
 import {
   enrichForDisplay,
   normalizeToString,
   normalizeToStringArray,
   normalizeToOptimizedString,
 } from "../../../src/js/lib/commandDisplayAdapter.js";
+
+async function withPoisonedAmbientEventBus(callback) {
+  const ambientDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "eventBus",
+  );
+  Object.defineProperty(globalThis, "eventBus", {
+    configurable: true,
+    get() {
+      throw new Error("ambient eventBus read");
+    },
+  });
+
+  try {
+    return await callback();
+  } finally {
+    if (ambientDescriptor) {
+      Object.defineProperty(globalThis, "eventBus", ambientDescriptor);
+    } else {
+      delete globalThis.eventBus;
+    }
+  }
+}
 
 describe("Command Display Adapter", () => {
   let fixture, eventBus, detachParserHandler, mockI18n;
@@ -151,6 +175,15 @@ describe("Command Display Adapter", () => {
   });
 
   describe("enrichForDisplay", () => {
+    it("ignores a poisoned ambient event bus when an explicit bus is injected", async () => {
+      const result = await withPoisonedAmbientEventBus(() => {
+        return enrichForDisplay("FireAll", mockI18n, { eventBus });
+      });
+
+      expect(result.command).toBe("FireAll");
+      expect(result.displayText).toBe("Fire All Weapons");
+    });
+
     it("should convert canonical string to rich object", async () => {
       const result = await enrichForDisplay("FireAll", mockI18n, { eventBus });
 
@@ -370,6 +403,44 @@ describe("Command Display Adapter", () => {
   });
 
   describe("normalizeToOptimizedString", () => {
+    it("ignores a poisoned ambient event bus when an explicit bus is injected", async () => {
+      await withPoisonedAmbientEventBus(async () => {
+        await expect(
+          normalizeToOptimizedString("TrayExecByTray 1 3 0", { eventBus }),
+        ).resolves.toBe("+TrayExecByTray 3 0");
+      });
+    });
+
+    it("uses the imported singleton without consulting an ambient event bus", async () => {
+      const detach = respond(
+        defaultEventBus,
+        "parser:parse-command-string",
+        () => ({
+          commands: [
+            {
+              signature: "TrayExecByTray",
+              parameters: {
+                active: 1,
+                tray: 4,
+                slot: 2,
+                baseCommand: "TrayExecByTray",
+              },
+            },
+          ],
+        }),
+      );
+
+      try {
+        await withPoisonedAmbientEventBus(async () => {
+          await expect(
+            normalizeToOptimizedString("TrayExecByTray 1 4 2"),
+          ).resolves.toBe("+TrayExecByTray 4 2");
+        });
+      } finally {
+        detach();
+      }
+    });
+
     it("should optimize TrayExecByTray commands with active=1 to + form", async () => {
       const result = await normalizeToOptimizedString("TrayExecByTray 1 3 0", {
         eventBus,

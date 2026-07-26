@@ -1,12 +1,13 @@
+import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
 
 describe("Project restore checked-bundle boundary", () => {
   it("reports a durable reload failure without stale owner success and converges on retry", async () => {
-    const bus = window.eventBus;
-    const coordinator = window.dataCoordinator;
-    const storage = window.storageService;
+    const bus = runtime().eventBus;
+    const coordinator = runtime().dataCoordinator;
+    const storage = runtime().storageService;
 
     expect(bus?.hasListeners("rpc:project:restore-from-content")).toBe(true);
     expect(coordinator?.getCurrentState?.().ready).toBe(true);

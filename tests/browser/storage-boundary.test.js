@@ -1,3 +1,4 @@
+import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
@@ -38,8 +39,8 @@ function createSyncDirectoryHandle(name) {
 
 describe("Persisted storage browser boundary", () => {
   it("keeps the preference owner unchanged when the checked bundle cannot persist", async () => {
-    const storage = window.storageService;
-    const bus = window.eventBus;
+    const storage = runtime().storageService;
+    const bus = runtime().eventBus;
     expect(storage).toBeTruthy();
     expect(bus?.hasListeners("rpc:preferences:set-setting")).toBe(true);
     if (!storage || !bus) return;
@@ -91,8 +92,8 @@ describe("Persisted storage browser boundary", () => {
   });
 
   it("does not publish sync-folder success when the checked bundle cannot persist its settings", async () => {
-    const storage = window.storageService;
-    const bus = window.eventBus;
+    const storage = runtime().storageService;
+    const bus = runtime().eventBus;
     expect(storage).toBeTruthy();
     expect(bus?.hasListeners("rpc:sync:select-folder")).toBe(true);
     expect(
@@ -174,7 +175,7 @@ describe("Persisted storage browser boundary", () => {
   });
 
   it("waits for saved consumers before resolving a checked-bundle mutation", async () => {
-    const bus = window.eventBus;
+    const bus = runtime().eventBus;
     expect(bus?.hasListeners("rpc:preferences:set-setting")).toBe(true);
     if (!bus) return;
 
@@ -230,9 +231,9 @@ describe("Persisted storage browser boundary", () => {
   });
 
   it("validates and durably adopts roots and settings through the checked-in owner chain", async () => {
-    const storage = window.storageService;
-    const coordinator = window.dataCoordinator;
-    const bus = window.eventBus;
+    const storage = runtime().storageService;
+    const coordinator = runtime().dataCoordinator;
+    const bus = runtime().eventBus;
     expect(storage).toBeTruthy();
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
     expect(bus?.hasListeners("rpc:data:reload-state")).toBe(true);

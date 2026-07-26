@@ -1,3 +1,4 @@
+import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
@@ -9,10 +10,10 @@ const probeKey = "__command_editing_boundary_probe__";
 
 describe("Command editing checked-bundle boundary", () => {
   it("preserves parameter edit sessions and durably replaces the captured command", async () => {
-    const bus = window.eventBus;
-    const coordinator = window.dataCoordinator;
-    const storage = window.storageService;
-    const chainUi = window.commandChainUI;
+    const bus = runtime().eventBus;
+    const coordinator = runtime().dataCoordinator;
+    const storage = runtime().storageService;
+    const chainUi = runtime().commandChainUI;
 
     expect(bus).toBeTruthy();
     expect(coordinator?.getCurrentState?.().ready).toBe(true);

@@ -14,7 +14,9 @@ const bootstrap = vi.hoisted(() => {
     dataRpcTopics: new Set(),
     appDependencies: null,
     devMonitorI18n: null,
+    runtimeDiagnostics: null,
     syncOptions: null,
+    appInitError: null,
     operations: [],
     initialStateReady: Promise.resolve(),
     rejectInitialState: () => {},
@@ -24,7 +26,9 @@ const bootstrap = vi.hoisted(() => {
       state.dataRpcTopics.clear();
       state.appDependencies = null;
       state.devMonitorI18n = null;
+      state.runtimeDiagnostics = null;
       state.syncOptions = null;
+      state.appInitError = null;
       state.initialStateReady = new Promise((resolve, reject) => {
         state.resolveInitialState = resolve;
         state.rejectInitialState = reject;
@@ -134,21 +138,30 @@ vi.mock("../../src/js/app.js", () => ({
   default: class {
     constructor(dependencies) {
       bootstrap.appDependencies = dependencies;
+      this.commandChainUI = { name: "command-chain-ui" };
+      this.keyBrowserUI = { name: "key-browser-ui" };
+      this.keyBrowserService = { name: "key-browser-service" };
       bootstrap.operations.push("app:construct");
     }
 
     async init() {
       bootstrap.operations.push("app:init");
+      if (bootstrap.appInitError) throw bootstrap.appInitError;
     }
   },
 }));
 
 vi.mock("../../src/js/dev/DevMonitor.js", () => ({
   default: {
-    isDevelopment: false,
+    isDevelopment: true,
     configure(i18n) {
       bootstrap.devMonitorI18n = i18n;
       bootstrap.operations.push("dev-monitor:configure");
+    },
+    registerRuntimeDiagnostics(runtime) {
+      bootstrap.runtimeDiagnostics = Object.freeze({ ...runtime });
+      bootstrap.operations.push("dev-monitor:register-runtime");
+      return bootstrap.runtimeDiagnostics;
     },
   },
 }));
@@ -197,6 +210,9 @@ describe("main DataCoordinator startup barrier", () => {
     expect(bootstrap.operations.indexOf("app:construct")).toBeLessThan(
       bootstrap.operations.indexOf("app:init"),
     );
+    expect(bootstrap.operations.indexOf("app:init")).toBeLessThan(
+      bootstrap.operations.indexOf("dev-monitor:register-runtime"),
+    );
     expect(bootstrap.operations).not.toContain("storage:get-settings");
     expect(bootstrap.operations).not.toContain("i18next:change-language");
     expect(bootstrap.operations).not.toContain("data:localize");
@@ -218,6 +234,25 @@ describe("main DataCoordinator startup barrier", () => {
         applyTranslations: expect.any(Function),
       }),
     );
+    expect(bootstrap.runtimeDiagnostics).toEqual({
+      eventBus: expect.objectContaining({ emit: expect.any(Function) }),
+      storageService: expect.anything(),
+      dataCoordinator: expect.anything(),
+      commandChainUI: { name: "command-chain-ui" },
+      keyBrowserUI: { name: "key-browser-ui" },
+      keyBrowserService: { name: "key-browser-service" },
+    });
+    expect(Object.isFrozen(bootstrap.runtimeDiagnostics)).toBe(true);
+    for (const property of [
+      "eventBus",
+      "storageService",
+      "dataCoordinator",
+      "commandChainUI",
+      "keyBrowserUI",
+      "keyBrowserService",
+    ]) {
+      expect(window).not.toHaveProperty(property);
+    }
     expect(bootstrap.syncOptions.directoryPicker.isSupported()).toBe(false);
     const selectedDirectory = { kind: "directory", name: "late-picker" };
     const showDirectoryPicker = vi.fn().mockResolvedValue(selectedDirectory);
@@ -325,5 +360,30 @@ describe("main DataCoordinator startup barrier", () => {
       "data-service:destroy",
       "storage:destroy",
     ]);
+    expect(bootstrap.runtimeDiagnostics).toBeNull();
+  });
+
+  it("does not register runtime diagnostics when app initialization fails", async () => {
+    const error = new Error("app initialization failed");
+    bootstrap.appInitError = error;
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    await import("../../src/js/main.js");
+
+    await vi.waitFor(() => {
+      expect(bootstrap.operations).toContain("coordinator:init");
+    });
+    bootstrap.resolveInitialState();
+
+    await vi.waitFor(() => {
+      expect(consoleError).toHaveBeenCalledWith(
+        "Application initialization failed:",
+        error,
+      );
+    });
+    expect(bootstrap.operations).toContain("app:init");
+    expect(bootstrap.operations).not.toContain("dev-monitor:register-runtime");
+    expect(bootstrap.runtimeDiagnostics).toBeNull();
   });
 });

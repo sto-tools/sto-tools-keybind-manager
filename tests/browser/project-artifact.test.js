@@ -1,3 +1,4 @@
+import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
@@ -54,8 +55,8 @@ describe("Project artifact checked-bundle parity", () => {
   });
 
   it("downloads and syncs byte-identical artifacts from the live owner state", async () => {
-    const bus = window.eventBus;
-    const storage = window.storageService;
+    const bus = runtime().eventBus;
+    const storage = runtime().storageService;
     expect(bus?.hasListeners("project:save")).toBe(true);
     expect(bus?.hasListeners("rpc:export:sync-to-folder")).toBe(true);
     expect(storage).toBeTruthy();

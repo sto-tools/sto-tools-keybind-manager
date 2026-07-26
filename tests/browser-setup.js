@@ -1,4 +1,5 @@
 import { afterEach, beforeEach } from "vitest";
+import { runtime } from "./fixtures/ui/applicationRuntime.js";
 
 const READY_TIMEOUT_MS = 10000;
 const POLL_INTERVAL_MS = 20;
@@ -42,7 +43,7 @@ async function loadApplicationShell() {
 async function loadApplication() {
   await loadApplicationShell();
 
-  if (window.eventBus) return;
+  if (window.devMonitor?.getRuntimeDiagnostics) return;
 
   localStorage.clear();
   sessionStorage.clear();
@@ -69,16 +70,25 @@ async function loadApplication() {
 }
 
 function getApplicationReadiness() {
+  let applicationRuntime = null;
+  try {
+    applicationRuntime = runtime();
+  } catch {
+    // The bundle registers diagnostics near the end of application startup.
+  }
+
   const profileSelect = document.getElementById("profileSelect");
   const hasUsableProfile = Array.from(profileSelect?.options || []).some(
     (option) => !option.disabled && Boolean(option.value),
   );
 
   return {
-    eventBus: Boolean(window.eventBus),
-    storageService: Boolean(window.storageService),
-    applicationServices: Boolean(window.keyBrowserService),
-    keyService: Boolean(window.eventBus?.hasListeners("rpc:key:add")),
+    eventBus: Boolean(applicationRuntime?.eventBus),
+    storageService: Boolean(applicationRuntime?.storageService),
+    applicationServices: Boolean(applicationRuntime?.keyBrowserService),
+    keyService: Boolean(
+      applicationRuntime?.eventBus?.hasListeners("rpc:key:add"),
+    ),
     title: Boolean(document.title.trim()),
     version: Boolean(document.getElementById("appVersion")?.textContent.trim()),
     profile: hasUsableProfile,

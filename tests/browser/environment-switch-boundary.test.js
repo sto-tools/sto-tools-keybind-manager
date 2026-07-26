@@ -1,3 +1,4 @@
+import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
@@ -79,10 +80,10 @@ function restoreStorage(snapshot) {
 
 describe("Environment switch checked-bundle boundary", () => {
   it("publishes only a durably accepted environment and leaves failed attempts invisible", async () => {
-    const bus = window.eventBus;
-    const coordinator = window.dataCoordinator;
-    const storage = window.storageService;
-    const commandChainUI = window.commandChainUI;
+    const bus = runtime().eventBus;
+    const coordinator = runtime().dataCoordinator;
+    const storage = runtime().storageService;
+    const commandChainUI = runtime().commandChainUI;
 
     expect(bus?.hasListeners("rpc:environment:switch")).toBe(true);
     expect(coordinator?.getCurrentState?.().ready).toBe(true);

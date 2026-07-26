@@ -13,20 +13,11 @@ import {
 } from "./applicationGlobals.harness.js";
 
 describe("application-global compatibility metadata", () => {
-  it("freezes the exact 7-name post-localization allowlist", () => {
-    const expectedNames = [
-      "commandChainUI",
-      "dataCoordinator",
-      "devMonitor",
-      "eventBus",
-      "keyBrowserService",
-      "keyBrowserUI",
-      "storageService",
-    ];
-
-    expect(Object.keys(applicationGlobalAllowlist).sort()).toEqual(
-      expectedNames,
-    );
+  it("freezes the exact development-only allowlist", () => {
+    expect(Object.keys(applicationGlobalAllowlist)).toEqual(["devMonitor"]);
+    expect(applicationGlobalAllowlist.devMonitor.writers).toEqual([
+      { file: "src/js/dev/DevMonitor.js", path: "devMonitor" },
+    ]);
     expect(Object.isFrozen(applicationGlobalAllowlist)).toBe(true);
   });
 
@@ -56,25 +47,17 @@ describe("application-global compatibility metadata", () => {
     }
   });
 
-  it("tracks the known production and checked-bundle consumers", () => {
-    expect(applicationGlobalAllowlist.eventBus.consumers).toContain(
-      "src/js/lib/commandDisplayAdapter.js",
-    );
+  it("tracks only the deliberate development and diagnostic consumers", () => {
+    expect(applicationGlobalAllowlist.devMonitor.consumers).toEqual([
+      "development console",
+      "tests/browser-setup.js",
+      "tests/fixtures/ui/applicationRuntime.js",
+    ]);
     expect(applicationGlobalAllowlist).not.toHaveProperty("stoUI");
     expect(applicationGlobalAllowlist).not.toHaveProperty("stoSync");
-    expect(applicationGlobalAllowlist.commandChainUI.consumers).toEqual([
-      "src/js/app.js",
-      "browser diagnostics",
-    ]);
     expect(applicationGlobalAllowlist).not.toHaveProperty("confirmDialog");
     expect(applicationGlobalAllowlist).not.toHaveProperty("i18next");
     expect(applicationGlobalAllowlist).not.toHaveProperty("applyTranslations");
-    expect(applicationGlobalAllowlist.keyBrowserUI.consumers).toContain(
-      "src/js/app.js",
-    );
-    expect(applicationGlobalAllowlist.keyBrowserService.consumers).toContain(
-      "src/js/app.js",
-    );
   });
 
   it.each([
@@ -102,6 +85,12 @@ describe("application-global compatibility metadata", () => {
     "confirmDialog",
     "i18next",
     "applyTranslations",
+    "storageService",
+    "dataCoordinator",
+    "eventBus",
+    "commandChainUI",
+    "keyBrowserUI",
+    "keyBrowserService",
   ])("does not retain the retired %s exposure", (name) => {
     expect(applicationGlobalAllowlist).not.toHaveProperty(name);
   });
@@ -121,14 +110,38 @@ describe("application-global write guard", () => {
     ).toEqual(Array(3).fill("unallowlisted"));
   });
 
-  it("accepts every main.js Object.assign writer", () => {
+  it("rejects the retired bootstrap diagnostic writers", () => {
+    expect(
+      messageIds(
+        `
+          Object.assign(window, {
+            storageService: {}, dataCoordinator: {}, eventBus: {}
+          });
+        `,
+        "src/js/main.js",
+      ),
+    ).toEqual(Array(3).fill("unallowlisted"));
+  });
+
+  it("rejects the retired app UI diagnostic writers", () => {
+    expect(
+      messageIds(
+        `
+          window.commandChainUI = {};
+          window.keyBrowserUI = {};
+          window.keyBrowserService = {};
+        `,
+        "src/js/app.js",
+      ),
+    ).toEqual(Array(3).fill("unallowlisted"));
+  });
+
+  it("accepts the sole deliberate DevMonitor writer", () => {
     const messages = verify(
       `
-        Object.assign(window, {
-          storageService: {}, dataCoordinator: {}, eventBus: {}
-        });
+        window.devMonitor = {};
       `,
-      "src/js/main.js",
+      "src/js/dev/DevMonitor.js",
       { enforceDeclaredWriters: true },
     );
 
@@ -143,28 +156,6 @@ describe("application-global write guard", () => {
       ]);
     },
   );
-
-  it("accepts every app.js and DevMonitor.js writer", () => {
-    const appMessages = verify(
-      `
-        window.commandChainUI = {};
-        window.keyBrowserUI = {};
-        window.keyBrowserService = {};
-      `,
-      "src/js/app.js",
-      { enforceDeclaredWriters: true },
-    );
-    const developmentMessages = verify(
-      `
-        window.devMonitor = {};
-      `,
-      "src/js/dev/DevMonitor.js",
-      { enforceDeclaredWriters: true },
-    );
-
-    expect(appMessages).toEqual([]);
-    expect(developmentMessages).toEqual([]);
-  });
 
   it("rejects the retired confirmation writer from app composition", () => {
     expect(messageIds("window.confirmDialog = {};", "src/js/app.js")).toEqual([
@@ -262,7 +253,13 @@ describe("application-global write guard", () => {
         `,
         "src/js/main.js",
       ),
-    ).toEqual(["dynamic", "opaqueBulk", "opaqueBulk", "unallowlisted"]);
+    ).toEqual([
+      "dynamic",
+      "opaqueBulk",
+      "opaqueBulk",
+      "unallowlisted",
+      "unallowlisted",
+    ]);
   });
 
   it("covers computed, aliased bulk, native, array, and loop targets", () => {
@@ -319,7 +316,7 @@ describe("application-global write guard", () => {
       "unallowlisted",
       "dynamic",
       "unallowlisted",
-      "wrongWriter",
+      "unallowlisted",
       "unallowlisted",
       "unallowlisted",
     ]);

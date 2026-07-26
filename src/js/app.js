@@ -500,10 +500,6 @@ export default class STOToolsKeybindManager {
       this.bindsetSelectorService.init();
       this.bindsetSelectorUI.init();
 
-      window.commandChainUI = this.commandChainUI;
-      window.keyBrowserUI = this.keyBrowserUI;
-      window.keyBrowserService = this.keyBrowserService;
-
       welcomeAttempt = this.checkAndShowWelcomeMessage();
 
       stoUI.showToast(
@@ -521,15 +517,6 @@ export default class STOToolsKeybindManager {
         console.error("Failed to roll back first-run welcome:", rollbackError);
       }
 
-      if (window.commandChainUI === this.commandChainUI) {
-        window.commandChainUI = undefined;
-      }
-      if (window.keyBrowserUI === this.keyBrowserUI) {
-        window.keyBrowserUI = undefined;
-      }
-      if (window.keyBrowserService === this.keyBrowserService) {
-        window.keyBrowserService = undefined;
-      }
       this.initialized = false;
 
       this.detachStoragePreferencesTransition?.();

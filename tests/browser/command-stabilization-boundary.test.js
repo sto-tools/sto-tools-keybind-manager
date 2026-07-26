@@ -1,3 +1,4 @@
+import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
@@ -7,10 +8,10 @@ const toolbarProbeKey = "__command_stabilization_toolbar_probe__";
 
 describe("Command stabilization checked-bundle boundary", () => {
   it("keeps failed writes silent and preserves ordered compatibility publication after success", async () => {
-    const bus = window.eventBus;
-    const coordinator = window.dataCoordinator;
-    const storage = window.storageService;
-    const chainUi = window.commandChainUI;
+    const bus = runtime().eventBus;
+    const coordinator = runtime().dataCoordinator;
+    const storage = runtime().storageService;
+    const chainUi = runtime().commandChainUI;
 
     expect(bus).toBeTruthy();
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
@@ -207,10 +208,10 @@ describe("Command stabilization checked-bundle boundary", () => {
   });
 
   it("toggles metadata through the real toolbar without rewriting a mixed canonical chain", async () => {
-    const bus = window.eventBus;
-    const coordinator = window.dataCoordinator;
-    const storage = window.storageService;
-    const chainUi = window.commandChainUI;
+    const bus = runtime().eventBus;
+    const coordinator = runtime().dataCoordinator;
+    const storage = runtime().storageService;
+    const chainUi = runtime().commandChainUI;
     const stabilizeButton = document.getElementById(
       "stabilizeExecutionOrderBtn",
     );

@@ -197,13 +197,6 @@ const dataService = new DataService({
   });
   stoSync.init();
 
-  // Minimal global assignments retained for checked-bundle compatibility.
-  Object.assign(window, {
-    storageService, // Required by some legacy components and tests
-    dataCoordinator, // Required by other services
-    eventBus, // Required for component communication debugging
-  });
-
   // Initialize app after dependencies are available
   const app = new STOToolsKeybindManager({
     i18n: i18next,
@@ -216,6 +209,16 @@ const dataService = new DataService({
   // App instance is not exposed globally; components communicate via eventBus.
   try {
     await app.init();
+    if (devMonitor.isDevelopment) {
+      devMonitor.registerRuntimeDiagnostics({
+        eventBus,
+        storageService,
+        dataCoordinator,
+        commandChainUI: app.commandChainUI,
+        keyBrowserUI: app.keyBrowserUI,
+        keyBrowserService: app.keyBrowserService,
+      });
+    }
   } catch (error) {
     console.error("Application initialization failed:", error);
   }

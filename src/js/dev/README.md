@@ -82,9 +82,11 @@ devMonitor.clearStats();
 // Disable all monitoring
 devMonitor.disableAll();
 
-// Enable/disable dev mode
-devConfig.enable();
-devConfig.disable();
+// Inspect the successfully composed application runtime
+const runtime = devMonitor.getRuntimeDiagnostics();
+
+// Clear the diagnostic registration
+devMonitor.clearRuntimeDiagnostics();
 ```
 
 ## What Gets Tracked
@@ -106,6 +108,8 @@ devConfig.disable();
 ## Safety Features
 
 - **Development Only**: Monitoring is automatically disabled in production
+- **Read-only Runtime Record**: Successfully composed runtime handles are
+  available as a frozen registration only in development
 - **Performance Safe**: CSS checking is throttled to every 2 seconds
 - **Memory Safe**: Uses Sets and Maps for efficient storage
 - **Restoration**: Original functions are restored when tracking is disabled
@@ -169,5 +173,7 @@ console.log("Total i18n calls:", stats.summary.totalUsages);
 
 - Only runs in development environments
 - Checks multiple conditions to ensure dev mode
+- Registers runtime diagnostics only after successful application startup
+- Refuses runtime registration, reads, and clearing outside development
 - Gracefully handles stylesheet access errors (CORS)
 - Automatically cleans up when disabled

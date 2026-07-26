@@ -31,11 +31,9 @@ export async function enrichForDisplay(commandString, i18n, options = {}) {
     return createFallbackRichObject(commandString, i18n);
   }
 
-  // Resolve the event bus to use (caller provided → global → default import)
-  const globalEventBus = /** @type {{ eventBus?: typeof eventBus }} */ (
-    globalThis
-  ).eventBus;
-  const bus = options.eventBus || globalEventBus || eventBus;
+  // Prefer an explicitly composed bus while retaining the module singleton for
+  // standalone callers.
+  const bus = options.eventBus || eventBus;
 
   try {
     // Use STOCommandParser to get base parsing information
@@ -188,11 +186,9 @@ export async function normalizeToOptimizedString(cmdOrObj, options = {}) {
     return "";
   }
 
-  // Resolve the event bus to use (caller provided → global → default import)
-  const globalEventBus = /** @type {{ eventBus?: typeof eventBus }} */ (
-    globalThis
-  ).eventBus;
-  const bus = options.eventBus || globalEventBus || eventBus;
+  // Prefer an explicitly composed bus while retaining the module singleton for
+  // standalone callers.
+  const bus = options.eventBus || eventBus;
 
   try {
     // Parse the command to check if it can be optimized

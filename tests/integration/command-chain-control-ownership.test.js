@@ -8,16 +8,10 @@ describe("command-chain control ownership", () => {
   let fixture;
   let chainUI;
   let libraryUI;
-  let originalCommandChainUI;
 
   afterEach(() => {
     if (chainUI && !chainUI.destroyed) chainUI.destroy();
     if (libraryUI && !libraryUI.destroyed) libraryUI.destroy();
-    if (originalCommandChainUI === undefined) {
-      delete globalThis.commandChainUI;
-    } else {
-      globalThis.commandChainUI = originalCommandChainUI;
-    }
     fixture?.destroy();
     document.body.replaceChildren();
     vi.restoreAllMocks();
@@ -25,7 +19,6 @@ describe("command-chain control ownership", () => {
 
   it("projects selection-driven action state exactly once through CommandChainUI", () => {
     fixture = createServiceFixture();
-    originalCommandChainUI = globalThis.commandChainUI;
     document.body.innerHTML = `
       <button id="stabilizeExecutionOrderBtn"></button>
       <button id="importFromKeyOrAliasBtn"></button>
@@ -51,7 +44,6 @@ describe("command-chain control ownership", () => {
 
     chainUI.init();
     libraryUI.init();
-    globalThis.commandChainUI = chainUI;
     projectActions.mockClear();
 
     fixture.eventBus.emit("key-selected", {

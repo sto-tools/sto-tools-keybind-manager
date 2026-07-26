@@ -67,10 +67,6 @@ describe("application Preferences readiness barrier", () => {
   afterEach(() => {
     eventBus.clear();
     localStorage.clear();
-    delete window.confirmDialog;
-    delete window.commandChainUI;
-    delete window.keyBrowserUI;
-    delete window.keyBrowserService;
     vi.restoreAllMocks();
   });
 

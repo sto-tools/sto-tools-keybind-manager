@@ -171,4 +171,48 @@ describe("DevMonitor localization capability", () => {
     expect(monitor.cssTracking).toBe(false);
     expect(monitor.cssCheckInterval).toBeNull();
   });
+
+  it("registers a replaceable frozen runtime record in development", async () => {
+    const monitor = await loadMonitor();
+    const firstEventBus = { name: "first" };
+    const first = monitor.registerRuntimeDiagnostics({
+      eventBus: firstEventBus,
+      storageService: { name: "storage" },
+    });
+
+    expect(first).toBe(monitor.getRuntimeDiagnostics());
+    expect(first).toEqual({
+      eventBus: firstEventBus,
+      storageService: { name: "storage" },
+    });
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(() => {
+      first.eventBus = { name: "mutated" };
+    }).toThrow(TypeError);
+    expect(monitor.getRuntimeDiagnostics().eventBus).toBe(firstEventBus);
+
+    const replacement = monitor.registerRuntimeDiagnostics({
+      eventBus: { name: "replacement" },
+    });
+
+    expect(replacement).not.toBe(first);
+    expect(Object.isFrozen(replacement)).toBe(true);
+    expect(monitor.getRuntimeDiagnostics()).toBe(replacement);
+    expect(monitor.clearRuntimeDiagnostics()).toBe(true);
+    expect(monitor.getRuntimeDiagnostics()).toBeNull();
+  });
+
+  it("refuses runtime diagnostics outside development", async () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const monitor = await loadMonitor();
+    monitor.isDevelopment = false;
+
+    expect(
+      monitor.registerRuntimeDiagnostics({ eventBus: { name: "blocked" } }),
+    ).toBeNull();
+    expect(monitor.getRuntimeDiagnostics()).toBeNull();
+    expect(monitor.clearRuntimeDiagnostics()).toBe(false);
+    expect(monitor.runtimeDiagnostics).toBeNull();
+    expect(consoleWarn).toHaveBeenCalledTimes(3);
+  });
 });

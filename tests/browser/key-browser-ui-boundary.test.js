@@ -1,12 +1,13 @@
+import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
 
 describe("KeyBrowserUI checked-bundle boundary", () => {
   it("persists category collapse through the rendered delegated path", async () => {
-    const ui = window.keyBrowserUI;
-    const service = window.keyBrowserService;
-    const bus = window.eventBus;
+    const ui = runtime().keyBrowserUI;
+    const service = runtime().keyBrowserService;
+    const bus = runtime().eventBus;
 
     expect(ui?.isInitialized?.()).toBe(true);
     expect(service?.isInitialized?.()).toBe(true);
@@ -122,8 +123,8 @@ describe("KeyBrowserUI checked-bundle boundary", () => {
   });
 
   it("selects and filters rendered keys through the delegated grid path", async () => {
-    const ui = window.keyBrowserUI;
-    const bus = window.eventBus;
+    const ui = runtime().keyBrowserUI;
+    const bus = runtime().eventBus;
     const filter = document.getElementById("keyFilter");
 
     expect(ui?.isInitialized?.()).toBe(true);

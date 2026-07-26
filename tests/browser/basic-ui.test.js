@@ -1,3 +1,4 @@
+import { runtime, ambientGlobals } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 import { request } from "../../src/js/core/requestResponse.js";
 
@@ -23,11 +24,8 @@ describe("Application browser smoke", () => {
     expect(translatedHeading?.textContent.trim()).toBe(document.title.trim());
     expect(version?.textContent.trim()).not.toBe("");
     expect(settingsButton?.title.trim()).not.toBe("");
-    expect(window.eventBus?.hasListeners("rpc:key:add")).toBe(true);
-    expect("stoKeybinds" in window).toBe(false);
-    expect("STO_DATA" in window).toBe(false);
-    expect("COMMANDS" in window).toBe(false);
-    expect("localizeCommandData" in window).toBe(false);
+    expect(runtime().eventBus?.hasListeners("rpc:key:add")).toBe(true);
+    expect(ambientGlobals()).toEqual([]);
     expect(refineDilithium?.closest(".category")?.dataset.category).toBe(
       "system",
     );
@@ -41,7 +39,7 @@ describe("Application browser smoke", () => {
 
     expect(settingsDropdown?.classList.contains("active")).toBe(false);
 
-    const bus = window.commandChainUI?.eventBus;
+    const bus = runtime().commandChainUI?.eventBus;
     expect(bus).toBeTruthy();
     const mirroredHandler = vi.fn();
     const genericHandler = vi.fn();
@@ -70,7 +68,7 @@ describe("Application browser smoke", () => {
   it("opens the injected bindset input dialog without a browser global", async () => {
     expect("inputDialog" in window).toBe(false);
     await vi.waitFor(() => {
-      expect(window.eventBus?.hasListeners("rpc:bindset:create")).toBe(true);
+      expect(runtime().eventBus?.hasListeners("rpc:bindset:create")).toBe(true);
     });
 
     const managerButton = document.getElementById("bindsetManagerBtn");
@@ -102,7 +100,7 @@ describe("Application browser smoke", () => {
   });
 
   it("keeps DataService module-scoped while serving late-join state", async () => {
-    const bus = window.eventBus;
+    const bus = runtime().eventBus;
     const replyTopic = `component:registered:reply:browser-data-service:${Date.now()}-${Math.random()}`;
     let dataServiceReply;
 
@@ -151,7 +149,7 @@ describe("Application browser smoke", () => {
   });
 
   it("uses local projections without retired state, static-data, or computation RPCs", async () => {
-    const commandChainUI = window.commandChainUI;
+    const commandChainUI = runtime().commandChainUI;
     const bus = commandChainUI?.eventBus;
 
     expect(commandChainUI?.isInitialized?.()).toBe(true);
@@ -267,7 +265,7 @@ describe("Application browser smoke", () => {
       expect(bus.hasListeners(topic), topic).toBe(false);
     }
 
-    expect(window.dataCoordinator?.getCurrentState?.().ready).toBe(true);
+    expect(runtime().dataCoordinator?.getCurrentState?.().ready).toBe(true);
     await vi.waitFor(() => {
       expect(document.querySelectorAll(".vertigo-alias-item")).toHaveLength(3);
     });
@@ -303,7 +301,7 @@ describe("Application browser smoke", () => {
   });
 
   it("renders translated key and alias empty states from accepted caches", async () => {
-    const commandChainUI = window.commandChainUI;
+    const commandChainUI = runtime().commandChainUI;
     const chainTitle = document.getElementById("chainTitle");
     const commandList = document.getElementById("commandList");
     const commandPreview = document.getElementById("commandPreview");
@@ -392,8 +390,8 @@ describe("Application browser smoke", () => {
   });
 
   it("hydrates one immutable DataCoordinator snapshot in consumers", () => {
-    const firstState = window.commandChainUI?.cache.dataState;
-    const secondState = window.keyBrowserUI?.cache.dataState;
+    const firstState = runtime().commandChainUI?.cache.dataState;
+    const secondState = runtime().keyBrowserUI?.cache.dataState;
 
     expect(firstState?.ready).toBe(true);
     expect(firstState?.revision).toBeGreaterThanOrEqual(1);
@@ -421,9 +419,9 @@ describe("Application browser smoke", () => {
   });
 
   it("rejects deeply invalid project data before the live import route writes", async () => {
-    const bus = window.commandChainUI?.eventBus;
-    const coordinator = window.dataCoordinator;
-    const storage = window.storageService;
+    const bus = runtime().commandChainUI?.eventBus;
+    const coordinator = runtime().dataCoordinator;
+    const storage = runtime().storageService;
 
     expect(bus?.hasListeners("rpc:import:project-file")).toBe(true);
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
@@ -462,9 +460,9 @@ describe("Application browser smoke", () => {
   });
 
   it("restores a valid wrapped project through the live owner chain", async () => {
-    const bus = window.commandChainUI?.eventBus;
-    const coordinator = window.dataCoordinator;
-    const storage = window.storageService;
+    const bus = runtime().commandChainUI?.eventBus;
+    const coordinator = runtime().dataCoordinator;
+    const storage = runtime().storageService;
 
     expect(bus?.hasListeners("rpc:project:restore-from-content")).toBe(true);
     expect(coordinator?.getCurrentState?.().ready).toBe(true);

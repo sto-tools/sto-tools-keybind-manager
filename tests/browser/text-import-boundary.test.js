@@ -1,3 +1,4 @@
+import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { MAX_STO_TEXT_IMPORT_BYTES } from "../../src/js/components/services/textImportBoundary.js";
@@ -5,10 +6,10 @@ import { request } from "../../src/js/core/requestResponse.js";
 
 describe("STO text import browser boundary", () => {
   it("commits a valid keybind through the checked-bundle owner chain", async () => {
-    const bus = window.eventBus;
-    const storage = window.storageService;
-    const coordinator = window.dataCoordinator;
-    const consumer = window.commandChainUI;
+    const bus = runtime().eventBus;
+    const storage = runtime().storageService;
+    const coordinator = runtime().dataCoordinator;
+    const consumer = runtime().commandChainUI;
     const beforeState = coordinator?.getCurrentState?.();
     expect(bus).toBeTruthy();
     expect(storage).toBeTruthy();
@@ -119,10 +120,10 @@ describe("STO text import browser boundary", () => {
   });
 
   it("merges aliases with exact accounting through the checked-bundle owner chain", async () => {
-    const bus = window.eventBus;
-    const storage = window.storageService;
-    const coordinator = window.dataCoordinator;
-    const consumer = window.commandChainUI;
+    const bus = runtime().eventBus;
+    const storage = runtime().storageService;
+    const coordinator = runtime().dataCoordinator;
+    const consumer = runtime().commandChainUI;
     const beforeState = coordinator?.getCurrentState?.();
     expect(bus).toBeTruthy();
     expect(storage).toBeTruthy();
@@ -247,10 +248,10 @@ describe("STO text import browser boundary", () => {
   ])(
     "rejects oversized content through checked-bundle RPC %s before persistence",
     async (topic, error, needsEnvironment) => {
-      const bus = window.eventBus;
-      const storage = window.storageService;
-      const coordinator = window.dataCoordinator;
-      const consumer = window.commandChainUI;
+      const bus = runtime().eventBus;
+      const storage = runtime().storageService;
+      const coordinator = runtime().dataCoordinator;
+      const consumer = runtime().commandChainUI;
       const state = coordinator?.getCurrentState?.();
       expect(bus).toBeTruthy();
       expect(storage).toBeTruthy();
@@ -283,10 +284,10 @@ describe("STO text import browser boundary", () => {
   );
 
   it("rejects an unterminated bracket alias in bounded time without owner effects", async () => {
-    const bus = window.eventBus;
-    const storage = window.storageService;
-    const coordinator = window.dataCoordinator;
-    const consumer = window.commandChainUI;
+    const bus = runtime().eventBus;
+    const storage = runtime().storageService;
+    const coordinator = runtime().dataCoordinator;
+    const consumer = runtime().commandChainUI;
     const state = coordinator?.getCurrentState?.();
     expect(bus).toBeTruthy();
     expect(storage).toBeTruthy();

@@ -1,16 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import STOToolsKeybindManager from "../../src/js/app.js";
 
 describe("STOToolsKeybindManager dependencies", () => {
-  const originalStorageService = window.storageService;
-  const originalStoUI = window.stoUI;
-
-  afterEach(() => {
-    window.storageService = originalStorageService;
-    window.stoUI = originalStoUI;
-  });
-
   it("keeps startup dependencies on the application instance", () => {
     const dependencies = {
       i18n: { t: (key) => key },
@@ -29,9 +21,7 @@ describe("STOToolsKeybindManager dependencies", () => {
     expect(app.applyTranslations).toBe(dependencies.applyTranslations);
   });
 
-  it("does not fall back to timing-dependent window globals", async () => {
-    window.storageService = { name: "legacy storage" };
-    window.stoUI = { showToast: () => {} };
+  it("requires injected startup dependencies", async () => {
     const showToast = vi.fn();
 
     const app = new STOToolsKeybindManager({

@@ -1,3 +1,4 @@
+import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
@@ -32,10 +33,10 @@ const createMultiBindsetKBF = () => {
 
 describe("KBF import browser boundary", () => {
   it("commits canonical nested data through the checked-bundle owner chain", async () => {
-    const bus = window.eventBus;
-    const storage = window.storageService;
-    const coordinator = window.dataCoordinator;
-    const consumer = window.commandChainUI;
+    const bus = runtime().eventBus;
+    const storage = runtime().storageService;
+    const coordinator = runtime().dataCoordinator;
+    const consumer = runtime().commandChainUI;
     const beforeState = coordinator?.getCurrentState?.();
     expect(bus).toBeTruthy();
     expect(storage).toBeTruthy();
@@ -109,10 +110,10 @@ describe("KBF import browser boundary", () => {
   });
 
   it("imports one visibly selected bindset through the checked-bundle menu workflow", async () => {
-    const bus = window.eventBus;
-    const storage = window.storageService;
-    const coordinator = window.dataCoordinator;
-    const consumer = window.commandChainUI;
+    const bus = runtime().eventBus;
+    const storage = runtime().storageService;
+    const coordinator = runtime().dataCoordinator;
+    const consumer = runtime().commandChainUI;
     const beforeState = coordinator?.getCurrentState?.();
     expect(bus).toBeTruthy();
     expect(storage).toBeTruthy();
@@ -308,9 +309,9 @@ describe("KBF import browser boundary", () => {
   });
 
   it("settles Escape and overlay import cancellation without durable effects", async () => {
-    const bus = window.eventBus;
-    const storage = window.storageService;
-    const coordinator = window.dataCoordinator;
+    const bus = runtime().eventBus;
+    const storage = runtime().storageService;
+    const coordinator = runtime().dataCoordinator;
     const beforeState = coordinator?.getCurrentState?.();
     expect(bus).toBeTruthy();
     expect(storage).toBeTruthy();
@@ -438,10 +439,10 @@ describe("KBF import browser boundary", () => {
   ])(
     "rejects %s without owner or durable effects",
     async (_, content, configuration, error) => {
-      const bus = window.eventBus;
-      const storage = window.storageService;
-      const coordinator = window.dataCoordinator;
-      const consumer = window.commandChainUI;
+      const bus = runtime().eventBus;
+      const storage = runtime().storageService;
+      const coordinator = runtime().dataCoordinator;
+      const consumer = runtime().commandChainUI;
       const state = coordinator?.getCurrentState?.();
       expect(bus).toBeTruthy();
       expect(storage).toBeTruthy();

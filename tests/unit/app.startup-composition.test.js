@@ -255,10 +255,6 @@ describe("STOToolsKeybindManager startup composition", () => {
   afterEach(async () => {
     syncService?.destroy();
     await app?.ownedComponents.destroyAll(() => {});
-    window.confirmDialog = undefined;
-    window.commandChainUI = undefined;
-    window.keyBrowserUI = undefined;
-    window.keyBrowserService = undefined;
     startupHarness.resetFailures();
     startupHarness.bus.clear();
     localStorage.clear();
@@ -455,11 +451,6 @@ describe("STOToolsKeybindManager startup composition", () => {
   });
 
   it("reverse-destroys every owner after a late Bindset failure and retries exactly once", async () => {
-    window.confirmDialog = undefined;
-    window.commandChainUI = undefined;
-    window.keyBrowserUI = undefined;
-    window.keyBrowserService = undefined;
-
     const storageService = { destroy: vi.fn() };
     const syncDependency = { destroy: vi.fn() };
     const ui = { showToast: vi.fn(), destroy: vi.fn() };
@@ -484,10 +475,6 @@ describe("STOToolsKeybindManager startup composition", () => {
     expect(app.ownedComponents.entries).toEqual([]);
     expect(app.bindsetSelectorUI).toBeNull();
     expect(app.preferencesManager).toBeNull();
-    expect(window.confirmDialog).toBeUndefined();
-    expect(window.commandChainUI).toBeUndefined();
-    expect(window.keyBrowserUI).toBeUndefined();
-    expect(window.keyBrowserService).toBeUndefined();
     expect(storageService.destroy).not.toHaveBeenCalled();
     expect(syncDependency.destroy).not.toHaveBeenCalled();
     expect(ui.destroy).not.toHaveBeenCalled();
