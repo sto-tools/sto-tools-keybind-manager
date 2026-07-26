@@ -13,14 +13,12 @@ import {
 } from "./applicationGlobals.harness.js";
 
 describe("application-global compatibility metadata", () => {
-  it("freezes the exact 9-name post-confirmation allowlist", () => {
+  it("freezes the exact 7-name post-localization allowlist", () => {
     const expectedNames = [
-      "applyTranslations",
       "commandChainUI",
       "dataCoordinator",
       "devMonitor",
       "eventBus",
-      "i18next",
       "keyBrowserService",
       "keyBrowserUI",
       "storageService",
@@ -69,6 +67,8 @@ describe("application-global compatibility metadata", () => {
       "browser diagnostics",
     ]);
     expect(applicationGlobalAllowlist).not.toHaveProperty("confirmDialog");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("i18next");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("applyTranslations");
     expect(applicationGlobalAllowlist.keyBrowserUI.consumers).toContain(
       "src/js/app.js",
     );
@@ -100,6 +100,8 @@ describe("application-global compatibility metadata", () => {
     "stoUI",
     "stoSync",
     "confirmDialog",
+    "i18next",
+    "applyTranslations",
   ])("does not retain the retired %s exposure", (name) => {
     expect(applicationGlobalAllowlist).not.toHaveProperty(name);
   });
@@ -119,11 +121,9 @@ describe("application-global write guard", () => {
     ).toEqual(Array(3).fill("unallowlisted"));
   });
 
-  it("accepts every main.js root and Object.assign writer", () => {
+  it("accepts every main.js Object.assign writer", () => {
     const messages = verify(
       `
-        window.i18next = {};
-        window.applyTranslations = () => {};
         Object.assign(window, {
           storageService: {}, dataCoordinator: {}, eventBus: {}
         });
@@ -156,8 +156,6 @@ describe("application-global write guard", () => {
     );
     const developmentMessages = verify(
       `
-        window.i18next.t = () => {};
-        window.applyTranslations = () => {};
         window.devMonitor = {};
       `,
       "src/js/dev/DevMonitor.js",
@@ -172,6 +170,27 @@ describe("application-global write guard", () => {
     expect(messageIds("window.confirmDialog = {};", "src/js/app.js")).toEqual([
       "unallowlisted",
     ]);
+  });
+
+  it("rejects retired localization writers and mutations", () => {
+    expect(
+      messageIds(
+        `
+          window.i18next = {};
+          window.applyTranslations = () => {};
+        `,
+        "src/js/main.js",
+      ),
+    ).toEqual(["unallowlisted", "unallowlisted"]);
+    expect(
+      messageIds(
+        `
+          window.i18next.t = replacement;
+          window.applyTranslations.wrapper = replacement;
+        `,
+        "src/js/dev/DevMonitor.js",
+      ),
+    ).toEqual(["unallowlisted", "unallowlisted"]);
   });
 
   it("ignores native browser writes and locally shadowed built-ins", () => {
@@ -339,7 +358,7 @@ describe("application-global write guard", () => {
     ).toEqual(Array(3).fill("unallowlisted"));
   });
 
-  it("allows only the documented nested development mutation", () => {
+  it("rejects every retired nested localization mutation", () => {
     expect(
       messageIds(
         `
@@ -349,7 +368,7 @@ describe("application-global write guard", () => {
         `,
         "src/js/dev/DevMonitor.js",
       ),
-    ).toEqual(["wrongWriter", "wrongWriter"]);
+    ).toEqual(["unallowlisted", "unallowlisted", "unallowlisted"]);
   });
 
   it("records no producer metadata for the module-owned static data", () => {

@@ -13,6 +13,7 @@ const bootstrap = vi.hoisted(() => {
     ComponentStub,
     dataRpcTopics: new Set(),
     appDependencies: null,
+    devMonitorI18n: null,
     syncOptions: null,
     operations: [],
     initialStateReady: Promise.resolve(),
@@ -22,6 +23,7 @@ const bootstrap = vi.hoisted(() => {
       state.operations.length = 0;
       state.dataRpcTopics.clear();
       state.appDependencies = null;
+      state.devMonitorI18n = null;
       state.syncOptions = null;
       state.initialStateReady = new Promise((resolve, reject) => {
         state.resolveInitialState = resolve;
@@ -142,7 +144,13 @@ vi.mock("../../src/js/app.js", () => ({
 }));
 
 vi.mock("../../src/js/dev/DevMonitor.js", () => ({
-  default: { isDevelopment: false },
+  default: {
+    isDevelopment: false,
+    configure(i18n) {
+      bootstrap.devMonitorI18n = i18n;
+      bootstrap.operations.push("dev-monitor:configure");
+    },
+  },
 }));
 
 describe("main DataCoordinator startup barrier", () => {
@@ -192,15 +200,23 @@ describe("main DataCoordinator startup barrier", () => {
     expect(bootstrap.operations).not.toContain("storage:get-settings");
     expect(bootstrap.operations).not.toContain("i18next:change-language");
     expect(bootstrap.operations).not.toContain("data:localize");
+    expect(bootstrap.operations.indexOf("i18next:init")).toBeLessThan(
+      bootstrap.operations.indexOf("dev-monitor:configure"),
+    );
+    expect(bootstrap.devMonitorI18n).toEqual(
+      expect.objectContaining({
+        language: "en",
+        t: expect.any(Function),
+      }),
+    );
     expect(window).not.toHaveProperty("stoSync");
     expect(window).not.toHaveProperty("stoUI");
+    expect(window).not.toHaveProperty("i18next");
+    expect(window).not.toHaveProperty("applyTranslations");
     expect(bootstrap.appDependencies).toEqual(
       expect.objectContaining({
         applyTranslations: expect.any(Function),
       }),
-    );
-    expect(window.applyTranslations).toBe(
-      bootstrap.appDependencies.applyTranslations,
     );
     expect(bootstrap.syncOptions.directoryPicker.isSupported()).toBe(false);
     const selectedDirectory = { kind: "directory", name: "late-picker" };
@@ -217,6 +233,47 @@ describe("main DataCoordinator startup barrier", () => {
     document.body.append(translated);
     bootstrap.appDependencies.applyTranslations(document);
     expect(translated.textContent).toBe("translated_by_injected_capability");
+  });
+
+  it("does not read or replace poisoned ambient localization globals", async () => {
+    const ambientI18next = { poisoned: "i18next" };
+    const ambientApplyTranslations = vi.fn();
+    let i18nextReads = 0;
+    let applyTranslationsReads = 0;
+    Object.defineProperty(window, "i18next", {
+      configurable: true,
+      get() {
+        i18nextReads += 1;
+        return /** @type {any} */ (ambientI18next);
+      },
+      set() {
+        throw new Error("ambient i18next write");
+      },
+    });
+    Object.defineProperty(window, "applyTranslations", {
+      configurable: true,
+      get() {
+        applyTranslationsReads += 1;
+        return ambientApplyTranslations;
+      },
+      set() {
+        throw new Error("ambient applyTranslations write");
+      },
+    });
+
+    await import("../../src/js/main.js");
+    await vi.waitFor(() => {
+      expect(bootstrap.operations).toContain("coordinator:init");
+    });
+    bootstrap.resolveInitialState();
+
+    await vi.waitFor(() => {
+      expect(bootstrap.operations).toContain("app:init");
+    });
+    expect(i18nextReads).toBe(0);
+    expect(applyTranslationsReads).toBe(0);
+    expect(ambientApplyTranslations).not.toHaveBeenCalled();
+    expect(bootstrap.devMonitorI18n).not.toBe(ambientI18next);
   });
 
   it("waits for DOM readiness after DataCoordinator state is ready", async () => {

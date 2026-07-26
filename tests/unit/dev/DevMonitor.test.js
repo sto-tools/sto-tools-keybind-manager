@@ -1,0 +1,174 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const originalI18nextDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "i18next",
+);
+const originalApplyTranslationsDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "applyTranslations",
+);
+
+function createI18n(existingKeys = ["known"]) {
+  const instance = {
+    t: vi.fn(function (key) {
+      expect(this).toBe(instance);
+      return `translated:${key}`;
+    }),
+    exists: vi.fn(function (key) {
+      expect(this).toBe(instance);
+      return existingKeys.includes(String(key));
+    }),
+  };
+  return instance;
+}
+
+async function loadMonitor() {
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  const { default: monitor } = await import(
+    "../../../src/js/dev/DevMonitor.js"
+  );
+  return monitor;
+}
+
+describe("DevMonitor localization capability", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    delete window.devMonitor;
+    localStorage.setItem("dev-mode", "true");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    delete window.devMonitor;
+    if (originalI18nextDescriptor) {
+      Object.defineProperty(window, "i18next", originalI18nextDescriptor);
+    } else {
+      delete window.i18next;
+    }
+    if (originalApplyTranslationsDescriptor) {
+      Object.defineProperty(
+        window,
+        "applyTranslations",
+        originalApplyTranslationsDescriptor,
+      );
+    } else {
+      delete window.applyTranslations;
+    }
+    vi.restoreAllMocks();
+  });
+
+  it("tracks through the explicitly configured instance and restores its exact t method", async () => {
+    const monitor = await loadMonitor();
+    const configuredI18n = createI18n();
+    const originalT = configuredI18n.t;
+
+    monitor.configure(/** @type {any} */ (configuredI18n));
+
+    expect(monitor.enableI18nTracking()).toBe(true);
+    expect(configuredI18n.t).not.toBe(originalT);
+    expect(configuredI18n.t("known")).toBe("translated:known");
+    expect(configuredI18n.t("missing")).toBe("translated:missing");
+    expect(configuredI18n.exists).toHaveBeenCalledWith("known");
+    expect(configuredI18n.exists).toHaveBeenCalledWith("missing");
+    expect(monitor.getI18nStats()).toEqual(
+      expect.objectContaining({
+        summary: {
+          totalKeysUsed: 2,
+          totalKeysMissing: 1,
+          totalUsages: 2,
+        },
+        usedKeys: ["known", "missing"],
+        missingKeys: ["missing"],
+      }),
+    );
+
+    monitor.disableI18nTracking();
+
+    expect(configuredI18n.t).toBe(originalT);
+    expect(monitor.i18nTracking).toBe(false);
+  });
+
+  it("restores an active predecessor before accepting a replacement configuration", async () => {
+    const monitor = await loadMonitor();
+    const predecessor = createI18n();
+    const replacement = createI18n();
+    const predecessorT = predecessor.t;
+    const replacementT = replacement.t;
+
+    monitor.configure(/** @type {any} */ (predecessor));
+    monitor.enableI18nTracking();
+    expect(predecessor.t).not.toBe(predecessorT);
+
+    monitor.configure(/** @type {any} */ (replacement));
+
+    expect(predecessor.t).toBe(predecessorT);
+    expect(replacement.t).toBe(replacementT);
+    expect(monitor.i18nTracking).toBe(false);
+
+    monitor.enableI18nTracking();
+    expect(replacement.t).not.toBe(replacementT);
+    monitor.disableAll();
+    expect(replacement.t).toBe(replacementT);
+    expect(monitor.isEnabled).toBe(false);
+  });
+
+  it("fails closed when localization has not been configured", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const monitor = await loadMonitor();
+
+    expect(monitor.enableI18nTracking()).toBe(false);
+    expect(consoleError).toHaveBeenCalledWith(
+      "DevMonitor: i18next not configured",
+    );
+    expect(monitor.i18nTracking).toBe(false);
+  });
+
+  it("does not consult poisoned ambient localization globals", async () => {
+    Object.defineProperty(window, "i18next", {
+      configurable: true,
+      get() {
+        throw new Error("ambient i18next read");
+      },
+      set() {
+        throw new Error("ambient i18next write");
+      },
+    });
+    Object.defineProperty(window, "applyTranslations", {
+      configurable: true,
+      get() {
+        throw new Error("ambient applyTranslations read");
+      },
+      set() {
+        throw new Error("ambient applyTranslations write");
+      },
+    });
+    const monitor = await loadMonitor();
+    const configuredI18n = createI18n();
+    const originalT = configuredI18n.t;
+
+    monitor.configure(/** @type {any} */ (configuredI18n));
+
+    expect(monitor.enableI18nTracking()).toBe(true);
+    expect(configuredI18n.t("known")).toBe("translated:known");
+    monitor.disableI18nTracking();
+    expect(configuredI18n.t).toBe(originalT);
+  });
+
+  it("keeps development global exposure and CSS interval lifecycle intact", async () => {
+    vi.useFakeTimers();
+    const monitor = await loadMonitor();
+
+    expect(window.devMonitor).toBe(monitor);
+    expect(monitor.enableCSSTracking()).toBe(true);
+    expect(monitor.cssTracking).toBe(true);
+    expect(monitor.cssCheckInterval).not.toBeNull();
+
+    monitor.disableCSSTracking();
+
+    expect(monitor.cssTracking).toBe(false);
+    expect(monitor.cssCheckInterval).toBeNull();
+  });
+});

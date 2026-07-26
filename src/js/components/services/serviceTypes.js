@@ -198,10 +198,6 @@
  * @property {Record<string, unknown>} [defaultProfiles]
  * @property {{ version?: string }} [settings]
  *
- * @typedef {Window & typeof globalThis & {
- *   applyTranslations?: (root?: Document | Element | null) => void,
- *   i18next?: I18n,
- * }} AppWindow
  */
 
 export {};

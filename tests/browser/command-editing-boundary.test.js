@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import de from "../../src/i18n/de.json";
+import en from "../../src/i18n/en.json";
 import { observeCommandChainProjection } from "../fixtures/ui/commandChainProjection.js";
 
 const probeKey = "__command_editing_boundary_probe__";
@@ -52,8 +54,11 @@ describe("Command editing checked-bundle boundary", () => {
     const originalSelectedKey = chainUi.cache.selectedKey;
     const originalSelectedAlias = chainUi.cache.selectedAlias;
     const originalBindset = chainUi.cache.activeBindset || "Primary Bindset";
-    const originalLanguage = window.i18next.language;
+    const originalLanguage = chainUi.cache.preferences?.language ?? "en";
     const alternateLanguage = originalLanguage.startsWith("de") ? "en" : "de";
+    const alternateTranslations = alternateLanguage === "de" ? de : en;
+    expect(window).not.toHaveProperty("i18next");
+    expect(window).not.toHaveProperty("applyTranslations");
     const probeCommands = ['Target "Alpha"', "UncataloguedCommandForBoundary"];
     const probeProjection = observeCommandChainProjection(bus, probeCommands);
     let editedProjection = null;
@@ -122,7 +127,6 @@ describe("Command editing checked-bundle boundary", () => {
       const cacheBeforeEdit = chainUi.cache.dataState;
       const durableBeforeEdit = structuredClone(storage.getProfile(profileId));
       const rootBeforeEdit = localStorage.getItem(storage.storageKey);
-      const settingsBeforeEdit = localStorage.getItem(storage.settingsKey);
       // Edit targets use the canonical primary storage path even while the
       // enabled bindset selector presents it as "Primary Bindset".
       const expectedBindset = null;
@@ -176,7 +180,12 @@ describe("Command editing checked-bundle boundary", () => {
       originalInput.setSelectionRange(8, 16, "forward");
       originalInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-      await window.i18next.changeLanguage(alternateLanguage);
+      await expect(
+        request(bus, "preferences:set-setting", {
+          key: "language",
+          value: alternateLanguage,
+        }),
+      ).resolves.toBe(true);
 
       const regeneratedInput = document.getElementById("param_entityName");
       const regeneratedSave = document.getElementById(
@@ -189,7 +198,7 @@ describe("Command editing checked-bundle boundary", () => {
       expect(document.activeElement).toBe(regeneratedInput);
       expect(regeneratedInput?.selectionStart).toBe(8);
       expect(regeneratedInput?.selectionEnd).toBe(16);
-      expect(regeneratedSave?.textContent).toBe(window.i18next.t("save"));
+      expect(regeneratedSave?.textContent).toBe(alternateTranslations.save);
       expect(regeneratedSave?.textContent).not.toBe(originalSaveText);
       expect(modalRegenerationPayloads).toEqual([
         { modalId: "parameterModal" },
@@ -217,7 +226,15 @@ describe("Command editing checked-bundle boundary", () => {
       expect(document.getElementById("parameterModal")?.classList).toContain(
         "active",
       );
-      await window.i18next.changeLanguage(originalLanguage);
+      await expect(
+        request(bus, "preferences:set-setting", {
+          key: "language",
+          value: originalLanguage,
+        }),
+      ).resolves.toBe(true);
+      const settingsAfterLanguageRestore = localStorage.getItem(
+        storage.settingsKey,
+      );
       expect(document.querySelector("#parameterModal > .modal-content")).toBe(
         settledModalContent,
       );
@@ -235,7 +252,7 @@ describe("Command editing checked-bundle boundary", () => {
       expect(storage.getProfile(profileId)).toEqual(durableBeforeEdit);
       expect(localStorage.getItem(storage.storageKey)).toBe(rootBeforeEdit);
       expect(localStorage.getItem(storage.settingsKey)).toBe(
-        settingsBeforeEdit,
+        settingsAfterLanguageRestore,
       );
 
       const reopenedEditButton = document.querySelector(
@@ -404,7 +421,10 @@ describe("Command editing checked-bundle boundary", () => {
           ).not.toContain("active");
         });
       }
-      await window.i18next.changeLanguage(originalLanguage);
+      await request(bus, "preferences:set-setting", {
+        key: "language",
+        value: originalLanguage,
+      });
       editedProjection?.detach();
       probeProjection.detach();
       detachEditPayloadListener();

@@ -4,7 +4,7 @@ import {
   getSnapshotCommands,
 } from "./dataState.js";
 import { formatCommandValidationPreview } from "./commandDisplayProjection.js";
-import RULES from "./validators/index.js";
+import { createValidatorRules } from "./validators/index.js";
 
 /**
  * CommandChainValidatorService
@@ -24,6 +24,7 @@ export default class CommandChainValidatorService extends ComponentBase {
     this.componentName = "CommandChainValidatorService";
     this.i18n = i18n;
     this.ui = ui;
+    this.rules = createValidatorRules({ i18n });
     this._busy = false;
     /** @type {Record<string, 'error' | 'warning' | 'success'>} */
     this._severityCache = {};
@@ -111,7 +112,7 @@ export default class CommandChainValidatorService extends ComponentBase {
         isAlias,
         generatedCommand,
       };
-      const issues = RULES.flatMap((r) => {
+      const issues = this.rules.flatMap((r) => {
         const res = r.run(ctx);
         if (!res) return [];
         return Array.isArray(res) ? res : [res];

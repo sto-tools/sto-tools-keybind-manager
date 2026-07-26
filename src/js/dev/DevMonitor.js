@@ -38,15 +38,35 @@ class DevMonitor {
     };
 
     // Original functions to restore
+    /** @type {typeof import('i18next').default | null} */
+    this.i18n = null;
     /** @type {typeof import('i18next').default.t | null} */
     this.originalI18nT = null;
-    /** @type {((key: any, options?: any) => boolean) | null} */
+    /** @type {typeof import('i18next').default.exists | null} */
     this.originalI18nExists = null;
     /** @type {ReturnType<typeof setInterval> | null} */
     this.cssCheckInterval = null;
 
     // Safety check - only enable in development
     this.isDevelopment = this.checkDevelopmentMode();
+  }
+
+  /**
+   * Supply the initialized localization instance to monitor.
+   *
+   * Reconfiguration restores an actively tracked predecessor before changing
+   * ownership so the monitor never leaves a patched instance behind.
+   *
+   * @param {typeof import('i18next').default} i18n
+   */
+  configure(i18n) {
+    if (this.i18nTracking) {
+      this.disableI18nTracking();
+    }
+
+    this.i18n = i18n;
+    this.originalI18nT = null;
+    this.originalI18nExists = null;
   }
 
   checkDevelopmentMode() {
@@ -76,51 +96,29 @@ class DevMonitor {
       return true;
     }
 
-    if (!window.i18next) {
-      console.error("DevMonitor: i18next not found");
+    if (!this.i18n) {
+      console.error("DevMonitor: i18next not configured");
       return false;
     }
 
     console.log("DevMonitor: Enabling i18n tracking...");
 
     // Store original functions
-    const typedOriginalI18nT = /** @type {typeof window.i18next.t} */ (
-      window.i18next.t.bind(window.i18next)
-    );
+    const configuredI18n = this.i18n;
+    const configuredOriginalI18nT = configuredI18n.t;
     const originalI18nT = /** @type {(key: any, options?: any) => any} */ (
-      typedOriginalI18nT
+      configuredOriginalI18nT
     );
-    this.originalI18nT = typedOriginalI18nT;
-    this.originalI18nExists = window.i18next.exists.bind(window.i18next);
+    this.originalI18nT = configuredOriginalI18nT;
+    this.originalI18nExists = configuredI18n.exists;
 
     // Monkey patch i18next.t
-    window.i18next.t = /** @type {typeof window.i18next.t} */ (
+    configuredI18n.t = /** @type {typeof configuredI18n.t} */ (
       (key, options) => {
         this.trackI18nUsage(key);
-        return originalI18nT(key, options);
+        return originalI18nT.call(configuredI18n, key, options);
       }
     );
-
-    // Also patch the global applyTranslations function if it exists
-    if (window.applyTranslations) {
-      const originalApplyTranslations = window.applyTranslations;
-      window.applyTranslations = (root) => {
-        const elements = (root || document).querySelectorAll(
-          "[data-i18n], [data-i18n-placeholder], [data-i18n-title], [data-i18n-alt]",
-        );
-        elements.forEach((el) => {
-          const key =
-            el.getAttribute("data-i18n") ||
-            el.getAttribute("data-i18n-placeholder") ||
-            el.getAttribute("data-i18n-title") ||
-            el.getAttribute("data-i18n-alt");
-          if (key) {
-            this.trackI18nUsage(key);
-          }
-        });
-        return originalApplyTranslations(root);
-      };
-    }
 
     this.i18nTracking = true;
     this.isEnabled = true;
@@ -145,7 +143,11 @@ class DevMonitor {
     this.i18nStats.lastUsed.set(normalizedKey, now);
 
     // Check if key exists in current language
-    if (this.originalI18nExists && !this.originalI18nExists(normalizedKey)) {
+    if (
+      this.i18n &&
+      this.originalI18nExists &&
+      !this.originalI18nExists.call(this.i18n, normalizedKey)
+    ) {
       this.i18nStats.missingKeys.add(normalizedKey);
     }
   }
@@ -441,10 +443,12 @@ ${stats.mostUsedSelectors.map(({ selector, count }) => `/* ${selector} (used ${c
     if (!this.i18nTracking) return;
 
     // Restore original functions
-    if (this.originalI18nT && window.i18next) {
-      window.i18next.t = this.originalI18nT;
+    if (this.originalI18nT && this.i18n) {
+      this.i18n.t = this.originalI18nT;
     }
 
+    this.originalI18nT = null;
+    this.originalI18nExists = null;
     this.i18nTracking = false;
     console.log("DevMonitor: I18n tracking disabled");
   }

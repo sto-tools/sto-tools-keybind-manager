@@ -1,20 +1,22 @@
 import ComponentBase from "../ComponentBase.js";
 
-const appWindow =
-  typeof window === "undefined"
-    ? null
-    : /** @type {import('./serviceTypes.js').AppWindow} */ (window);
-
 /**
  * ModalManagerService – centralised modal show/hide logic with i18n
  * regeneration support.
  */
 export default class ModalManagerService extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, i18n?: import('./serviceTypes.js').I18n }} [options] */
-  constructor({ eventBus, i18n } = {}) {
+  /**
+   * @param {{
+   *   eventBus?: import('./serviceTypes.js').EventBus,
+   *   i18n?: import('./serviceTypes.js').I18n,
+   *   applyTranslations?: (root?: Document | Element | null) => void
+   * }} [options]
+   */
+  constructor({ eventBus, i18n, applyTranslations } = {}) {
     super(eventBus);
     this.componentName = "ModalManagerService";
     this.i18n = i18n;
+    this.applyTranslations = applyTranslations ?? (() => {});
 
     this.overlayId = "modalOverlay";
     /** @type {Record<string, () => void>} */
@@ -53,8 +55,8 @@ export default class ModalManagerService extends ComponentBase {
         this.regenerateCallbacks[modalId]();
         // Emit event for components that want to handle their own regeneration
         this.emit("modal:regenerated", { modalId });
-      } else if (typeof appWindow?.applyTranslations === "function") {
-        appWindow.applyTranslations(open);
+      } else {
+        this.applyTranslations(open);
       }
     };
     this.i18n.on("languageChanged", this.languageChangedHandler);
@@ -157,9 +159,7 @@ export default class ModalManagerService extends ComponentBase {
     modal.classList.add("active");
     document.body.classList.add("modal-open");
 
-    if (typeof appWindow?.applyTranslations === "function") {
-      appWindow.applyTranslations(modal);
-    }
+    this.applyTranslations(modal);
 
     const firstInput = modal.querySelector("input, textarea, select");
     if (firstInput instanceof HTMLElement) {
@@ -214,13 +214,13 @@ export default class ModalManagerService extends ComponentBase {
     // Profile modal
     this.registerRegenerateCallback("profileModal", () => {
       const modal = document.getElementById("profileModal");
-      appWindow?.applyTranslations?.(modal);
+      this.applyTranslations(modal);
     });
 
     // About modal
     this.registerRegenerateCallback("aboutModal", () => {
       const modal = document.getElementById("aboutModal");
-      appWindow?.applyTranslations?.(modal);
+      this.applyTranslations(modal);
     });
   }
 }

@@ -9,15 +9,20 @@ import CommandWarnRule from "./CommandWarnRule.js";
 import UnsafeKeybindRule from "./UnsafeKeybindRule.js";
 import STOTrayExecOptimizationRule from "./STOTrayExecOptimization.js";
 
-/** @type {import('./ValidatorBase.js').default[]} */
-const rules = [
-  new MaxLengthRule(),
-  new StabilizedTrayOnlyRule(),
-  new KeyCommandCountRule(),
-  new AliasMixedEnvironmentRule(),
-  new CommandWarnRule(),
-  new UnsafeKeybindRule(),
-  new STOTrayExecOptimizationRule(),
-];
-
-export default rules;
+/**
+ * Build a validator set bound to one service's explicit dependencies.
+ *
+ * @param {{ i18n?: import('../serviceTypes.js').I18n | null }} [options]
+ * @returns {import('./ValidatorBase.js').default[]}
+ */
+export function createValidatorRules({ i18n = null } = {}) {
+  return [
+    new MaxLengthRule(),
+    new StabilizedTrayOnlyRule(),
+    new KeyCommandCountRule(),
+    new AliasMixedEnvironmentRule(),
+    new CommandWarnRule({ i18n }),
+    new UnsafeKeybindRule(),
+    new STOTrayExecOptimizationRule(),
+  ];
+}

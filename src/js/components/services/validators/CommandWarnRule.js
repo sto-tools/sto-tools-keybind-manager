@@ -1,11 +1,6 @@
 import ValidatorBase from "./ValidatorBase.js";
 import { flattenedCommands } from "../../../data.js";
 
-const appWindow =
-  typeof window === "undefined"
-    ? null
-    : /** @type {import('../serviceTypes.js').AppWindow} */ (window);
-
 /** @param {string} commandStr */
 function getCmdDefFromString(commandStr) {
   if (!commandStr) return null;
@@ -36,16 +31,14 @@ function getCmdDefFromString(commandStr) {
 }
 
 export default class CommandWarnRule extends ValidatorBase {
-  constructor() {
+  /** @param {{ i18n?: import('../serviceTypes.js').I18n | null }} [options] */
+  constructor({ i18n = null } = {}) {
     super({
       id: "commandWarnings",
       defaultSeverity: "warning",
       messageKey: "_internal_command_warning",
     });
-  }
-
-  get i18n() {
-    return appWindow?.i18next || null;
+    this.i18n = i18n;
   }
 
   /**

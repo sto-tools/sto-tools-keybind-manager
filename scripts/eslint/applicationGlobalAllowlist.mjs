@@ -9,38 +9,6 @@ function deepFreeze(value) {
 const writer = (file, propertyPath) => ({ file, path: propertyPath });
 
 export const applicationGlobalAllowlist = deepFreeze({
-  i18next: {
-    classification: "localization compatibility",
-    purpose:
-      "Configured localization instance and development translation tracing.",
-    consumers: [
-      "src/js/dev/DevMonitor.js",
-      "src/js/lib/STOCommandParser.js",
-      "src/js/components/services/validators/CommandWarnRule.js",
-    ],
-    compatibilityOwner: "main.js",
-    removalGate:
-      "All localization consumers receive or import the configured instance.",
-    writers: [
-      writer("src/js/main.js", "i18next"),
-      writer("src/js/dev/DevMonitor.js", "i18next.t"),
-    ],
-  },
-  applyTranslations: {
-    classification: "localization compatibility",
-    purpose:
-      "DOM translation bridge, optionally wrapped by development tracing.",
-    consumers: [
-      "src/js/components/services/ModalManagerService.js",
-      "src/js/dev/DevMonitor.js",
-    ],
-    compatibilityOwner: "main.js",
-    removalGate: "DOM translation is provided as an injected capability.",
-    writers: [
-      writer("src/js/main.js", "applyTranslations"),
-      writer("src/js/dev/DevMonitor.js", "applyTranslations"),
-    ],
-  },
   storageService: {
     classification: "bootstrap compatibility",
     purpose: "Checked-bundle storage diagnostics.",

@@ -198,4 +198,68 @@ describe("CommandChainValidatorService", () => {
     );
     expect(requestSpy).not.toHaveBeenCalled();
   });
+
+  it("binds command warning translation to the service i18n dependency", async () => {
+    service.destroy();
+    const previousI18n = Object.getOwnPropertyDescriptor(globalThis, "i18next");
+    const ambientTranslate = vi.fn(() => "ambient translation");
+    Object.defineProperty(globalThis, "i18next", {
+      configurable: true,
+      value: { t: ambientTranslate },
+    });
+    const translate = vi.fn((key) => {
+      if (key === "command_definitions.fire_all.name") {
+        return "Injected command name";
+      }
+      if (key === "spam_bar_warning") return "Injected warning";
+      return key;
+    });
+
+    try {
+      service = new CommandChainValidatorService({
+        eventBus,
+        i18n: /** @type {any} */ ({ t: translate }),
+      });
+      service.init();
+      const profile = {
+        name: "Captain",
+        currentEnvironment: "space",
+        builds: {
+          space: { keys: { F1: ["FireAll"] } },
+          ground: { keys: {} },
+        },
+        aliases: {},
+      };
+      service._cacheDataState(
+        createDataCoordinatorState({
+          authorityEpoch: 65,
+          revision: 0,
+          currentProfile: "captain",
+          currentProfileData: profile,
+          profiles: { captain: profile },
+        }),
+      );
+      const resultSpy = vi.fn();
+      eventBus.on("command-chain:validation-result", resultSpy);
+
+      await service.validateChain("F1");
+
+      expect(resultSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          warnings: [
+            expect.objectContaining({
+              defaultMessage: "Injected command name - Injected warning",
+            }),
+          ],
+        }),
+      );
+      expect(ambientTranslate).not.toHaveBeenCalled();
+    } finally {
+      if (previousI18n) {
+        Object.defineProperty(globalThis, "i18next", previousI18n);
+      } else {
+        Reflect.deleteProperty(globalThis, "i18next");
+      }
+    }
+  });
 });

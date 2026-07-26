@@ -25,7 +25,9 @@ export const defaultParserConfig = {
 
 /**
  * Creates a standalone parser instance for external library usage
- * @param {Record<string, any>} [options] - Configuration options
+ * @param {Record<string, any> & {
+ *   i18n?: { t: (key: string) => string } | null
+ * }} [options] - Configuration options and optional translation capability
  * @returns {Promise<import('./STOCommandParser.js').STOCommandParser>} Configured parser instance
  */
 export async function createStandaloneParser(options = {}) {
@@ -36,7 +38,9 @@ export async function createStandaloneParser(options = {}) {
 /**
  * Creates a parser with event bus integration
  * @param {typeof import('../core/eventBus.js').default} eventBus - Event bus instance
- * @param {Record<string, any>} [options] - Configuration options
+ * @param {Record<string, any> & {
+ *   i18n?: { t: (key: string) => string } | null
+ * }} [options] - Configuration options and optional translation capability
  * @returns {Promise<import('./STOCommandParser.js').STOCommandParser>} Configured parser instance
  */
 export async function createIntegratedParser(eventBus, options = {}) {

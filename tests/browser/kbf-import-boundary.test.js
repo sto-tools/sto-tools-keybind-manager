@@ -132,7 +132,10 @@ describe("KBF import browser boundary", () => {
     const beforeProfile = structuredClone(beforeState.profiles[profileId]);
     const originalSettings = structuredClone(consumer.cache.preferences);
     const originalBindsetsEnabled = consumer.cache.preferences.bindsetsEnabled;
-    const originalLanguage = window.i18next.language;
+    const originalLanguage = originalSettings.language;
+    const alternateLanguage = originalLanguage === "de" ? "en" : "de";
+    expect(window).not.toHaveProperty("i18next");
+    expect(window).not.toHaveProperty("applyTranslations");
     let input = null;
 
     try {
@@ -185,9 +188,15 @@ describe("KBF import browser boundary", () => {
       );
       expect(overwrite).toBeInstanceOf(HTMLInputElement);
       overwrite.checked = true;
-      await window.i18next.changeLanguage(
-        originalLanguage === "de" ? "en" : "de",
-      );
+      await expect(
+        request(bus, "preferences:set-setting", {
+          key: "language",
+          value: alternateLanguage,
+        }),
+      ).resolves.toBe(true);
+      await vi.waitFor(() => {
+        expect(consumer.cache.preferences.language).toBe(alternateLanguage);
+      });
       const decisionReplacement = document.getElementById("importModal");
       expect(decisionReplacement).not.toBe(decisionPredecessor);
       expect(decisionPredecessor.isConnected).toBe(false);
@@ -272,7 +281,6 @@ describe("KBF import browser boundary", () => {
       );
       expect(document.body.classList).not.toContain("modal-open");
     } finally {
-      await window.i18next.changeLanguage(originalLanguage);
       await request(bus, "preferences:set-settings", originalSettings);
       if (localStorage.getItem(storage.settingsKey) !== beforeSettings) {
         if (beforeSettings === null) {

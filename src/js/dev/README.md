@@ -151,9 +151,12 @@ console.log("Total i18n calls:", stats.summary.totalUsages);
 
 ### I18n Tracking
 
-- Monkey patches `window.i18next.t()` to track all translation requests
-- Patches `window.applyTranslations()` to track HTML data-i18n attributes
-- Checks `i18next.exists()` to identify missing translations
+- Wraps the explicitly configured i18next instance's `t()` method to track all
+  translation requests
+- Observes DOM translation through those same `t()` calls without a separate
+  global wrapper
+- Uses the configured instance's `exists()` method to identify missing
+  translations
 
 ### CSS Tracking
 

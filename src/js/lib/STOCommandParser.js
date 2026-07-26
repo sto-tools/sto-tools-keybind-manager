@@ -25,13 +25,10 @@ import { respond } from "../core/requestResponse.js";
  *   baseCommand: string,
  *   icon: string
  * }} CommandSignature
+ * @typedef {{
+ *   t: (key: string) => string
+ * }} ParserI18n
  */
-
-function getGlobalI18n() {
-  return /** @type {{ i18next?: { t?: (key: string) => string } }} */ (
-    globalThis
-  ).i18next;
-}
 
 export class STOCommandParser {
   /**
@@ -41,17 +38,21 @@ export class STOCommandParser {
    *   maxCacheSize?: number,
    *   enablePerformanceMetrics?: boolean,
    *   hotPathThreshold?: number,
+   *   i18n?: ParserI18n | null,
    *   [option: string]: any
    * }} [options]
    */
   constructor(eventBus = null, options = {}) {
+    const { i18n = null, ...parserOptions } = options;
+
     this.eventBus = eventBus;
+    this.i18n = typeof i18n?.t === "function" ? i18n : null;
     this.options = {
       enableCache: true,
       maxCacheSize: 1000,
       enablePerformanceMetrics: false,
       hotPathThreshold: 10, // Commands used this many times get cached in hot path
-      ...options,
+      ...parserOptions,
     };
 
     // Performance-optimized cache for high-frequency commands
@@ -296,9 +297,8 @@ export class STOCommandParser {
             signature: "VFXExclusionMaster()",
             extractParams: () => ({}),
             generateDisplayText: () => {
-              const i18n = getGlobalI18n();
-              if (typeof i18n?.t === "function") {
-                return i18n.t("vfx_alias_combined");
+              if (this.i18n) {
+                return this.i18n.t("vfx_alias_combined");
               }
               return "VFX Alias: Combined Space/Ground";
             },
@@ -318,13 +318,12 @@ export class STOCommandParser {
             signature: "VFXExclusionAlias(aliasName: string)",
             extractParams: (match) => ({ aliasName: match[1] }),
             generateDisplayText: (params) => {
-              const i18n = getGlobalI18n();
-              if (typeof i18n?.t === "function") {
+              if (this.i18n) {
                 const aliasName = params.aliasName.toLowerCase();
                 if (aliasName === "space") {
-                  return i18n.t("vfx_alias_space");
+                  return this.i18n.t("vfx_alias_space");
                 } else if (aliasName === "ground") {
-                  return i18n.t("vfx_alias_ground");
+                  return this.i18n.t("vfx_alias_ground");
                 }
               }
               return `VFX Alias: ${params.aliasName}`;

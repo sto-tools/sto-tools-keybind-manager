@@ -6,12 +6,8 @@ describe("FileExplorerUI – copy preview content", () => {
   let fixture;
   let component;
   let showToastSpy;
-  const originalI18next = globalThis.i18next;
 
   beforeEach(() => {
-    globalThis.i18next = {
-      t: vi.fn((key) => key),
-    };
     fixture = createUIComponentFixture(FileExplorerUI, {
       autoInit: false,
       document,
@@ -26,7 +22,6 @@ describe("FileExplorerUI – copy preview content", () => {
     if (component && !component.destroyed) {
       component.destroy();
     }
-    globalThis.i18next = originalI18next;
     vi.restoreAllMocks();
   });
 

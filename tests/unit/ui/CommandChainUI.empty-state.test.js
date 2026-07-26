@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import i18next from "i18next";
+import { createInstance } from "i18next";
 
 import CommandChainUI from "../../../src/js/components/ui/CommandChainUI.js";
+import en from "../../../src/i18n/en.json";
 import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
 import {
   createCommandChainCoordinatorState,
@@ -13,13 +14,19 @@ describe("CommandChainUI accepted-state empty projection", () => {
   let fixture;
   let ui;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    const i18n = createInstance();
+    await i18n.init({
+      lng: "en",
+      fallbackLng: "en",
+      resources: { en: { translation: en } },
+    });
     mountCommandChain();
     fixture = createEventBusFixture();
     ui = new CommandChainUI({
       eventBus: fixture.eventBus,
       document,
-      i18n: i18next,
+      i18n,
       ui: { showToast: vi.fn() },
     });
     ui.cache.preferences = {

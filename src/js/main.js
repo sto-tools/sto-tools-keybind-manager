@@ -42,9 +42,6 @@ const dataService = new DataService({
     },
   });
 
-  // Retain the temporary localization compatibility bridge for audited consumers.
-  window.i18next = i18next;
-
   /** @param {Document | Element | null} [root] */
   function applyTranslations(root = document) {
     const translationRoot = root || document;
@@ -78,9 +75,6 @@ const dataService = new DataService({
     });
   }
 
-  // Retain the compatibility bridge for the remaining audited modal/dev users.
-  window.applyTranslations = applyTranslations;
-
   // Create new StorageService component with i18n support
   const storageService = new StorageService({ eventBus, i18n: i18next });
   storageService.init();
@@ -112,7 +106,9 @@ const dataService = new DataService({
     );
   }
 
-  // Initialize DevMonitor after i18next is available
+  // Give DevMonitor the initialized localization capability without publishing
+  // it as application-global state.
+  devMonitor.configure(i18next);
   if (devMonitor.isDevelopment) {
     console.log(
       "🔧 DevMonitor: Development mode detected, monitoring tools available",

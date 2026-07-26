@@ -1,18 +1,5 @@
 // Test setup file for unit and integration tests (jsdom environment)
 import { beforeEach, afterEach, vi } from "vitest";
-import i18next from "i18next";
-import en from "../src/i18n/en.json";
-
-// Initialize i18next with English resources
-await i18next.init({
-  lng: "en",
-  fallbackLng: "en",
-  resources: { en: { translation: en } },
-});
-
-// Make i18next available globally
-global.i18next = i18next;
-window.i18next = i18next;
 
 // Mock browser APIs
 Object.defineProperty(window, "matchMedia", {

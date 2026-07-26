@@ -296,29 +296,79 @@ describe("STOCommandParser - Function Signature Based Parsing", () => {
       });
     });
 
-    it("should resolve VFX labels from the runtime i18n global when available", () => {
-      const previousI18n = globalThis.i18next;
+    it("should resolve VFX labels from explicitly configured i18n", () => {
+      const previousI18n = Object.getOwnPropertyDescriptor(
+        globalThis,
+        "i18next",
+      );
+      const ambientTranslate = vi.fn(() => "ambient translation");
+      Object.defineProperty(globalThis, "i18next", {
+        configurable: true,
+        value: { t: ambientTranslate },
+      });
       const translate = vi.fn((key) => `translated:${key}`);
-      globalThis.i18next = { t: translate };
+      const localizedParser = new STOCommandParser(null, {
+        enableCache: false,
+        i18n: { t: translate },
+      });
 
       try {
         expect(
-          parser.parseCommandString("dynFxSetFXExclusionList_Combined")
+          localizedParser.parseCommandString("dynFxSetFXExclusionList_Combined")
             .commands[0].displayText,
         ).toBe("translated:vfx_alias_combined");
         expect(
-          parser.parseCommandString("dynFxSetFXExclusionList_Space").commands[0]
-            .displayText,
+          localizedParser.parseCommandString("dynFxSetFXExclusionList_Space")
+            .commands[0].displayText,
         ).toBe("translated:vfx_alias_space");
         expect(
-          parser.parseCommandString("dynFxSetFXExclusionList_Ground")
+          localizedParser.parseCommandString("dynFxSetFXExclusionList_Ground")
             .commands[0].displayText,
         ).toBe("translated:vfx_alias_ground");
+        expect(ambientTranslate).not.toHaveBeenCalled();
       } finally {
-        if (previousI18n === undefined) {
-          delete globalThis.i18next;
+        if (previousI18n) {
+          Object.defineProperty(globalThis, "i18next", previousI18n);
         } else {
-          globalThis.i18next = previousI18n;
+          Reflect.deleteProperty(globalThis, "i18next");
+        }
+      }
+    });
+
+    it("uses standalone English VFX fallbacks instead of ambient i18n", () => {
+      const previousI18n = Object.getOwnPropertyDescriptor(
+        globalThis,
+        "i18next",
+      );
+      const ambientTranslate = vi.fn(() => "ambient translation");
+      Object.defineProperty(globalThis, "i18next", {
+        configurable: true,
+        value: { t: ambientTranslate },
+      });
+      const standaloneParser = new STOCommandParser(null, {
+        enableCache: false,
+      });
+
+      try {
+        expect(
+          standaloneParser.parseCommandString(
+            "dynFxSetFXExclusionList_Combined",
+          ).commands[0].displayText,
+        ).toBe("VFX Alias: Combined Space/Ground");
+        expect(
+          standaloneParser.parseCommandString("dynFxSetFXExclusionList_Space")
+            .commands[0].displayText,
+        ).toBe("VFX Alias: Space");
+        expect(
+          standaloneParser.parseCommandString("dynFxSetFXExclusionList_Ground")
+            .commands[0].displayText,
+        ).toBe("VFX Alias: Ground");
+        expect(ambientTranslate).not.toHaveBeenCalled();
+      } finally {
+        if (previousI18n) {
+          Object.defineProperty(globalThis, "i18next", previousI18n);
+        } else {
+          Reflect.deleteProperty(globalThis, "i18next");
         }
       }
     });

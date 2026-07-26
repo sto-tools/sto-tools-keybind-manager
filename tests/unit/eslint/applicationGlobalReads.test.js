@@ -127,9 +127,8 @@ describe("application-global read guard", () => {
     expect(
       verifyReads(
         `
-          window.i18next = {};
-          window.i18next.t = replacement;
-          delete window.applyTranslations;
+          window.storageService = {};
+          delete window.storageService;
           window.location.hash = "probe";
           globalThis.requestAnimationFrame(callback);
           Object.assign(window, { eventBus });
@@ -172,14 +171,10 @@ describe("application-global read guard", () => {
       "src/js/components/ui/CommandLibraryUI.js",
     );
     expect(applicationGlobalAllowlist).not.toHaveProperty("stoUI");
-    expect(
-      applicationGlobalAllowlist.applyTranslations.consumers,
-    ).not.toContain("src/js/components/ui/CommandChainUI.js");
-    expect(
-      applicationGlobalAllowlist.applyTranslations.consumers,
-    ).not.toContain("src/js/components/services/PreferencesService.js");
     expect(applicationGlobalAllowlist).not.toHaveProperty("stoSync");
     expect(applicationGlobalAllowlist).not.toHaveProperty("confirmDialog");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("i18next");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("applyTranslations");
     expect(
       readMessageIds(
         "void globalThis.stoSync;",

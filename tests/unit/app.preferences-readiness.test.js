@@ -39,19 +39,23 @@ function createComponentStub(initialStateReady = Promise.resolve()) {
 
 function createAppHarness(preferencesReady) {
   const ui = { showToast: vi.fn() };
+  const applyTranslations = vi.fn();
   const app = new STOToolsKeybindManager({
     i18n: { t: (key) => key },
     storageService: {},
     syncService: {},
     ui,
+    applyTranslations,
   });
   const constructed = [];
   app.ownedComponents.create = /** @type {any} */ (
-    (Component) => {
+    (Component, ...args) => {
       const component = createComponentStub(
         constructed.length === 0 ? preferencesReady : Promise.resolve(),
       );
       component.type = Component.name;
+      component.options = args[0];
+      component.args = args;
       constructed.push(component);
       return app.ownedComponents.own(component);
     }
@@ -88,6 +92,10 @@ describe("application Preferences readiness barrier", () => {
 
     expect(constructed.length).toBeGreaterThan(1);
     expect(app.modalManagerService).toBeTruthy();
+    expect(app.modalManagerService.options.applyTranslations).toBe(
+      app.applyTranslations,
+    );
+    expect(app.stoCommandParser.args[1]).toEqual({ i18n: app.i18n });
     expect(ready).toHaveBeenCalledOnce();
     await app.ownedComponents.destroyAll();
   });

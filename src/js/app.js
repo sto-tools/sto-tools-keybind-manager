@@ -192,12 +192,15 @@ export default class STOToolsKeybindManager {
       this.modalManagerService = create(ModalManagerService, {
         eventBus,
         i18n: this.i18n,
+        applyTranslations: this.applyTranslations,
       });
       this.modalManagerService.init();
 
       const modalManager = this.modalManagerService;
 
-      this.stoCommandParser = create(STOCommandParser, eventBus);
+      this.stoCommandParser = create(STOCommandParser, eventBus, {
+        i18n: this.i18n,
+      });
 
       this.selectionService = create(SelectionService, { eventBus });
       this.selectionService.init();

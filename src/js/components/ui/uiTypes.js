@@ -86,11 +86,6 @@
  *   generateAlias: (environment: 'space' | 'ground') => string | null
  * }} VFXManagerLike
  *
- * @typedef {{
- *   applyTranslations?: (element?: Document | Element | null) => void
- * }} RuntimeGlobals
- */
-
 /** @type {I18nLike} */
 const fallbackI18n = Object.freeze({
   /**

@@ -48,7 +48,7 @@ function createI18nFixture() {
 }
 
 describe("ModalManagerService", () => {
-  let fixture, eventBusFixture, service, dom, i18nFixture;
+  let fixture, eventBusFixture, service, dom, i18nFixture, applyTranslations;
 
   function expectSingleLifecycleEvent(topic, payload) {
     expect(
@@ -72,9 +72,11 @@ describe("ModalManagerService", () => {
       return () => target.removeEventListener(event, handler);
     });
     i18nFixture = createI18nFixture();
+    applyTranslations = vi.fn();
     service = new ModalManagerService({
       eventBus: eventBusFixture.eventBus,
       i18n: i18nFixture.i18n,
+      applyTranslations,
     });
     service.init();
   });
@@ -83,6 +85,7 @@ describe("ModalManagerService", () => {
     if (service && !service.destroyed) service.destroy();
     dom.cleanup();
     fixture.destroy();
+    vi.unstubAllGlobals();
   });
 
   it("should show and hide modal via event bus", () => {
@@ -92,6 +95,7 @@ describe("ModalManagerService", () => {
     const overlay = document.getElementById("modalOverlay");
     expect(modal.classList.contains("active")).toBe(true);
     expect(overlay.classList.contains("active")).toBe(true);
+    expect(applyTranslations).toHaveBeenCalledExactlyOnceWith(modal);
 
     eventBusFixture.eventBus.emit("modal:hide", { modalId: "testModal" });
     expect(modal.classList.contains("active")).toBe(false);
@@ -281,6 +285,37 @@ describe("ModalManagerService", () => {
     expect(regenerate).toHaveBeenCalledTimes(2);
     expect(i18nFixture.i18n.on).toHaveBeenCalledTimes(2);
     expect(i18nFixture.i18n.off).toHaveBeenCalledOnce();
+  });
+
+  it("uses only the injected translation capability for modal regeneration", () => {
+    const ambientTranslations = vi.fn(() => {
+      throw new Error("ambient translations must not be called");
+    });
+    vi.stubGlobal("applyTranslations", ambientTranslations);
+    const modal = document.getElementById("testModal");
+
+    service.show(modal);
+    applyTranslations.mockClear();
+    i18nFixture.emitLanguageChanged();
+
+    expect(applyTranslations).toHaveBeenCalledExactlyOnceWith(modal);
+    expect(ambientTranslations).not.toHaveBeenCalled();
+
+    const profileModal = document.createElement("div");
+    profileModal.id = "profileModal";
+    const aboutModal = document.createElement("div");
+    aboutModal.id = "aboutModal";
+    document.body.append(profileModal, aboutModal);
+
+    service.regenerateCallbacks.profileModal();
+    service.regenerateCallbacks.aboutModal();
+
+    expect(applyTranslations).toHaveBeenNthCalledWith(2, profileModal);
+    expect(applyTranslations).toHaveBeenNthCalledWith(3, aboutModal);
+    expect(ambientTranslations).not.toHaveBeenCalled();
+
+    profileModal.remove();
+    aboutModal.remove();
   });
 
   it("does not let a stale owner unregister its replacement", () => {
