@@ -22,20 +22,35 @@
                 "id": "rich-command",
                 "type": "tray",
                 "category": "combat",
+                "categoryId": "combat",
+                "commandId": "TrayExecByTray",
+                "name": "Tray Slot",
+                "description": "Executes one tray slot",
+                "icon": "fa-bolt",
+                "environment": "space",
+                "warning": "Fixture warning",
+                "customizable": true,
                 "custom": true,
                 "palindromicGeneration": true,
                 "placement": "pivot",
                 "parameters": {
                   "tray": 0,
                   "slot": 0
+                },
+                "commandExtension": {
+                  "source": "complete-fixture"
                 }
               }
             ]
           },
           "aliases": {
             "SpaceScoped": {
-              "commands": ["FirePhasers"]
+              "commands": ["FirePhasers"],
+              "environmentAliasExtension": true
             }
+          },
+          "environmentExtension": {
+            "layout": "space"
           }
         },
         "ground": {
@@ -60,7 +75,8 @@
           "category": "combat",
           "metadata": {
             "source": "fixture"
-          }
+          },
+          "aliasExtension": ["retained"]
         }
       },
       "bindsets": {
@@ -87,20 +103,23 @@
         "Alternate": {
           "space": {
             "F3": {
-              "stabilizeExecutionOrder": true
+              "stabilizeExecutionOrder": true,
+              "metadataExtension": "bindset"
             }
           }
         }
       },
       "aliasMetadata": {
         "CompleteAlias": {
-          "stabilizeExecutionOrder": true
+          "stabilizeExecutionOrder": true,
+          "metadataExtension": "alias"
         }
       },
       "keybindMetadata": {
         "space": {
           "F1": {
-            "stabilizeExecutionOrder": true
+            "stabilizeExecutionOrder": true,
+            "metadataExtension": "key"
           }
         },
         "ground": {
@@ -128,16 +147,24 @@
       "vertigoSettings": {
         "selectedEffects": {
           "space": ["fx-space"],
-          "ground": ["fx-ground"]
+          "ground": ["fx-ground"],
+          "shuttle": ["fx-shuttle"]
         },
-        "showPlayerSay": true
+        "showPlayerSay": true,
+        "vertigoExtension": {
+          "retained": true
+        }
+      },
+      "profileExtension": {
+        "panels": ["commands", "aliases"]
       }
     }
   },
   "globalAliases": {
     "GlobalFixtureAlias": {
       "commands": ["FireAll"],
-      "description": "Root-level alias compatibility field"
+      "description": "Root-level alias compatibility field",
+      "globalAliasExtension": true
     }
   },
   "settings": {
@@ -159,6 +186,12 @@
     "syncFolderFallback": false,
     "currentProfile": "complete-profile",
     "version": "2.0.0",
-    "firstRun": false
+    "firstRun": false,
+    "plugin:layout": {
+      "density": "compact"
+    }
+  },
+  "rootExtension": {
+    "retained": true
   }
 }

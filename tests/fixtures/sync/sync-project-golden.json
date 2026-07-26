@@ -13,7 +13,34 @@
         "builds": {
           "space": {
             "keys": {
-              "F1": ["FireAll"]
+              "F1": [
+                "FireAll",
+                {
+                  "command": "+TrayExecByTray 0 0",
+                  "text": "Tray slot",
+                  "id": "artifact-rich-command",
+                  "type": "tray",
+                  "category": "combat",
+                  "categoryId": "combat",
+                  "commandId": "TrayExecByTray",
+                  "name": "Artifact Tray Slot",
+                  "description": "Exercises the complete imported rich-command shape",
+                  "icon": "fa-bolt",
+                  "environment": "space",
+                  "warning": "Artifact fixture warning",
+                  "customizable": true,
+                  "custom": true,
+                  "palindromicGeneration": true,
+                  "placement": "pivot",
+                  "parameters": {
+                    "tray": 0,
+                    "slot": 0
+                  },
+                  "commandExtension": {
+                    "source": "artifact-fixture"
+                  }
+                }
+              ]
             },
             "aliases": {
               "SpaceScoped": {
@@ -78,9 +105,16 @@
         "vertigoSettings": {
           "selectedEffects": {
             "space": ["fx-space"],
-            "ground": ["fx-ground"]
+            "ground": ["fx-ground"],
+            "shuttle": ["fx-shuttle"]
           },
-          "showPlayerSay": true
+          "showPlayerSay": true,
+          "vertigoExtension": {
+            "retained": true
+          }
+        },
+        "profileExtension": {
+          "source": "artifact-fixture"
         }
       }
     },
@@ -100,7 +134,10 @@
       "bindToAliasMode": true,
       "bindsetsEnabled": true,
       "translateGeneratedMessages": true,
-      "syncFolderFallback": false
+      "syncFolderFallback": false,
+      "plugin:layout": {
+        "density": "compact"
+      }
     },
     "currentProfile": "canonical-profile"
   }
