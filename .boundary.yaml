@@ -1,0 +1,163 @@
+packages:
+  .:
+    class: cmd
+    ownership: wiring
+    notes: Repository build and verification entrypoints
+  src:
+    class: wiring
+    ownership: wiring
+    notes: Single-package application composition authority
+  src/js:
+    class: wiring
+    ownership: wiring
+    notes: Browser bootstrap and component composition
+  src/js/components:
+    class: core
+    ownership: domain
+    notes: Feature component domain
+  src/js/components/services:
+    class: core
+    ownership: domain
+    notes: Stateful application services
+  src/js/components/ui:
+    class: adapters
+    ownership: integration
+    notes: DOM-facing UI adapters
+  src/js/core:
+    class: ports
+    ownership: contracts
+    notes: Event RPC and shared component protocols
+  src/js/data:
+    class: core
+    ownership: domain
+    notes: Static application catalog data
+  src/js/lib:
+    class: shared
+    ownership: shared
+    notes: Implementation-neutral reusable utilities
+  src/js/types:
+    class: ports
+    ownership: contracts
+    notes: Typed event RPC import and storage contracts
+  tests:
+    class: internal_testing
+    ownership: test_support
+    notes: Verification code
+  tests/fixtures/core:
+    class: internal_testing
+    ownership: test_support
+    notes: Core protocol fixtures
+  tests/types:
+    class: internal_testing
+    ownership: test_support
+    notes: Compile-time protocol contract verification
+class_inference:
+  src/**: wiring
+  src/js/**: wiring
+  src/js/components/**: core
+  src/js/components/services/**: core
+  src/js/components/ui/**: adapters
+  src/js/core/**: ports
+  src/js/data/**: core
+  src/js/lib/**: shared
+  src/js/types/**: ports
+  tests/**: internal_testing
+ownership_inference:
+  src/**: wiring
+  src/js/**: wiring
+  src/js/components/**: domain
+  src/js/components/services/**: domain
+  src/js/components/ui/**: integration
+  src/js/core/**: contracts
+  src/js/data/**: domain
+  src/js/lib/**: shared
+  src/js/types/**: contracts
+  tests/**: test_support
+execution_flow:
+  dispatch_patterns:
+    - id: sto_event_bus_on
+      language_family: javascript
+      provider_id: sto.event_bus
+      transport: in_process_event
+      operation_kind: event_subscription
+      callee_module_paths: [src/js/core/eventBus.js]
+      callee_qualified_names: [on]
+      callback_argument_index: 1
+      channel_argument_index: 0
+      ordering: ordered
+    - id: sto_event_bus_emit
+      language_family: javascript
+      provider_id: sto.event_bus
+      transport: in_process_event
+      operation_kind: event_dispatch
+      callee_module_paths: [src/js/core/eventBus.js]
+      callee_qualified_names: [emit]
+      channel_argument_index: 0
+      ordering: unordered
+    - id: sto_rpc_request
+      language_family: javascript
+      provider_id: sto.request_response
+      transport: in_process_rpc
+      operation_kind: request_dispatch
+      callee_module_paths: [src/js/core/requestResponse.js]
+      callee_qualified_names: [request]
+      channel_argument_index: 1
+      ordering: scheduler_dependent
+    - id: sto_rpc_respond
+      language_family: javascript
+      provider_id: sto.request_response
+      transport: in_process_rpc
+      operation_kind: response_registration
+      callee_module_paths: [src/js/core/requestResponse.js]
+      callee_qualified_names: [respond]
+      callback_argument_index: 2
+      channel_argument_index: 1
+      ordering: scheduler_dependent
+    - id: sto_component_event_subscription
+      language_family: javascript
+      provider_id: sto.component_event_bus
+      transport: in_process_event
+      operation_kind: event_subscription
+      callee_module_paths: [src/js/components/ComponentBase.js]
+      callee_qualified_names: [addEventListener]
+      callback_argument_index: 1
+      channel_argument_index: 0
+      ordering: ordered
+    - id: sto_component_request
+      language_family: javascript
+      provider_id: sto.component_rpc
+      transport: in_process_rpc
+      operation_kind: request_dispatch
+      callee_module_paths: [src/js/components/ComponentBase.js]
+      callee_qualified_names: [request]
+      channel_argument_index: 0
+      ordering: scheduler_dependent
+    - id: sto_component_respond
+      language_family: javascript
+      provider_id: sto.component_rpc
+      transport: in_process_rpc
+      operation_kind: response_registration
+      callee_module_paths: [src/js/components/ComponentBase.js]
+      callee_qualified_names: [respond]
+      callback_argument_index: 1
+      channel_argument_index: 0
+      ordering: scheduler_dependent
+    - id: sto_debounced_dom_subscription
+      language_family: javascript
+      provider_id: sto.dom_debounce
+      transport: dom_event
+      operation_kind: event_subscription
+      callee_module_paths: [src/js/core/eventBus.js]
+      callee_qualified_names: [onDomDebounced]
+      callback_argument_index: 2
+      channel_argument_index: 1
+      ordering: scheduler_dependent
+    - id: sto_debounce_schedule
+      language_family: javascript
+      provider_id: sto.debounce
+      transport: timer
+      operation_kind: timer_schedule
+      callee_module_paths: [src/js/core/eventBus.js]
+      callee_qualified_names: [debounce]
+      callback_argument_index: 0
+      ordering: scheduler_dependent
