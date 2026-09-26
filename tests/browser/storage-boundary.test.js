@@ -159,6 +159,58 @@ describe("Persisted storage browser boundary", () => {
     }
   });
 
+  it("keeps accepted preferences unchanged after an acknowledged write fails readback", async () => {
+    const { storageService: storage, eventBus: bus } = runtime();
+    const beforeState = await readPreferencesState(bus);
+    const beforeRaw = localStorage.getItem("sto_keybind_settings");
+    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeBackup = localStorage.getItem(storage.backupKey);
+    const success = vi.fn();
+    const detach = ["saved", "changed", "state-changed"].map((event) =>
+      bus.on(`preferences:${event}`, success),
+    );
+    const originalGetItem = Storage.prototype.getItem;
+    const read = (key) => originalGetItem.call(localStorage, key);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    const getItem = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(function (key) {
+        if (key === "sto_keybind_settings") {
+          throw new DOMException("readback failed", "SecurityError");
+        }
+        return originalGetItem.call(this, key);
+      });
+
+    try {
+      const autoSave = !beforeState.settings.autoSave;
+      await expect(
+        request(bus, "preferences:set-setting", {
+          key: "autoSave",
+          value: autoSave,
+        }),
+      ).resolves.toBe(false);
+      expect(
+        setItem.mock.calls.filter(([key]) => key === "sto_keybind_settings"),
+      ).toHaveLength(1);
+      expect(JSON.parse(read("sto_keybind_settings"))).toEqual({
+        ...beforeState.settings,
+        autoSave,
+      });
+      expect(await readPreferencesState(bus)).toEqual(beforeState);
+      expect(success).not.toHaveBeenCalled();
+      expect(read(storage.storageKey)).toBe(beforeRoot);
+      expect(read(storage.backupKey)).toBe(beforeBackup);
+    } finally {
+      getItem.mockRestore();
+      setItem.mockRestore();
+      error.mockRestore();
+      for (const stop of detach) stop();
+      if (beforeRaw === null) localStorage.removeItem("sto_keybind_settings");
+      else localStorage.setItem("sto_keybind_settings", beforeRaw);
+    }
+  });
+
   it("does not publish sync-folder success when the checked bundle cannot persist its settings", async () => {
     const storage = runtime().storageService;
     const bus = runtime().eventBus;

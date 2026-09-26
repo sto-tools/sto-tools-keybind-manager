@@ -58,7 +58,7 @@ describe("persistence access architecture ratchet", () => {
         (total, count) => total + count,
         0,
       ),
-    ).toBe(34);
+    ).toBe(35);
   });
 
   it("freezes the exact physical scalar writers and their owner-bound modules", () => {
@@ -166,6 +166,8 @@ describe("persistence access architecture ratchet", () => {
       "repositoryJsonBoundary.js",
       "repositoryResults.js",
       "settingsRepositoryBoundary.js",
+      "storageSchemaMigration.js",
+      "storageSchemaMigrationReceipt.js",
     ]);
 
     const source = javascriptFiles(sourceRoot)
@@ -177,6 +179,12 @@ describe("persistence access architecture ratchet", () => {
       .map((file) => readFileSync(file, "utf8"))
       .join("\n");
     expect(source).not.toContain("/storage/");
+    const composition = ["main.js", "app.js"]
+      .map((file) => readFileSync(join(sourceRoot, file), "utf8"))
+      .join("\n");
+    expect(`${source}\n${composition}`).not.toMatch(
+      /storageSchemaMigration|preflightStorageSchemaMigration|createMigrationInspectionPort/,
+    );
     for (const candidate of [
       "LocalStorageProjectRepository",
       "LocalStorageSettingsRepository",

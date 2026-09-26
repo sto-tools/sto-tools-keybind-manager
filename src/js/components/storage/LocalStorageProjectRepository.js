@@ -121,6 +121,23 @@ export default class LocalStorageProjectRepository {
     });
   }
 
+  /**
+   * Read-only preflight capability; deliberately not part of the owner port.
+   * @returns {Readonly<import('./ProjectRepository.js').ProjectMigrationInspectionPort>}
+   */
+  createMigrationInspectionPort() {
+    return Object.freeze({ inspectRaw: () => this.#inspectRaw() });
+  }
+
+  /** @returns {import('../../types/storage-contracts.js').RepositoryRawInspectionResult} */
+  #inspectRaw() {
+    try {
+      return { status: "read", raw: this.#storage.getItem(ROOT_KEY) };
+    } catch (error) {
+      return readFailure(error);
+    }
+  }
+
   /** @returns {import('../../types/storage-contracts.js').ProjectLoadResult} */
   load() {
     let raw;

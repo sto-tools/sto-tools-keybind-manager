@@ -63,6 +63,9 @@ describe("LocalStorageProjectRepository", () => {
     expect(() => setup({}, { settingsDefaults: {} })).toThrow();
     expect(repository).not.toHaveProperty("getProfile");
     expect(repository).not.toHaveProperty("emit");
+    expect(Object.keys(repository.createMigrationInspectionPort())).toEqual([
+      "inspectRaw",
+    ]);
   });
 
   it("loads repeatedly without cache, writes, or shared references", () => {

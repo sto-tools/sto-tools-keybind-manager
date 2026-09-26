@@ -36,6 +36,149 @@ function setup(initial = null, initialDefaults = defaults()) {
 }
 
 describe("LocalStorageSettingsRepository", () => {
+  it("offers a frozen least-authority facade with fresh exact settings reads", () => {
+    const { repository, storage, data } = setup();
+    const load = vi.spyOn(repository, "load");
+    const port = repository.createMigrationInspectionPort();
+    expect(Reflect.ownKeys(port)).toEqual(["inspectRaw", "verify"]);
+    expect(Object.isFrozen(port)).toBe(true);
+    expect(storage.getItem).not.toHaveBeenCalled();
+    const { inspectRaw } = port;
+    for (const raw of [
+      null,
+      "",
+      " {\n private malformed settings",
+      JSON.stringify(defaults()),
+    ]) {
+      if (raw === null) data.delete(KEY);
+      else data.set(KEY, raw);
+      const result = inspectRaw();
+      expect(result).toEqual({ status: "read", raw });
+      result.raw = "caller mutation";
+      expect(inspectRaw()).toEqual({ status: "read", raw });
+    }
+    expect(storage.getItem.mock.calls.every(([key]) => key === KEY)).toBe(true);
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(storage.removeItem).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it("verifies exact current serialized settings without claiming a write", () => {
+    const value = defaults();
+    const { repository, storage, data } = setup(JSON.stringify(value));
+    const { verify } = repository.createMigrationInspectionPort();
+    expect(verify(value)).toEqual({ status: "verified" });
+    expect(storage.getItem).toHaveBeenCalledExactlyOnceWith(KEY);
+    for (const changed of [
+      null,
+      JSON.stringify(value, null, 2),
+      "{",
+      JSON.stringify({
+        ...value,
+        language: value.language === "de" ? "fr" : "de",
+      }),
+    ]) {
+      if (changed === null) data.delete(KEY);
+      else data.set(KEY, changed);
+      expect(verify(value)).toEqual({
+        status: "failed",
+        error: "verification_failed",
+        reason: "value_mismatch",
+      });
+    }
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(storage.removeItem).not.toHaveBeenCalled();
+  });
+
+  it("rejects hostile or incomplete expected settings before any storage read", () => {
+    const { repository, storage } = setup();
+    const getter = vi.fn(() => "dark");
+    const accessor = Object.defineProperty(defaults(), "theme", {
+      enumerable: true,
+      get: getter,
+    });
+    const cyclic = defaults();
+    cyclic.loop = cyclic;
+    const proxy = new Proxy(defaults(), {
+      ownKeys() {
+        throw new Error("private proxy details");
+      },
+    });
+    for (const expected of [
+      null,
+      false,
+      {},
+      { theme: "dark" },
+      accessor,
+      cyclic,
+      proxy,
+      { ...defaults(), oversized: "x".repeat(MAX_PROJECT_JSON_BYTES) },
+    ]) {
+      expect(
+        repository.createMigrationInspectionPort().verify(expected),
+      ).toEqual({
+        status: "failed",
+        error: "verification_failed",
+        reason: "invalid_data",
+      });
+    }
+    expect(getter).not.toHaveBeenCalled();
+    expect(storage.getItem).not.toHaveBeenCalled();
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(storage.removeItem).not.toHaveBeenCalled();
+  });
+
+  it("redacts inspection and verification read failures", () => {
+    const value = defaults();
+    const { repository, storage } = setup(JSON.stringify(value));
+    storage.getItem.mockImplementation(() => {
+      throw new DOMException("private standalone settings", "SecurityError");
+    });
+    const port = repository.createMigrationInspectionPort();
+    expect(port.inspectRaw()).toEqual({
+      status: "read_failed",
+      error: "storage_read_failed",
+      category: "security",
+    });
+    expect(port.verify(value)).toEqual({
+      status: "failed",
+      error: "verification_failed",
+      reason: "read_failed",
+    });
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(storage.removeItem).not.toHaveBeenCalled();
+  });
+
+  it.each(["throw", "invalid"])(
+    "rejects a %s strict readback decode",
+    (mode) => {
+      const value = defaults();
+      const { repository, storage } = setup(JSON.stringify(value));
+      const original = JSON.parse;
+      const parse = vi
+        .spyOn(JSON, "parse")
+        .mockImplementationOnce(original)
+        .mockImplementationOnce(() => {
+          if (mode === "throw") throw new Error("private decoder failure");
+          return { theme: "invalid incomplete data" };
+        });
+      try {
+        expect(
+          repository.createMigrationInspectionPort().verify(value),
+        ).toEqual({
+          status: "failed",
+          error: "verification_failed",
+          reason: "invalid_data",
+        });
+        expect(storage.getItem).toHaveBeenCalledExactlyOnceWith(KEY);
+        expect(storage.setItem).not.toHaveBeenCalled();
+        expect(storage.removeItem).not.toHaveBeenCalled();
+      } finally {
+        parse.mockRestore();
+      }
+    },
+  );
+
   it.each([undefined, null, {}, { getItem() {}, setItem() {} }])(
     "requires an explicit complete storage capability %#",
     (storage) => {

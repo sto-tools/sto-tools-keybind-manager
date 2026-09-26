@@ -183,6 +183,27 @@ export type SettingsClearResult =
   | { status: "cleared"; removal: Acknowledged }
   | { status: "clear_failed"; removal: IndeterminateWrite };
 
+/** Exact raw evidence for read-only migration preflight, never owner state. */
+export type RepositoryRawInspectionResult =
+  | { status: "read"; raw: string | null }
+  | ReadFailure;
+
+/** Current readback equality only; does not assert that a write occurred. */
+export type SettingsVerificationResult =
+  | { status: "verified" }
+  | VerificationFailure;
+
+/** Separate least-authority view; no root, backup, or sentinel mutations. */
+export interface ProjectMigrationInspectionPort {
+  inspectRaw(): RepositoryRawInspectionResult;
+}
+
+/** Separate read-only view; verified-write evidence remains the caller's duty. */
+export interface SettingsMigrationInspectionPort {
+  inspectRaw(): RepositoryRawInspectionResult;
+  verify(expected: unknown): SettingsVerificationResult;
+}
+
 export interface ProjectRepositoryPort {
   load(): ProjectLoadResult;
   commit(

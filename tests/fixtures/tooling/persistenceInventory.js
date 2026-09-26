@@ -13,7 +13,7 @@ export const storageServiceMethodNames = Object.freeze([
 
 export const expectedCallsByFile = Object.freeze({
   "components/services/StorageService.js": 9,
-  "components/storage/LocalStorageSettingsRepository.js": 4,
+  "components/storage/LocalStorageSettingsRepository.js": 5,
   "components/services/commandPresentationState.js": 6,
   "components/services/dataCoordinatorInitialState.js": 1,
   "components/services/keyBrowserViewState.js": 8,
@@ -37,7 +37,7 @@ export const expectedScalarWrites = Object.freeze({
 // adapter, whose physical surface is in the active inventory.
 export const unusedRepositoryScalarCallsites = Object.freeze({
   "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|RESET_KEY": 2,
-  "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|ROOT_KEY": 3,
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|ROOT_KEY": 4,
   "components/storage/LocalStorageProjectRepository.js|this.#storage|removeItem|BACKUP_KEY": 1,
   "components/storage/LocalStorageProjectRepository.js|this.#storage|removeItem|RESET_KEY": 1,
   "components/storage/LocalStorageProjectRepository.js|this.#storage|removeItem|ROOT_KEY": 1,
@@ -225,7 +225,7 @@ export const rpcActionTopics = Object.freeze([
 ]);
 
 export const expectedScalarCallsites = Object.freeze({
-  "components/storage/LocalStorageSettingsRepository.js|this.#storage|getItem|SETTINGS_KEY": 2,
+  "components/storage/LocalStorageSettingsRepository.js|this.#storage|getItem|SETTINGS_KEY": 3,
   "components/storage/LocalStorageSettingsRepository.js|this.#storage|removeItem|SETTINGS_KEY": 1,
   "components/storage/LocalStorageSettingsRepository.js|this.#storage|setItem|SETTINGS_KEY|prepared.json": 1,
   "components/services/StorageService.js|localStorage|getItem|this.storageKey": 2,

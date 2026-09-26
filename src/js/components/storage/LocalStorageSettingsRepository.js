@@ -36,6 +36,59 @@ export default class LocalStorageSettingsRepository {
     this.#defaults = prepared.value;
   }
 
+  /**
+   * Read-only preflight capability; does not establish verified-write history.
+   * @returns {Readonly<import('./SettingsRepository.js').SettingsMigrationInspectionPort>}
+   */
+  createMigrationInspectionPort() {
+    return Object.freeze({
+      inspectRaw: () => this.#inspectRaw(),
+      verify: (/** @type {unknown} */ expected) => this.#verify(expected),
+    });
+  }
+
+  /** @returns {import('../../types/storage-contracts.js').RepositoryRawInspectionResult} */
+  #inspectRaw() {
+    try {
+      return { status: "read", raw: this.#storage.getItem(SETTINGS_KEY) };
+    } catch (error) {
+      return {
+        status: "read_failed",
+        error: "storage_read_failed",
+        category: storageFailureCategory(error),
+      };
+    }
+  }
+
+  /**
+   * Strict expected-value validation precedes every storage read. Equality
+   * verifies current bytes only, never a claimed acknowledgement or readiness.
+   * @param {unknown} expected
+   * @returns {import('../../types/storage-contracts.js').SettingsVerificationResult}
+   */
+  #verify(expected) {
+    /** @param {import('../../types/storage-contracts.js').VerificationFailure['reason']} reason */
+    const failed = (reason) =>
+      /** @type {const} */ ({
+        status: "failed",
+        error: "verification_failed",
+        reason,
+      });
+    const prepared = prepareSettingsRepositoryValue(expected);
+    if (!prepared.success) return failed("invalid_data");
+    const inspected = this.#inspectRaw();
+    if (inspected.status === "read_failed") return failed("read_failed");
+    if (inspected.raw !== prepared.json) return failed("value_mismatch");
+    try {
+      const verified = prepareSettingsRepositoryValue(
+        JSON.parse(inspected.raw),
+      );
+      return verified.success ? { status: "verified" } : failed("invalid_data");
+    } catch {
+      return failed("invalid_data");
+    }
+  }
+
   /** @returns {import('../../types/storage-contracts.js').SettingsLoadResult} */
   load() {
     let content;

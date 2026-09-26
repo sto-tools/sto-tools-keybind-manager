@@ -51,8 +51,10 @@ describe("real settings bootstrap failure barrier", () => {
     ["capability getter", 0, "storage_read_failed", 0],
     ["initial read", 1, "storage_read_failed", 0],
     ["replacement readback", 2, "verification_failed", 1],
+    ["replacement write", -1, "verification_failed", 1],
+    ["replacement readback mismatch", -2, "verification_failed", 1],
   ])(
-    "stops real composition after the settings %s throws",
+    "stops real composition after the settings %s fails",
     async (_label, throwOnRead, blockReason, expectedWrites) => {
       const [
         busModule,
@@ -106,15 +108,27 @@ describe("real settings bootstrap failure barrier", () => {
       const read = browserStorage.getItem.bind(browserStorage);
       let settingsReads = 0;
       vi.spyOn(browserStorage, "getItem").mockImplementation((key) => {
-        if (key === "sto_keybind_settings" && ++settingsReads === throwOnRead) {
-          throw new DOMException(
-            "standalone storage inaccessible",
-            "SecurityError",
-          );
+        if (key === "sto_keybind_settings") {
+          settingsReads += 1;
+          if (settingsReads === throwOnRead) {
+            throw new DOMException(
+              "standalone storage inaccessible",
+              "SecurityError",
+            );
+          }
+          if (throwOnRead === -2 && settingsReads === 2) return "{}";
         }
         return read(key);
       });
       const write = vi.spyOn(browserStorage, "setItem");
+      if (throwOnRead === -1) {
+        write.mockImplementation(() => {
+          throw new DOMException(
+            "standalone quota exceeded",
+            "QuotaExceededError",
+          );
+        });
+      }
       const remove = vi.spyOn(browserStorage, "removeItem");
       if (throwOnRead === 0) {
         Object.defineProperty(globalThis, "localStorage", {
@@ -171,6 +185,13 @@ describe("real settings bootstrap failure barrier", () => {
           status: "read_failed",
           error: "storage_read_failed",
           category: "security",
+        });
+      } else if (throwOnRead === -1) {
+        expect(read("sto_keybind_settings")).toBeNull();
+        expect(replace.mock.results[0].value).toMatchObject({
+          status: "write_failed",
+          write: { status: "indeterminate", category: "quota" },
+          verification: { status: "not_attempted" },
         });
       } else {
         expect(replace).toHaveBeenCalledWith(defaults);
