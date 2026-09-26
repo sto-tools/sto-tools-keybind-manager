@@ -16,6 +16,10 @@
     "target": "ES2022",
     "useDefineForClassFields": true
   },
-  "include": ["src/js/**/*.js", "src/js/**/*.d.ts"],
+  "include": [
+    "src/js/**/*.js",
+    "src/js/**/*.d.ts",
+    "tests/types/storage-repository.type-test.ts"
+  ],
   "exclude": ["src/dist/**", "src/js/lib/KBFParser.backup.do-not-delete.js"]
 }

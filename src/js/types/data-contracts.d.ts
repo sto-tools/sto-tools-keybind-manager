@@ -162,6 +162,9 @@ export type SettingsData = Partial<KnownPreferencesSettings> & {
   [field: string]: unknown;
 };
 
+/** Complete standalone Preferences value, including safe open extensions. */
+export type CanonicalSettings = KnownPreferencesSettings & SettingsData;
+
 export interface StoredApplicationData {
   version: string;
   created?: string;

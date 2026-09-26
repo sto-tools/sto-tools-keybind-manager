@@ -16,6 +16,8 @@ import {
   storageCallsiteDispositions,
   storageServiceCallClass,
   storageServiceMethodNames,
+  unusedRepositoryScalarCallsites,
+  unusedRepositoryScalarWrites,
 } from "../../fixtures/tooling/persistenceInventory.js";
 import {
   constructorCallsites,
@@ -46,7 +48,10 @@ describe("persistence access architecture ratchet", () => {
       ]),
     );
 
-    expect(actualCallsites).toEqual(expectedScalarCallsites);
+    expect(actualCallsites).toEqual({
+      ...expectedScalarCallsites,
+      ...unusedRepositoryScalarCallsites,
+    });
     expect(actualCallsByFile).toEqual(expectedCallsByFile);
     expect(
       Object.values(actualCallsByFile).reduce(
@@ -65,9 +70,14 @@ describe("persistence access architecture ratchet", () => {
       actualWrites[key] = (actualWrites[key] || 0) + count;
     }
 
-    expect(actualWrites).toEqual(expectedScalarWrites);
+    expect(actualWrites).toEqual({
+      ...expectedScalarWrites,
+      ...unusedRepositoryScalarWrites,
+    });
     expect(
-      Object.values(actualWrites).reduce((total, count) => total + count, 0),
+      Object.entries(actualWrites)
+        .filter(([key]) => !key.startsWith("components/storage/"))
+        .reduce((total, [, count]) => total + count, 0),
     ).toBe(18);
   });
 
@@ -146,11 +156,23 @@ describe("persistence access architecture ratchet", () => {
 
   it("records the approved legacy writers and proves repository adapters are not active", () => {
     const storageDirectory = join(sourceRoot, "components/storage");
-    expect(existsSync(storageDirectory)).toBe(false);
+    expect(existsSync(storageDirectory)).toBe(true);
+    expect(readdirSync(storageDirectory).sort()).toEqual([
+      "LocalStorageProjectRepository.js",
+      "LocalStorageSettingsRepository.js",
+      "ProjectRepository.js",
+      "SettingsRepository.js",
+      "projectRepositoryBoundary.js",
+      "repositoryJsonBoundary.js",
+      "repositoryResults.js",
+      "settingsRepositoryBoundary.js",
+    ]);
 
     const source = javascriptFiles(sourceRoot)
+      .filter((file) => !file.startsWith(`${storageDirectory}/`))
       .map((file) => readFileSync(file, "utf8"))
       .join("\n");
+    expect(source).not.toContain("/storage/");
     for (const candidate of repositoryCandidateNames) {
       expect(source).not.toContain(candidate);
     }
@@ -175,6 +197,16 @@ describe("persistence access architecture ratchet", () => {
       "core/welcomeMessage.js",
       "core/welcomeMessage.js",
     ]);
+
+    for (const file of javascriptFiles(storageDirectory)) {
+      const adapterSource = readFileSync(file, "utf8");
+      expect(adapterSource, file).not.toMatch(
+        /\b(?:localStorage|window|eventBus|ComponentBase)\b/,
+      );
+      expect(adapterSource, file).not.toMatch(
+        /\.(?:emit|respond|request|addEventListener)\s*\(/,
+      );
+    }
   });
 
   it("freezes exact storage namespace, key, prefix, and value definitions", () => {

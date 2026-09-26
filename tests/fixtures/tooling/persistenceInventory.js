@@ -30,6 +30,29 @@ export const expectedScalarWrites = Object.freeze({
   "core/welcomeMessage.js|setItem": 2,
 });
 
+// Tranche 1 adds test-only adapters. Keep their exact physical surface separate
+// from the frozen active-writer inventory until an approved owner cutover.
+export const unusedRepositoryScalarCallsites = Object.freeze({
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|RESET_KEY": 2,
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|ROOT_KEY": 3,
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|removeItem|BACKUP_KEY": 1,
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|removeItem|RESET_KEY": 1,
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|removeItem|ROOT_KEY": 1,
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|BACKUP_KEY|backup": 1,
+  'components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|RESET_KEY|"true"': 1,
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|ROOT_KEY|prepared.json": 1,
+  "components/storage/LocalStorageSettingsRepository.js|this.#storage|getItem|SETTINGS_KEY": 2,
+  "components/storage/LocalStorageSettingsRepository.js|this.#storage|removeItem|SETTINGS_KEY": 1,
+  "components/storage/LocalStorageSettingsRepository.js|this.#storage|setItem|SETTINGS_KEY|prepared.json": 1,
+});
+
+export const unusedRepositoryScalarWrites = Object.freeze({
+  "components/storage/LocalStorageProjectRepository.js|removeItem": 3,
+  "components/storage/LocalStorageProjectRepository.js|setItem": 3,
+  "components/storage/LocalStorageSettingsRepository.js|removeItem": 1,
+  "components/storage/LocalStorageSettingsRepository.js|setItem": 1,
+});
+
 // This is the complete production syntactic surface for the ten legacy
 // StorageService method names. Entries that are owner/domain calls rather than
 // StorageService calls stay in this manifest so a newly named receiver cannot

@@ -38,6 +38,96 @@ function createSyncDirectoryHandle(name) {
 }
 
 describe("Persisted storage browser boundary", () => {
+  it("keeps one legacy writer per settings and project action in production composition", async () => {
+    const {
+      storageService: storage,
+      dataCoordinator: coordinator,
+      eventBus: bus,
+    } = runtime();
+    expect(coordinator.getCurrentState().ready).toBe(true);
+    const beforePreferences = await readPreferencesState(bus);
+    const beforeProfileId = coordinator.getCurrentState().currentProfile;
+    expect(beforeProfileId).toBeTruthy();
+    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeSettings = localStorage.getItem(storage.settingsKey);
+    const beforeBackup = localStorage.getItem(storage.backupKey);
+    const keys = [
+      storage.storageKey,
+      storage.settingsKey,
+      storage.backupKey,
+      "sto_app_reset",
+    ];
+    const saveSettings = vi.spyOn(storage, "saveSettings");
+    const saveAllData = vi.spyOn(storage, "saveAllData");
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    const removeItem = vi.spyOn(Storage.prototype, "removeItem");
+    const clear = vi.spyOn(Storage.prototype, "clear");
+    const canonicalWrites = () =>
+      setItem.mock.calls
+        .filter(([key]) => keys.includes(key))
+        .map(([key]) => key);
+
+    try {
+      const nextTheme =
+        beforePreferences.settings.theme === "dark" ? "default" : "dark";
+      await expect(
+        request(bus, "preferences:set-setting", {
+          key: "theme",
+          value: nextTheme,
+        }),
+      ).resolves.toBe(true);
+      expect(saveSettings).toHaveBeenCalledTimes(1);
+      expect(saveAllData).not.toHaveBeenCalled();
+      expect(canonicalWrites()).toEqual([storage.settingsKey]);
+      expect(removeItem).not.toHaveBeenCalled();
+      expect(clear).not.toHaveBeenCalled();
+      expect((await readPreferencesState(bus)).settings.theme).toBe(nextTheme);
+
+      saveSettings.mockClear();
+      saveAllData.mockClear();
+      setItem.mockClear();
+      removeItem.mockClear();
+      clear.mockClear();
+
+      await request(bus, "data:update-profile", {
+        profileId: beforeProfileId,
+        properties: { description: "Tranche 1 checked-bundle writer probe" },
+      });
+      expect(saveAllData).toHaveBeenCalledTimes(1);
+      expect(saveSettings).not.toHaveBeenCalled();
+      expect(canonicalWrites()).toEqual([
+        storage.backupKey,
+        storage.storageKey,
+      ]);
+      expect(removeItem).not.toHaveBeenCalled();
+      expect(clear).not.toHaveBeenCalled();
+      expect(
+        coordinator.getCurrentState().profiles[beforeProfileId].description,
+      ).toBe("Tranche 1 checked-bundle writer probe");
+    } finally {
+      saveSettings.mockRestore();
+      saveAllData.mockRestore();
+      setItem.mockRestore();
+      removeItem.mockRestore();
+      clear.mockRestore();
+      await request(bus, "preferences:set-setting", {
+        key: "theme",
+        value: beforePreferences.settings.theme,
+      });
+      for (const [key, value] of [
+        [storage.storageKey, beforeRoot],
+        [storage.settingsKey, beforeSettings],
+      ]) {
+        if (value === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, value);
+      }
+      storage.getAllData(true);
+      await request(bus, "data:reload-state");
+      if (beforeBackup === null) localStorage.removeItem(storage.backupKey);
+      else localStorage.setItem(storage.backupKey, beforeBackup);
+    }
+  });
+
   it("keeps the preference owner unchanged when the checked bundle cannot persist", async () => {
     const storage = runtime().storageService;
     const bus = runtime().eventBus;
