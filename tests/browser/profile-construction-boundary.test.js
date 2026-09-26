@@ -2,6 +2,11 @@ import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import {
+  PROJECT_ROOT_KEY,
+  readProjectProfile,
+  readProjectRoot,
+} from "../fixtures/ui/projectStorage.js";
 
 const createdProfileId = "browser_profile_construction_probe";
 const clonedProfileId = "browser_profile_construction_copy";
@@ -10,12 +15,10 @@ describe("Profile construction checked-bundle boundary", () => {
   it("creates and clones through the owner while adopting durable readbacks", async () => {
     const bus = runtime().eventBus;
     const coordinator = runtime().dataCoordinator;
-    const storage = runtime().storageService;
 
     expect(bus).toBeTruthy();
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
-    expect(storage).toBeTruthy();
-    if (!bus || !coordinator || !storage) return;
+    if (!bus || !coordinator) return;
 
     const stateChanged = vi.fn();
     const detach = bus.on("data:state-changed", stateChanged);
@@ -45,7 +48,7 @@ describe("Profile construction checked-bundle boundary", () => {
           bindsetMetadata: {},
         },
       });
-      expect(created.profile).toEqual(storage.getProfile(createdProfileId));
+      expect(created.profile).toEqual(readProjectProfile(createdProfileId));
       expect(created.profile).toEqual(
         coordinator.getCurrentState().profiles[createdProfileId],
       );
@@ -75,7 +78,7 @@ describe("Profile construction checked-bundle boundary", () => {
           currentEnvironment: "ground",
         },
       });
-      expect(cloned.profile).toEqual(storage.getProfile(clonedProfileId));
+      expect(cloned.profile).toEqual(readProjectProfile(clonedProfileId));
       expect(cloned.profile).toEqual(
         coordinator.getCurrentState().profiles[clonedProfileId],
       );
@@ -103,15 +106,12 @@ describe("Profile construction checked-bundle boundary", () => {
   it("constructs exact normalized static defaults and fallback profiles", async () => {
     const bus = runtime().eventBus;
     const coordinator = runtime().dataCoordinator;
-    const storage = runtime().storageService;
 
     expect(bus).toBeTruthy();
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
-    expect(storage).toBeTruthy();
-    if (!bus || !coordinator || !storage) return;
+    if (!bus || !coordinator) return;
 
-    const beforeRoot = localStorage.getItem(storage.storageKey);
-    const beforeBackup = localStorage.getItem(storage.backupKey);
+    const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
     const staticSource = {
       id: "source-id-must-not-survive",
       name: "Browser Static Default",
@@ -141,11 +141,15 @@ describe("Profile construction checked-bundle boundary", () => {
 
     /** Reset the owner to a valid empty root before each activation probe. */
     const resetToEmptyRoot = async () => {
-      const emptyRoot = structuredClone(storage.getAllData());
-      emptyRoot.profiles = {};
-      emptyRoot.currentProfile = null;
-      expect(storage.saveAllData(emptyRoot)).toBe(true);
-      await request(bus, "data:reload-state");
+      const transition = await coordinator.runApplicationResetTransition(
+        async ({ resetProjectPersistence, adoptEmptyProject }) => {
+          const persistence = await resetProjectPersistence();
+          if (!persistence.success) return persistence;
+          return adoptEmptyProject();
+        },
+      );
+      expect(transition.result.success).toBe(true);
+      await transition.settlement;
       expect(coordinator.getCurrentState()).toMatchObject({
         currentProfile: null,
         currentEnvironment: "space",
@@ -160,7 +164,7 @@ describe("Profile construction checked-bundle boundary", () => {
       });
 
       await vi.waitFor(() => {
-        expect(storage.getAllData().profiles.browser_static_default).toEqual(
+        expect(readProjectRoot().profiles.browser_static_default).toEqual(
           coordinator.getCurrentState().profiles.browser_static_default,
         );
       });
@@ -200,7 +204,7 @@ describe("Profile construction checked-bundle boundary", () => {
       await coordinator.createDefaultProfilesFromData({});
 
       await vi.waitFor(() => {
-        expect(storage.getAllData().profiles.default).toEqual(
+        expect(readProjectRoot().profiles.default).toEqual(
           coordinator.getCurrentState().profiles.default,
         );
       });
@@ -224,12 +228,10 @@ describe("Profile construction checked-bundle boundary", () => {
         currentEnvironment: "space",
       });
     } finally {
-      if (beforeRoot === null) localStorage.removeItem(storage.storageKey);
-      else localStorage.setItem(storage.storageKey, beforeRoot);
-      if (beforeBackup === null) localStorage.removeItem(storage.backupKey);
-      else localStorage.setItem(storage.backupKey, beforeBackup);
-      storage.getAllData(true);
-      await request(bus, "data:reload-state");
+      await resetToEmptyRoot();
+      if (beforeRoot !== null) {
+        await coordinator.replaceProjectFromImport(JSON.parse(beforeRoot));
+      }
     }
   });
 });

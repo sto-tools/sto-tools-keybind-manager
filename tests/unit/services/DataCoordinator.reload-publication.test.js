@@ -37,7 +37,7 @@ describe("DataCoordinator reload publication acknowledgement", () => {
   let coordinator;
   let replacement;
   let storageFixture;
-  let storage;
+  let projectRepository;
 
   beforeEach(async () => {
     eventBus.clear();
@@ -46,17 +46,20 @@ describe("DataCoordinator reload publication acknowledgement", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     storageFixture = createStorageFixture();
-    storage = storageFixture.storageService;
-    storage.getAllData.mockImplementation(() => ({
-      currentProfile: "alpha",
-      profiles: { alpha: profile("Alpha") },
-      settings: { theme: "dark" },
-      version: "1.0.0",
-      lastModified: "2026-07-21T00:00:00.000Z",
+    projectRepository = storageFixture.projectRepository;
+    projectRepository.load.mockImplementation(() => ({
+      status: "current",
+      value: {
+        currentProfile: "alpha",
+        profiles: { alpha: profile("Alpha") },
+        settings: { theme: "dark" },
+        version: "1.0.0",
+        lastModified: "2026-07-21T00:00:00.000Z",
+      },
     }));
     coordinator = new DataCoordinator({
       eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles: {},
     });
@@ -76,12 +79,15 @@ describe("DataCoordinator reload publication acknowledgement", () => {
   });
 
   function useReloadedRoot() {
-    storage.getAllData.mockImplementation(() => ({
-      currentProfile: "beta",
-      profiles: { beta: profile("Beta", "ground") },
-      settings: { theme: "light" },
-      version: "1.0.0",
-      lastModified: "2026-07-21T01:00:00.000Z",
+    projectRepository.load.mockImplementation(() => ({
+      status: "current",
+      value: {
+        currentProfile: "beta",
+        profiles: { beta: profile("Beta", "ground") },
+        settings: { theme: "light" },
+        version: "1.0.0",
+        lastModified: "2026-07-21T01:00:00.000Z",
+      },
     }));
   }
 
@@ -89,7 +95,7 @@ describe("DataCoordinator reload publication acknowledgement", () => {
     coordinator.destroy();
     replacement = new DataCoordinator({
       eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles: {},
     });

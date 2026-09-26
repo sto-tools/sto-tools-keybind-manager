@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
-import StorageService from "../../../src/js/components/services/StorageService.js";
 import { createRealServiceFixture } from "../../fixtures/index.js";
 import { request } from "../../../src/js/core/requestResponse.js";
 
@@ -18,7 +17,7 @@ const profile = {
   migrationVersion: "2.1.1",
 };
 describe("SelectionService same-instance lifecycle on the real owner protocol", () => {
-  let fixture, storage, owner, service, release;
+  let fixture, owner, service, release;
   beforeEach(async () => {
     fixture = await createRealServiceFixture({
       initialStorageData: {
@@ -33,19 +32,10 @@ describe("SelectionService same-instance lifecycle on the real owner protocol", 
         sto_keybind_manager_visited: true,
       },
     });
-    localStorage.setItem(
-      "sto_keybind_manager",
-      JSON.stringify(fixture.storage.getAllData()),
-    );
     localStorage.setItem("sto_keybind_manager_visited", "true");
-    storage = new StorageService({
-      eventBus: fixture.eventBus,
-      version: "1.0.0",
-    });
-    storage.init();
     owner = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     owner.init();
@@ -56,11 +46,10 @@ describe("SelectionService same-instance lifecycle on the real owner protocol", 
   });
   afterEach(async () => {
     release?.();
-    if (!service.destroyed) service.destroy();
-    await service.selectionPersistenceSettled;
-    owner.destroy();
-    storage.destroy();
-    fixture.destroy();
+    if (service && !service.destroyed) service.destroy();
+    await service?.selectionPersistenceSettled;
+    if (owner && !owner.destroyed) owner.destroy();
+    fixture?.destroy();
     vi.restoreAllMocks();
   });
 
@@ -74,7 +63,7 @@ describe("SelectionService same-instance lifecycle on the real owner protocol", 
     await expect(
       request(fixture.eventBus, "selection:select-key", { keyName: "S1" }),
     ).resolves.toBe("S1");
-    expect(storage.getProfile("captain").selections).toEqual({
+    expect(fixture.readProjectRoot().profiles.captain.selections).toEqual({
       space: "S1",
     });
     expect(owner.state.profiles.captain.selections).toEqual({ space: "S1" });
@@ -93,20 +82,21 @@ describe("SelectionService same-instance lifecycle on the real owner protocol", 
     const gate = new Promise((resolve) => {
       release = resolve;
     });
-    const save = storage.saveProfile.bind(storage);
-    const writes = vi
-      .spyOn(storage, "saveProfile")
-      .mockImplementationOnce(async (...args) => {
+    fixture.projectRepository.commit.mockClear();
+    const update = owner._updateProfile.bind(owner);
+    vi.spyOn(owner, "_updateProfile").mockImplementationOnce(
+      async (...args) => {
         await gate;
-        return save(...args);
-      });
+        return update(...args);
+      },
+    );
     const oldController = service.selectionPersistence;
     const oldAuthority = service.selectionPersistenceAuthority;
     const oldPrecondition = vi.spyOn(oldAuthority, "precondition");
     const pending = request(fixture.eventBus, "selection:select-key", {
       keyName: "S1",
     });
-    await vi.waitFor(() => expect(writes).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(owner._updateProfile).toHaveBeenCalledOnce());
     oldController.reset("captain", { space: "Imported" });
     service.destroy();
     const oldSettled = service.selectionPersistenceSettled;
@@ -124,23 +114,23 @@ describe("SelectionService same-instance lifecycle on the real owner protocol", 
       forceEmit: true,
     });
     await Promise.resolve();
-    expect(writes).toHaveBeenCalledOnce();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
     expect(freshPrecondition).not.toHaveBeenCalled();
     release();
     await pending;
     await expect(fresh).resolves.toBe("S0");
     await oldSettled;
-    expect(writes.mock.calls.map(([, value]) => value.selections)).toEqual([
-      { space: "S1" },
-      { space: "Imported" },
-      { space: "S0" },
-    ]);
+    expect(
+      fixture.projectRepository.commit.mock.calls.map(
+        ([root]) => root.profiles.captain.selections,
+      ),
+    ).toEqual([{ space: "S1" }, { space: "Imported" }, { space: "S0" }]);
     expect(oldPrecondition).toHaveBeenCalledTimes(2);
     expect(freshPrecondition).toHaveBeenCalledOnce();
     await expect(oldController.persist("captain", "space", "S1")).resolves.toBe(
       false,
     );
-    expect(storage.getProfile("captain").selections).toEqual({
+    expect(fixture.readProjectRoot().profiles.captain.selections).toEqual({
       space: "S0",
     });
     expect(selectionStates).not.toContainEqual(

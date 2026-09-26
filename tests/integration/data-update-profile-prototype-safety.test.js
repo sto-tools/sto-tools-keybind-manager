@@ -33,17 +33,20 @@ describe("data:update-profile prototype safety", () => {
 
   beforeEach(async () => {
     localStorage.setItem("sto_keybind_manager_visited", "true");
-    fixture = createServiceFixture();
-    fixture.storage.getAllData.mockReturnValue({
-      currentProfile: "alpha",
-      profiles: { alpha: structuredClone(profile) },
-      settings: {},
-      version: "1.0.0",
-      lastModified: "2026-07-16T00:00:00.000Z",
+    fixture = createServiceFixture({
+      initialStorageData: {
+        sto_keybind_manager: {
+          currentProfile: "alpha",
+          profiles: { alpha: structuredClone(profile) },
+          settings: {},
+          version: "1.0.0",
+          lastModified: "2026-07-16T00:00:00.000Z",
+        },
+      },
     });
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     client = new RpcClient(fixture.eventBus);
@@ -55,7 +58,7 @@ describe("data:update-profile prototype safety", () => {
     });
 
     fixture.eventBusFixture.clearEventHistory();
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
   });
 
   afterEach(() => {
@@ -107,7 +110,7 @@ describe("data:update-profile prototype safety", () => {
         ).rejects.toThrow(error);
       }
 
-      expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+      expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
       expect(coordinator.state).toEqual(ownerBefore);
       expect(coordinator.getCurrentState().revision).toBe(revisionBefore);
       expect(

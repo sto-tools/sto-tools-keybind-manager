@@ -45,21 +45,24 @@ describe("DataCoordinator state cache lifecycle", () => {
 
   function createHarness() {
     localStorage.setItem("sto_keybind_manager_visited", "true");
-    fixture = createServiceFixture();
-    fixture.storage.getAllData.mockReturnValue({
-      currentProfile: "alpha",
-      profiles: {
-        alpha: createProfile("alpha"),
-        beta: createProfile("beta", "ground"),
+    fixture = createServiceFixture({
+      initialStorageData: {
+        sto_keybind_manager: {
+          currentProfile: "alpha",
+          profiles: {
+            alpha: createProfile("alpha"),
+            beta: createProfile("beta", "ground"),
+          },
+          settings: { theme: "dark" },
+          version: "1.0.0",
+          lastModified: "2026-07-16T00:00:00.000Z",
+        },
       },
-      settings: { theme: "dark" },
-      version: "1.0.0",
-      lastModified: "2026-07-16T00:00:00.000Z",
     });
 
     const coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     components.push(coordinator);

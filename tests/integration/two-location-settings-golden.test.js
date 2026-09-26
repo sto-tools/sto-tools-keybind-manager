@@ -5,12 +5,14 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import { serializeProjectArtifact } from "../../src/js/components/services/projectArtifact.js";
 import {
   createEventBusFixture,
   createLocalStorageFixture,
 } from "../fixtures/core/index.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
+
+const projectRootKey = "sto_keybind_manager";
 
 const golden = JSON.parse(
   readFileSync(
@@ -25,7 +27,7 @@ const golden = JSON.parse(
 describe("two-location settings authority golden", () => {
   let eventBusFixture;
   let localStorageFixture;
-  let storage;
+  let projectRepository;
   let preferences;
   let i18n;
 
@@ -38,11 +40,7 @@ describe("two-location settings authority golden", () => {
         sto_keybind_manager_visited: "true",
       },
     });
-    storage = new StorageService({
-      eventBus: eventBusFixture.eventBus,
-      version: "1.0.0",
-    });
-    storage.init();
+    projectRepository = createProjectRepository();
     i18n = {
       language: "en",
       t: (key) => key,
@@ -54,7 +52,6 @@ describe("two-location settings authority golden", () => {
 
   afterEach(() => {
     preferences?.destroy();
-    storage?.destroy();
     eventBusFixture?.destroy();
     localStorageFixture?.destroy();
     document.documentElement.removeAttribute("data-theme");
@@ -76,19 +73,20 @@ describe("two-location settings authority golden", () => {
   }
 
   it("uses standalone settings for export, refuses embedded fallback, and preserves both records", async () => {
-    const rootText = localStorage.getItem(storage.storageKey);
+    const rootText = localStorage.getItem(projectRootKey);
     const settingsText = localStorage.getItem("sto_keybind_settings");
 
     await startPreferences();
 
     expect(preferences.getSettings()).toEqual(golden.standalone);
-    expect(storage.getAllData().settings).toEqual(golden.root.settings);
+    const project = projectRepository.load().value;
+    expect(project.settings).toEqual(golden.root.settings);
 
     const artifact = JSON.parse(
       serializeProjectArtifact(
         {
-          profiles: storage.getAllData().profiles,
-          currentProfile: storage.getAllData().currentProfile,
+          profiles: project.profiles,
+          currentProfile: project.currentProfile,
         },
         preferences.getCurrentState().settings,
         {
@@ -98,7 +96,7 @@ describe("two-location settings authority golden", () => {
       ),
     );
     expect(artifact.data).toEqual({
-      profiles: storage.getAllData().profiles,
+      profiles: project.profiles,
       settings: golden.standalone,
       currentProfile: "canonical-profile",
     });
@@ -107,8 +105,8 @@ describe("two-location settings authority golden", () => {
     expect(() =>
       serializeProjectArtifact(
         {
-          profiles: storage.getAllData().profiles,
-          currentProfile: storage.getAllData().currentProfile,
+          profiles: project.profiles,
+          currentProfile: project.currentProfile,
         },
         null,
         {
@@ -117,7 +115,7 @@ describe("two-location settings authority golden", () => {
         },
       ),
     ).toThrowError("canonical_settings_required");
-    expect(localStorage.getItem(storage.storageKey)).toBe(rootText);
+    expect(localStorage.getItem(projectRootKey)).toBe(rootText);
     expect(localStorage.getItem("sto_keybind_settings")).toBe(settingsText);
   });
 
@@ -137,7 +135,9 @@ describe("two-location settings authority golden", () => {
       await startPreferences();
 
       expect(preferences.getSettings()).toEqual(golden.defaults);
-      expect(storage.getAllData().settings).toEqual(golden.root.settings);
+      expect(projectRepository.load().value.settings).toEqual(
+        golden.root.settings,
+      );
       expect(localStorage.getItem("sto_keybind_settings")).toBe(
         JSON.stringify(golden.defaults),
       );
@@ -169,6 +169,8 @@ describe("two-location settings authority golden", () => {
       revision: 1,
       settings: successorSettings,
     });
-    expect(storage.getAllData().settings).toEqual(golden.root.settings);
+    expect(projectRepository.load().value.settings).toEqual(
+      golden.root.settings,
+    );
   });
 });

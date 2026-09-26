@@ -90,7 +90,7 @@ describe("DataCoordinator lifecycle and state ownership", () => {
     });
     const coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles,
     });
@@ -115,9 +115,7 @@ describe("DataCoordinator lifecycle and state ownership", () => {
     });
     const stateAtDestroy = coordinator.getCurrentState();
     const expectedState = structuredClone(stateAtDestroy);
-    fixture.storage.saveAllData.mockClear();
-    fixture.storage.saveProfile.mockClear();
-    fixture.storage.deleteProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
     fixture.settingsRepository.replace.mockClear();
 
     for (const topic of retiredTopics) {
@@ -138,9 +136,7 @@ describe("DataCoordinator lifecycle and state ownership", () => {
       ...expectedState,
       ready: false,
     });
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
-    expect(fixture.storage.deleteProfile).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
     expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     expect(publishedAfterDestroy).toEqual([]);
   });
@@ -250,7 +246,7 @@ describe("DataCoordinator lifecycle and state ownership", () => {
     firstCoordinator.destroy();
     const replacement = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     components.push(replacement);

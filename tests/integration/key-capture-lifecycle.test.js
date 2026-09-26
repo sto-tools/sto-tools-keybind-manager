@@ -83,7 +83,7 @@ describe("Integration: key-capture lifecycle and owner flow", () => {
     });
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles: {},
     });

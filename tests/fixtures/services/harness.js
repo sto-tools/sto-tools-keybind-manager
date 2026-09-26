@@ -46,7 +46,10 @@ export function createServiceFixture(options = {}) {
     eventBus: eventBusFixture.eventBus,
     storage: storageFixture.storageService,
     storageService: storageFixture.storageService,
+    projectRepository: storageFixture.projectRepository,
     settingsRepository: storageFixture.settingsRepository,
+    readProjectRoot: storageFixture.readProjectRoot,
+    readProjectBackup: storageFixture.readProjectBackup,
     expectOperation: storageFixture.expectOperation,
     expectOperationCount: storageFixture.expectOperationCount,
 
@@ -118,7 +121,10 @@ export async function createRealServiceFixture(options = {}) {
     eventBus: eventBusFixture.eventBus,
     storage: storageFixture.storageService,
     storageService: storageFixture.storageService,
+    projectRepository: storageFixture.projectRepository,
     settingsRepository: storageFixture.settingsRepository,
+    readProjectRoot: storageFixture.readProjectRoot,
+    readProjectBackup: storageFixture.readProjectBackup,
 
     eventBusFixture,
     storageFixture,

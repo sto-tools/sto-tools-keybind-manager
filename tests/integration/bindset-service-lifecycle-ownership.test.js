@@ -59,27 +59,17 @@ describe("BindsetService replacement ownership", () => {
     let durableRoot = {
       currentProfile: "captain",
       profiles: { captain: structuredClone(initialProfile) },
+      globalAliases: {},
       settings: {},
       version: "1.0.0",
+      created: "2026-07-16T00:00:00.000Z",
       lastModified: "2026-07-16T00:00:00.000Z",
     };
-    fixture.storage.getAllData.mockImplementation(() =>
-      structuredClone(durableRoot),
-    );
-    fixture.storage.getProfile.mockImplementation((profileId) =>
-      structuredClone(durableRoot.profiles[profileId] || null),
-    );
-    fixture.storage.saveAllData.mockImplementation((data) => {
-      durableRoot = structuredClone(data);
-      return true;
-    });
-    fixture.storage.saveProfile.mockImplementation((profileId, nextProfile) => {
-      durableRoot.profiles[profileId] = structuredClone(nextProfile);
-      return true;
-    });
+    fixture.storageFixture.setData("sto_keybind_manager", durableRoot);
     return {
       replaceProfile(nextProfile) {
         durableRoot.profiles.captain = structuredClone(nextProfile);
+        fixture.storageFixture.setData("sto_keybind_manager", durableRoot);
       },
     };
   }
@@ -87,7 +77,7 @@ describe("BindsetService replacement ownership", () => {
   function createCoordinator() {
     return new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
   }

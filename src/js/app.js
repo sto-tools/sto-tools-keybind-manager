@@ -62,7 +62,6 @@ export default class STOToolsKeybindManager {
   /**
    * @param {{
    *   i18n?: any,
-   *   storageService?: any,
    *   preferencesService?: import('./components/services/PreferencesService.js').default,
    *   applicationDataResetTransitionRunner?: import('./types/storage-contracts.js').ApplicationDataResetTransitionRunner,
    *   importedProjectOwnerAction?: import('./types/storage-contracts.js').ImportedProjectOwnerAction,
@@ -76,7 +75,6 @@ export default class STOToolsKeybindManager {
    */
   constructor({
     i18n,
-    storageService,
     preferencesService,
     applicationDataResetTransitionRunner,
     importedProjectOwnerAction,
@@ -88,7 +86,6 @@ export default class STOToolsKeybindManager {
     applyTranslations,
   } = {}) {
     this.i18n = i18n;
-    this.storageService = storageService;
     this.preferencesService = preferencesService;
     this.applicationDataResetTransitionRunner =
       applicationDataResetTransitionRunner;
@@ -180,7 +177,6 @@ export default class STOToolsKeybindManager {
   async init() {
     if (this.initialized) return;
 
-    const storageService = this.storageService;
     const stoUI = this.ui;
     const create = this.ownedComponents.create.bind(this.ownedComponents);
     let welcomeAttempt = null;
@@ -188,7 +184,6 @@ export default class STOToolsKeybindManager {
     try {
       if (
         !this.i18n ||
-        !storageService ||
         !stoUI ||
         !this.syncService ||
         !this.preferencesService ||

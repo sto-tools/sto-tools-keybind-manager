@@ -98,17 +98,33 @@ describe("project repository boundary", () => {
         status: "repair_required",
         value: defaults(),
         reason,
-        resetSentinel: { status: "not_applicable" },
+        resetSentinel: {
+          status: "pending_consumption",
+          expectedValue: "true",
+        },
       });
     },
   );
 
   it("returns a detached current root without changing its stored representation", () => {
     const raw = fixture("complete-current-root.json");
-    const result = decode(raw, "true");
+    const result = decode(raw);
     expect(result).toEqual({ status: "current", value: JSON.parse(raw) });
     result.value.settings.extension = { added: true };
     expect(decode(raw).value).toEqual(JSON.parse(raw));
+  });
+
+  it("requires verified sentinel recovery even when the stored root is current", () => {
+    const raw = fixture("complete-current-root.json");
+    expect(decode(raw, "true")).toEqual({
+      status: "repair_required",
+      value: JSON.parse(raw),
+      reason: "reset_pending",
+      resetSentinel: {
+        status: "pending_consumption",
+        expectedValue: "true",
+      },
+    });
   });
 
   it.each(["space", "ground"])(

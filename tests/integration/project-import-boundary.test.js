@@ -6,11 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import ImportService from "../../src/js/components/services/ImportService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import {
   createEventBusFixture,
   createLocalStorageFixture,
 } from "../fixtures/core/index.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 const destinationRoot = {
   version: "1.0.0",
@@ -33,7 +33,7 @@ const destinationRoot = {
 describe("project import boundary", () => {
   let eventBusFixture;
   let localStorageFixture;
-  let storage;
+  let projectRepository;
   let coordinator;
   let service;
   let preferences;
@@ -55,13 +55,10 @@ describe("project import boundary", () => {
         },
       },
     });
-    storage = new StorageService({
-      eventBus: eventBusFixture.eventBus,
-      version: "1.0.0",
-    });
+    projectRepository = createProjectRepository();
     coordinator = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles: {},
     });
@@ -70,7 +67,6 @@ describe("project import boundary", () => {
       eventBus: eventBusFixture.eventBus,
       settingsRepository,
     });
-    storage.init();
     coordinator.init();
     await coordinator.initialStateReady;
     service = new ImportService({
@@ -87,18 +83,16 @@ describe("project import boundary", () => {
     service?.destroy();
     preferences?.destroy();
     coordinator?.destroy();
-    storage?.destroy();
     eventBusFixture?.destroy();
     localStorageFixture?.destroy();
     vi.restoreAllMocks();
   });
 
   it("validates every profile before the first persistence operation", async () => {
-    const beforeRoot = localStorage.getItem("sto_keybind_manager");
+    const beforeRoot = projectRepository.load().value;
     const beforeSettings = localStorage.getItem("sto_keybind_settings");
-    const saveProfile = vi.spyOn(storage, "saveProfile");
+    const commitProject = vi.spyOn(projectRepository, "commit");
     const saveSettings = vi.spyOn(settingsRepository, "replace");
-    const saveAllData = vi.spyOn(storage, "saveAllData");
     const result = await service.importProjectFile(
       JSON.stringify({
         type: "project",
@@ -123,10 +117,9 @@ describe("project import boundary", () => {
       error: "invalid_project_file",
       params: { path: "$.data.profiles.invalid.builds.ground.keys.G" },
     });
-    expect(saveProfile).not.toHaveBeenCalled();
+    expect(commitProject).not.toHaveBeenCalled();
     expect(saveSettings).not.toHaveBeenCalled();
-    expect(saveAllData).not.toHaveBeenCalled();
-    expect(localStorage.getItem("sto_keybind_manager")).toBe(beforeRoot);
+    expect(projectRepository.load().value).toEqual(beforeRoot);
     expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeSettings);
   });
 
@@ -150,11 +143,10 @@ describe("project import boundary", () => {
   ])(
     "rejects a dangling %s profile reference before the first persistence operation",
     async (_label, data, path) => {
-      const beforeRoot = localStorage.getItem("sto_keybind_manager");
+      const beforeRoot = projectRepository.load().value;
       const beforeSettings = localStorage.getItem("sto_keybind_settings");
-      const saveProfile = vi.spyOn(storage, "saveProfile");
+      const commitProject = vi.spyOn(projectRepository, "commit");
       const saveSettings = vi.spyOn(settingsRepository, "replace");
-      const saveAllData = vi.spyOn(storage, "saveAllData");
       const result = await service.importProjectFile(
         JSON.stringify({ type: "project", data }),
       );
@@ -164,20 +156,18 @@ describe("project import boundary", () => {
         error: "invalid_project_file",
         params: { path },
       });
-      expect(saveProfile).not.toHaveBeenCalled();
+      expect(commitProject).not.toHaveBeenCalled();
       expect(saveSettings).not.toHaveBeenCalled();
-      expect(saveAllData).not.toHaveBeenCalled();
-      expect(localStorage.getItem("sto_keybind_manager")).toBe(beforeRoot);
+      expect(projectRepository.load().value).toEqual(beforeRoot);
       expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeSettings);
     },
   );
 
   it("rejects null project import options before the first persistence operation", async () => {
-    const beforeRoot = localStorage.getItem("sto_keybind_manager");
+    const beforeRoot = projectRepository.load().value;
     const beforeSettings = localStorage.getItem("sto_keybind_settings");
-    const saveProfile = vi.spyOn(storage, "saveProfile");
+    const commitProject = vi.spyOn(projectRepository, "commit");
     const saveSettings = vi.spyOn(settingsRepository, "replace");
-    const saveAllData = vi.spyOn(storage, "saveAllData");
     const result = await service.importProjectFile(
       JSON.stringify({
         type: "project",
@@ -194,10 +184,9 @@ describe("project import boundary", () => {
       error: "invalid_project_options",
       params: { path: "$.options" },
     });
-    expect(saveProfile).not.toHaveBeenCalled();
+    expect(commitProject).not.toHaveBeenCalled();
     expect(saveSettings).not.toHaveBeenCalled();
-    expect(saveAllData).not.toHaveBeenCalled();
-    expect(localStorage.getItem("sto_keybind_manager")).toBe(beforeRoot);
+    expect(projectRepository.load().value).toEqual(beforeRoot);
     expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeSettings);
   });
 
@@ -227,7 +216,8 @@ describe("project import boundary", () => {
       imported: { profiles: 1, settings: false },
       currentProfile: "ground_legacy",
     });
-    const profile = storage.getProfile("ground_legacy");
+    const project = projectRepository.load().value;
+    const profile = project.profiles.ground_legacy;
     expect(profile).toMatchObject({
       name: "Ground Legacy",
       currentEnvironment: "ground",
@@ -239,7 +229,7 @@ describe("project import boundary", () => {
     });
     expect(profile).not.toHaveProperty("mode");
     expect(profile).not.toHaveProperty("keys");
-    expect(storage.getAllData().currentProfile).toBe("ground_legacy");
+    expect(project.currentProfile).toBe("ground_legacy");
   });
 
   it("validates skipped settings while preserving settings and legacy selection", async () => {
@@ -278,7 +268,7 @@ describe("project import boundary", () => {
       currentProfile: "existing",
     });
     expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeSettings);
-    expect(storage.getAllData().currentProfile).toBe("existing");
+    expect(projectRepository.load().value.currentProfile).toBe("existing");
   });
 
   it.each([
@@ -309,9 +299,9 @@ describe("project import boundary", () => {
         eventBus: eventBusFixture.eventBus,
         settingsRepository,
       });
-      const beforeRoot = JSON.parse(localStorage.getItem(storage.storageKey));
+      const beforeRoot = projectRepository.load().value;
       const saveSettings = vi.spyOn(settingsRepository, "replace");
-      const saveAllData = vi.spyOn(storage, "saveAllData");
+      const commitProject = vi.spyOn(projectRepository, "commit");
 
       const result = await service.importProjectFile(
         JSON.stringify({
@@ -362,10 +352,8 @@ describe("project import boundary", () => {
         expect(persistedSettings.version).toBe(projectVersion);
       }
       expect(persistedSettings).not.toHaveProperty("firstRun");
-      expect(saveAllData).toHaveBeenCalledOnce();
-      expect(
-        JSON.parse(localStorage.getItem(storage.storageKey)),
-      ).toMatchObject({
+      expect(commitProject).toHaveBeenCalledOnce();
+      expect(projectRepository.load().value).toMatchObject({
         profiles: beforeRoot.profiles,
         currentProfile: beforeRoot.currentProfile,
         settings: beforeRoot.settings,

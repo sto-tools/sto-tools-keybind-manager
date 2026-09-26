@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import { createEventBusFixture } from "../fixtures/core/eventBus.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 const STORAGE_KEY = "sto_keybind_manager";
 
@@ -28,25 +28,22 @@ const defaultProfile = (name, currentEnvironment) => ({
 
 describe("default-profile real storage owner chain", () => {
   let eventBusFixture;
-  let storage;
+  let projectRepository;
   let coordinator;
 
   beforeEach(async () => {
     localStorage.clear();
     localStorage.setItem("sto_keybind_manager_visited", "true");
     eventBusFixture = createEventBusFixture();
-    storage = new StorageService({
-      eventBus: eventBusFixture.eventBus,
+    projectRepository = createProjectRepository({
       version: "1.0.0",
-      i18n: { t: (key) => key },
     });
     coordinator = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
     });
 
-    storage.init();
     coordinator.init();
     await vi.waitFor(() => {
       expect(coordinator.getCurrentState()).toMatchObject({
@@ -61,7 +58,6 @@ describe("default-profile real storage owner chain", () => {
 
   afterEach(() => {
     coordinator?.destroy();
-    storage?.destroy();
     eventBusFixture?.destroy();
     localStorage.clear();
     vi.restoreAllMocks();
@@ -110,7 +106,7 @@ describe("default-profile real storage owner chain", () => {
     expect(Object.keys(state.profiles)).toEqual(["first", "second"]);
     expect(durable.currentProfile).toBe("first");
     expect(durable.profiles).toEqual(state.profiles);
-    expect(storage.getAllData().profiles).toEqual(state.profiles);
+    expect(projectRepository.load().value.profiles).toEqual(state.profiles);
     expect(state.metadata).toEqual({
       version: durable.version,
       lastModified: durable.lastModified,
@@ -163,7 +159,7 @@ describe("default-profile real storage owner chain", () => {
     });
     expect(durable.currentProfile).toBe("default");
     expect(durable.profiles).toEqual(state.profiles);
-    expect(storage.getAllData().profiles).toEqual(state.profiles);
+    expect(projectRepository.load().value.profiles).toEqual(state.profiles);
     expect(
       eventBusFixture.getEventsOfType("storage:data-changed"),
     ).toHaveLength(1);

@@ -2,6 +2,10 @@ import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import {
+  PROJECT_ROOT_KEY,
+  readProjectProfile,
+} from "../fixtures/ui/projectStorage.js";
 
 async function readEnvironmentOwners(bus) {
   const replyTopic = `component:registered:reply:browser-environment:${Date.now()}-${Math.random()}`;
@@ -82,14 +86,12 @@ describe("Environment switch checked-bundle boundary", () => {
   it("publishes only a durably accepted environment and leaves failed attempts invisible", async () => {
     const bus = runtime().eventBus;
     const coordinator = runtime().dataCoordinator;
-    const storage = runtime().storageService;
     const commandChainUI = runtime().commandChainUI;
 
     expect(bus?.hasListeners("rpc:environment:switch")).toBe(true);
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
-    expect(storage).toBeTruthy();
     expect(commandChainUI?.isInitialized?.()).toBe(true);
-    if (!bus || !coordinator || !storage || !commandChainUI) return;
+    if (!bus || !coordinator || !commandChainUI) return;
 
     const ownerBefore = coordinator.getCurrentState();
     const profileId = ownerBefore.currentProfile;
@@ -97,7 +99,7 @@ describe("Environment switch checked-bundle boundary", () => {
     if (!profileId) return;
 
     const savedBrowserStorage = captureStorage();
-    const persistedBefore = structuredClone(storage.getProfile(profileId));
+    const persistedBefore = structuredClone(readProjectProfile(profileId));
     const ownersBefore = await readEnvironmentOwners(bus);
     const modeBefore = ownersBefore.interfaceMode.currentMode;
     const targetMode = modeBefore === "ground" ? "space" : "ground";
@@ -143,17 +145,24 @@ describe("Environment switch checked-bundle boundary", () => {
         publications.keyList.push(payload),
       ),
     ];
-    const saveProfile = vi
-      .spyOn(storage, "saveProfile")
-      .mockReturnValueOnce(false)
-      .mockRejectedValueOnce(new Error("browser storage unavailable"));
+    const originalSetItem = Storage.prototype.setItem;
+    let rejectedRootWrites = 0;
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation((key, value) => {
+        if (key === PROJECT_ROOT_KEY && rejectedRootWrites < 2) {
+          rejectedRootWrites += 1;
+          throw new Error("browser storage unavailable");
+        }
+        return originalSetItem.call(localStorage, key, value);
+      });
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
 
     try {
       for (const [index] of ["resolved false", "rejection"].entries()) {
         targetButton.click();
         await vi.waitFor(() => {
-          expect(saveProfile).toHaveBeenCalledTimes(index + 1);
+          expect(rejectedRootWrites).toBe(index + 1);
         });
         // A same-mode request is a non-writing queue barrier: it settles only
         // after the button-initiated persistence attempt has completed.
@@ -165,7 +174,7 @@ describe("Environment switch checked-bundle boundary", () => {
         expect(coordinator.getCurrentState().revision).toBe(
           ownerBefore.revision,
         );
-        expect(storage.getProfile(profileId)).toEqual(persistedBefore);
+        expect(readProjectProfile(profileId)).toEqual(persistedBefore);
         expect(await readEnvironmentOwners(bus)).toEqual(ownersBefore);
         expect(readSelectionProjection(commandChainUI)).toEqual(
           selectionProjectionBefore,
@@ -191,7 +200,7 @@ describe("Environment switch checked-bundle boundary", () => {
           currentEnvironment: targetMode,
           currentProfileData: { currentEnvironment: targetMode },
         });
-        expect(storage.getProfile(profileId).currentEnvironment).toBe(
+        expect(readProjectProfile(profileId).currentEnvironment).toBe(
           targetMode,
         );
         expect(readSelectionProjection(commandChainUI).currentEnvironment).toBe(
@@ -216,12 +225,11 @@ describe("Environment switch checked-bundle boundary", () => {
       });
       expect(publications.selection.length).toBeGreaterThan(0);
     } finally {
-      saveProfile.mockRestore();
+      setItem.mockRestore();
       error.mockRestore();
       for (const detach of detachers) detach();
 
       restoreStorage(savedBrowserStorage);
-      storage.getAllData(true);
       await request(bus, "data:reload-state");
       await vi.waitFor(() => {
         expect(coordinator.getCurrentState()).toMatchObject({

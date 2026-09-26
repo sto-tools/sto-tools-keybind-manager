@@ -43,12 +43,17 @@ describe("DataCoordinator initial-load ordering", () => {
     localStorage.setItem("sto_keybind_manager_visited", "true");
     fixture = createServiceFixture();
     durableRoot = root("stale", "Stale");
-    fixture.storage.getAllData.mockImplementation(() =>
-      structuredClone(durableRoot),
-    );
+    fixture.projectRepository.load.mockImplementation(() => ({
+      status: "current",
+      value: structuredClone(durableRoot),
+    }));
+    fixture.projectRepository.commit.mockImplementation((draft) => {
+      durableRoot = structuredClone(draft);
+      return { status: "committed", value: structuredClone(durableRoot) };
+    });
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
   });
@@ -74,25 +79,25 @@ describe("DataCoordinator initial-load ordering", () => {
       success: false,
       error: "operation_cancelled",
     });
-    expect(fixture.storage.getAllData).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.load).not.toHaveBeenCalled();
   });
 
   it("settles startup normalization before restore can replace durable and owner state", async () => {
     delete durableRoot.profiles.stale.migrationVersion;
-    const pendingInitialWrite = deferred();
+    const pendingInitialNormalization = deferred();
     const writeOrder = [];
-    let saveCount = 0;
-    fixture.storage.saveAllData.mockImplementation(async (draft) => {
-      saveCount += 1;
-      if (saveCount === 1) await pendingInitialWrite.promise;
+    vi.spyOn(coordinator, "_normalizeAllProfiles").mockImplementationOnce(
+      () => pendingInitialNormalization.promise,
+    );
+    fixture.projectRepository.commit.mockImplementation((draft) => {
       durableRoot = structuredClone(draft);
-      writeOrder.push(saveCount === 1 ? "initial-normalization" : "reload");
-      return true;
+      writeOrder.push("initial-normalization");
+      return { status: "committed", value: structuredClone(durableRoot) };
     });
 
     coordinator.init();
     await vi.waitFor(() => {
-      expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
+      expect(coordinator._normalizeAllProfiles).toHaveBeenCalledTimes(1);
     });
 
     const importedRoot = root("imported", "Imported");
@@ -109,7 +114,7 @@ describe("DataCoordinator initial-load ordering", () => {
     expect(restoreStarted).toBe(false);
     expect(durableRoot.currentProfile).toBe("stale");
 
-    pendingInitialWrite.resolve();
+    pendingInitialNormalization.resolve(1);
 
     await expect(startupRestore).resolves.toMatchObject({
       success: true,
@@ -134,16 +139,23 @@ describe("DataCoordinator initial-load ordering", () => {
     coordinator.defaultProfileDefinitions = {
       default_space: profile("Default Space"),
     };
-    const pendingDefaultWrite = deferred();
-    fixture.storage.saveAllData.mockImplementationOnce(async (draft) => {
-      await pendingDefaultWrite.promise;
+    const pendingDefaultCompletion = deferred();
+    const createDefaults =
+      coordinator._tryCreateDefaultProfiles.bind(coordinator);
+    vi.spyOn(coordinator, "_tryCreateDefaultProfiles").mockImplementation(
+      async () => {
+        await createDefaults();
+        await pendingDefaultCompletion.promise;
+      },
+    );
+    fixture.projectRepository.commit.mockImplementationOnce((draft) => {
       durableRoot = structuredClone(draft);
-      return true;
+      return { status: "committed", value: structuredClone(durableRoot) };
     });
 
     coordinator.init();
     await vi.waitFor(() => {
-      expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
+      expect(fixture.projectRepository.commit).toHaveBeenCalledTimes(1);
     });
 
     const importedRoot = root("imported", "Imported");
@@ -157,9 +169,9 @@ describe("DataCoordinator initial-load ordering", () => {
 
     await Promise.resolve();
     expect(restoreStarted).toBe(false);
-    expect(durableRoot.profiles).toEqual({});
+    expect(durableRoot.profiles).toHaveProperty("default_space");
 
-    pendingDefaultWrite.resolve();
+    pendingDefaultCompletion.resolve();
 
     await expect(startupRestore).resolves.toMatchObject({
       success: true,
@@ -191,7 +203,7 @@ describe("DataCoordinator initial-load ordering", () => {
     const reload = coordinator.reloadState();
 
     await Promise.resolve();
-    expect(fixture.storage.getAllData).toHaveBeenCalledTimes(1);
+    expect(fixture.projectRepository.load).toHaveBeenCalledTimes(1);
     expect(normalize).toHaveBeenCalledTimes(1);
 
     pendingNormalization.resolve(0);
@@ -226,7 +238,7 @@ describe("DataCoordinator initial-load ordering", () => {
     expect(secondReady).not.toBe(firstReady);
     await Promise.resolve();
     expect(normalize).toHaveBeenCalledTimes(1);
-    expect(fixture.storage.getAllData).toHaveBeenCalledTimes(1);
+    expect(fixture.projectRepository.load).toHaveBeenCalledTimes(1);
 
     firstNormalization.resolve(0);
 
@@ -256,11 +268,11 @@ describe("DataCoordinator initial-load ordering", () => {
     vi.spyOn(coordinator, "_normalizeAllProfiles").mockImplementationOnce(
       () => pendingNormalization.promise,
     );
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
     coordinator.init();
     const ready = coordinator.initialStateReady;
     await vi.waitFor(() => {
-      expect(fixture.storage.getAllData).toHaveBeenCalledTimes(3);
+      expect(fixture.projectRepository.load).toHaveBeenCalledTimes(2);
     });
 
     expect(fixture.eventBus.getListenerCount("rpc:data:create-profile")).toBe(
@@ -288,7 +300,7 @@ describe("DataCoordinator initial-load ordering", () => {
       replyTopic: "rpc:test:blocked-create",
       payload: { name: "Blocked" },
     });
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
     expect(coordinator.state.currentProfile).toBe("stale");
 
     pendingNormalization.resolve(0);
@@ -303,7 +315,7 @@ describe("DataCoordinator initial-load ordering", () => {
 
   it("exposes initial failure while settling the serialization tail", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    fixture.storage.getAllData.mockImplementation(() => {
+    fixture.projectRepository.load.mockImplementation(() => {
       throw new Error("storage unavailable");
     });
 

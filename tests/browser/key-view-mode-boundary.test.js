@@ -24,6 +24,8 @@ describe("Key view mode checked-bundle boundary", () => {
 
     const start = service.getCurrentState();
     const startingEnvironment = ui.cache.currentEnvironment;
+    const activeEnvironment =
+      startingEnvironment === "alias" ? "space" : startingEnvironment;
     const nextMode = {
       grid: "categorized",
       categorized: "key-types",
@@ -45,7 +47,7 @@ describe("Key view mode checked-bundle boundary", () => {
     };
 
     try {
-      await bus.emit("environment:changed", { environment: "alias" });
+      await request(bus, "environment:switch", { mode: "alias" });
       await vi.waitFor(() => {
         expect(ui.cache.currentEnvironment).toBe("alias");
       });
@@ -54,11 +56,11 @@ describe("Key view mode checked-bundle boundary", () => {
       expect(service.getCurrentState()).toEqual(start);
       expect(localStorage.getItem(storageKey)).toBe(beforeStored);
 
-      await bus.emit("environment:changed", {
-        environment: startingEnvironment,
+      await request(bus, "environment:switch", {
+        mode: activeEnvironment,
       });
       await vi.waitFor(() => {
-        expect(ui.cache.currentEnvironment).toBe(startingEnvironment);
+        expect(ui.cache.currentEnvironment).toBe(activeEnvironment);
       });
 
       let expectedMode = start.mode;
@@ -84,8 +86,8 @@ describe("Key view mode checked-bundle boundary", () => {
       expect(service.getCurrentState().mode).toBe(start.mode);
     } finally {
       if (ui.cache.currentEnvironment !== startingEnvironment) {
-        await bus.emit("environment:changed", {
-          environment: startingEnvironment,
+        await request(bus, "environment:switch", {
+          mode: startingEnvironment,
         });
       }
       for (let attempts = 0; attempts < 2; attempts += 1) {

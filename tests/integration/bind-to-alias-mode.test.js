@@ -69,16 +69,17 @@ describe("Bind-to-Alias Mode Integration", () => {
     exportService.init();
 
     dataCoordinator = new DataCoordinator({
-      storage: serviceFixture.storage,
       eventBus: serviceFixture.eventBus,
+      projectRepository: serviceFixture.projectRepository,
+      i18n: mockI18n,
     });
     dataCoordinator.updateProfile = vi
       .fn()
       .mockResolvedValue({ success: true, profile: {} });
 
     commandChainService = new CommandChainService({
-      storage: serviceFixture.storage,
       eventBus: serviceFixture.eventBus,
+      i18n: mockI18n,
     });
     commandChainService.request = vi
       .fn()

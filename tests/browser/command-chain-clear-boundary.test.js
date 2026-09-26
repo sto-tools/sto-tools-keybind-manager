@@ -2,6 +2,10 @@ import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import {
+  PROJECT_ROOT_KEY,
+  readProjectProfile,
+} from "../fixtures/ui/projectStorage.js";
 
 const probeKey = "__command_chain_clear_atomicity_probe__";
 
@@ -9,14 +13,12 @@ describe("Command-chain clear checked-bundle boundary", () => {
   it("does not publish a failed clear and converges owner, cache, and storage after success", async () => {
     const bus = runtime().eventBus;
     const coordinator = runtime().dataCoordinator;
-    const storage = runtime().storageService;
     const chainUi = runtime().commandChainUI;
 
     expect(bus).toBeTruthy();
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
-    expect(storage).toBeTruthy();
     expect(chainUi?.isInitialized?.()).toBe(true);
-    if (!bus || !coordinator || !storage || !chainUi) return;
+    if (!bus || !coordinator || !chainUi) return;
 
     const startingState = coordinator.getCurrentState();
     const profileId = startingState.currentProfile;
@@ -35,7 +37,7 @@ describe("Command-chain clear checked-bundle boundary", () => {
     const profileUpdated = vi.fn();
     const detachChain = bus.on("chain-data-changed", chainChanged);
     const detachProfile = bus.on("profile:updated", profileUpdated);
-    let saveProfileSpy;
+    let setItemSpy;
 
     try {
       if (originalEnvironment !== environment) {
@@ -68,27 +70,36 @@ describe("Command-chain clear checked-bundle boundary", () => {
       });
       const beforeFailure = coordinator.getCurrentState();
       const durableBeforeFailure = structuredClone(
-        storage.getProfile(profileId),
+        readProjectProfile(profileId),
       );
       chainChanged.mockClear();
       profileUpdated.mockClear();
 
-      saveProfileSpy = vi.spyOn(storage, "saveProfile").mockReturnValue(false);
+      const originalSetItem = Storage.prototype.setItem;
+      setItemSpy = vi
+        .spyOn(Storage.prototype, "setItem")
+        .mockImplementation((key, value) => {
+          if (key === PROJECT_ROOT_KEY) throw new Error("quota exceeded");
+          return originalSetItem.call(localStorage, key, value);
+        });
       await bus.emit(
         "command-chain:clear",
         { key: probeKey },
         { synchronous: true },
       );
 
-      expect(saveProfileSpy).toHaveBeenCalledTimes(1);
+      expect(setItemSpy).toHaveBeenCalledWith(
+        PROJECT_ROOT_KEY,
+        expect.any(String),
+      );
       expect(coordinator.getCurrentState()).toEqual(beforeFailure);
       expect(chainUi.cache.dataState).toEqual(beforeFailure);
-      expect(storage.getProfile(profileId)).toEqual(durableBeforeFailure);
+      expect(readProjectProfile(profileId)).toEqual(durableBeforeFailure);
       expect(profileUpdated).not.toHaveBeenCalled();
       expect(chainChanged).not.toHaveBeenCalled();
 
-      saveProfileSpy.mockRestore();
-      saveProfileSpy = undefined;
+      setItemSpy.mockRestore();
+      setItemSpy = undefined;
       await bus.emit(
         "command-chain:clear",
         { key: probeKey },
@@ -106,14 +117,14 @@ describe("Command-chain clear checked-bundle boundary", () => {
           ],
         ).toEqual([]);
         expect(
-          storage.getProfile(profileId).builds[environment].keys[probeKey],
+          readProjectProfile(profileId).builds[environment].keys[probeKey],
         ).toEqual([]);
       });
       expect(profileUpdated).toHaveBeenCalledTimes(1);
       expect(chainChanged).toHaveBeenCalledTimes(1);
       expect(chainChanged).toHaveBeenLastCalledWith({ commands: [] });
     } finally {
-      saveProfileSpy?.mockRestore();
+      setItemSpy?.mockRestore();
       await request(bus, "data:update-profile", {
         profileId,
         delete: { builds: { [environment]: { keys: [probeKey] } } },

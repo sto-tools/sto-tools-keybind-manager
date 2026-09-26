@@ -305,7 +305,6 @@ describe("STOToolsKeybindManager startup composition", () => {
 
     app = new STOToolsKeybindManager({
       i18n,
-      storageService: {},
       preferencesService: new startupHarness.StubComponent(),
       applicationDataResetTransitionRunner: vi.fn(),
       syncService,
@@ -393,7 +392,6 @@ describe("STOToolsKeybindManager startup composition", () => {
 
     app = new STOToolsKeybindManager({
       i18n,
-      storageService: {},
       preferencesService: new startupHarness.StubComponent(),
       applicationDataResetTransitionRunner: vi.fn(),
       syncService: {},
@@ -457,13 +455,11 @@ describe("STOToolsKeybindManager startup composition", () => {
   });
 
   it("reverse-destroys every owner after a late Bindset failure and retries exactly once", async () => {
-    const storageService = { destroy: vi.fn() };
     const syncDependency = { destroy: vi.fn() };
     const ui = { showToast: vi.fn(), destroy: vi.fn() };
     const i18n = { t: (key) => key };
     app = new STOToolsKeybindManager({
       i18n,
-      storageService,
       preferencesService: new startupHarness.StubComponent(),
       applicationDataResetTransitionRunner: vi.fn(),
       syncService: syncDependency,
@@ -483,7 +479,6 @@ describe("STOToolsKeybindManager startup composition", () => {
     expect(app.ownedComponents.entries).toEqual([]);
     expect(app.bindsetSelectorUI).toBeNull();
     expect(app.preferencesManager).toBeNull();
-    expect(storageService.destroy).not.toHaveBeenCalled();
     expect(syncDependency.destroy).not.toHaveBeenCalled();
     expect(ui.destroy).not.toHaveBeenCalled();
     expect(ui.showToast).toHaveBeenCalledOnce();
@@ -547,7 +542,6 @@ describe("STOToolsKeybindManager startup composition", () => {
     await app.init();
     expect(startupHarness.operations).toHaveLength(operationCount);
     expect(ui.showToast).toHaveBeenCalledTimes(2);
-    expect(storageService.destroy).not.toHaveBeenCalled();
     expect(syncDependency.destroy).not.toHaveBeenCalled();
     expect(ui.destroy).not.toHaveBeenCalled();
   });

@@ -97,7 +97,7 @@ describe("CommandService mutation owner atomicity", () => {
     ui = { showToast: vi.fn() };
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n,
     });
     service = new CommandService({
@@ -116,7 +116,7 @@ describe("CommandService mutation owner atomicity", () => {
     });
 
     fixture.eventBusFixture.clearEventHistory();
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
   });
 
   afterEach(() => {
@@ -132,17 +132,20 @@ describe("CommandService mutation owner atomicity", () => {
       const ownerBefore = coordinator.getCurrentState();
       const cacheBefore = structuredClone(service.cache.dataState);
       const durableBefore = structuredClone(
-        fixture.storage.getProfile("captain"),
+        fixture.readProjectRoot().profiles.captain,
       );
-      fixture.storage.saveProfile.mockReturnValue(false);
+      fixture.projectRepository.commit.mockReturnValue({
+        status: "write_failed",
+        error: "storage_write_failed",
+      });
       vi.spyOn(console, "error").mockImplementation(() => {});
 
       await expect(invoke(service)).resolves.toBe(false);
 
-      expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
       expect(coordinator.getCurrentState()).toEqual(ownerBefore);
       expect(service.cache.dataState).toEqual(cacheBefore);
-      expect(fixture.storage.getProfile("captain")).toEqual(durableBefore);
+      expect(fixture.readProjectRoot().profiles.captain).toEqual(durableBefore);
       expect(
         fixture
           .getEventHistory()
@@ -181,8 +184,8 @@ describe("CommandService mutation owner atomicity", () => {
       }
 
       const ownerAfter = coordinator.getCurrentState();
-      const durableAfter = fixture.storage.getProfile("captain");
-      expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
+      const durableAfter = fixture.readProjectRoot().profiles.captain;
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
       expect(ownerAfter.revision).toBe(ownerBefore.revision + 1);
       expect(ownerAfter.profiles.captain.builds.space.keys.F1).toEqual(
         commands,
@@ -205,14 +208,14 @@ describe("CommandService mutation owner atomicity", () => {
       expect(service.cache.dataState?.currentEnvironment).toBe("ground");
     });
     fixture.eventBusFixture.clearEventHistory();
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
 
     await expect(
       service.addCommand("G1", "GroundNamed", "Weapons"),
     ).resolves.toBe(true);
 
     const ownerAfter = coordinator.getCurrentState();
-    const durableAfter = fixture.storage.getProfile("captain");
+    const durableAfter = fixture.readProjectRoot().profiles.captain;
     expect(ownerAfter.profiles.captain.bindsets.Weapons).toEqual({
       space: { keys: { F1: ["NamedOne", "NamedTwo"] } },
       ground: { keys: { G1: ["GroundNamed"] } },

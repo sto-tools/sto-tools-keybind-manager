@@ -21,7 +21,7 @@ describe("DataCoordinator persistence failure gating", () => {
     fixture = createServiceFixture();
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     coordinator.state.currentProfile = "captain";
@@ -29,6 +29,13 @@ describe("DataCoordinator persistence failure gating", () => {
     coordinator.state.profiles = {
       captain: structuredClone(profile),
       first_officer: { ...structuredClone(profile), name: "First Officer" },
+    };
+    coordinator._projectRoot = {
+      currentProfile: "captain",
+      profiles: structuredClone(coordinator.state.profiles),
+      settings: {},
+      version: "1.0.0",
+      lastModified: "2026-07-19T00:00:00.000Z",
     };
     fixture.eventBusFixture.clearEventHistory();
   });
@@ -53,7 +60,10 @@ describe("DataCoordinator persistence failure gating", () => {
     "does not commit or broadcast a profile %s when saveProfile returns false",
     async (_operation, perform) => {
       const before = structuredClone(coordinator.state);
-      fixture.storage.saveProfile.mockReturnValueOnce(false);
+      fixture.projectRepository.commit.mockReturnValueOnce({
+        status: "write_failed",
+        error: "storage_write_failed",
+      });
 
       await expect(perform()).rejects.toThrow();
 
@@ -69,7 +79,10 @@ describe("DataCoordinator persistence failure gating", () => {
   );
 
   it("does not switch profiles when the root write returns false", async () => {
-    fixture.storage.saveAllData.mockReturnValueOnce(false);
+    fixture.projectRepository.commit.mockReturnValueOnce({
+      status: "write_failed",
+      error: "storage_write_failed",
+    });
 
     await expect(coordinator.switchProfile("first_officer")).rejects.toThrow(
       "storage_write_failed",
@@ -84,19 +97,22 @@ describe("DataCoordinator persistence failure gating", () => {
 
   it("does not delete a profile when storage rejects the deletion", async () => {
     const before = structuredClone(coordinator.state);
-    fixture.storage.saveAllData.mockReturnValueOnce(false);
+    fixture.projectRepository.commit.mockReturnValueOnce({
+      status: "write_failed",
+      error: "storage_write_failed",
+    });
 
     await expect(coordinator.deleteProfile("captain")).rejects.toThrow(
       "failed_to_delete_profile",
     );
 
-    expect(fixture.storage.saveAllData).toHaveBeenCalledWith(
+    expect(fixture.projectRepository.commit).toHaveBeenCalledWith(
       expect.objectContaining({
         currentProfile: "first_officer",
         profiles: expect.not.objectContaining({ captain: expect.anything() }),
       }),
+      { verification: "not_requested" },
     );
-    expect(fixture.storage.deleteProfile).not.toHaveBeenCalled();
     expect(coordinator.state).toEqual(before);
     expect(
       fixture
@@ -108,7 +124,10 @@ describe("DataCoordinator persistence failure gating", () => {
   });
 
   it("does not change environments when profile persistence fails", async () => {
-    fixture.storage.saveProfile.mockReturnValueOnce(false);
+    fixture.projectRepository.commit.mockReturnValueOnce({
+      status: "write_failed",
+      error: "storage_write_failed",
+    });
 
     await expect(coordinator.setEnvironment("ground")).rejects.toThrow(
       "failed_to_save_profile",

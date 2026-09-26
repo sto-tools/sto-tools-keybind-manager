@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { request } from "../../src/js/core/requestResponse.js";
+import {
+  PROJECT_BACKUP_KEY,
+  PROJECT_ROOT_KEY,
+} from "../fixtures/ui/projectStorage.js";
 
 const profileName = "Browser Owner Cohort Probe";
 const profileId = "browser_owner_cohort_probe";
@@ -15,16 +19,12 @@ function createKBF() {
 /** Run against production composition, then restore exact prior raw storage. */
 async function withIsolatedProfile(run) {
   const app = runtime();
-  const {
-    eventBus: bus,
-    dataCoordinator: owner,
-    storageService: storage,
-  } = app;
+  const { eventBus: bus, dataCoordinator: owner } = app;
   const previous = owner.getCurrentState();
   expect(previous.ready).toBe(true);
   const rawBefore = new Map([
-    [storage.storageKey, localStorage.getItem(storage.storageKey)],
-    [storage.backupKey, localStorage.getItem(storage.backupKey)],
+    [PROJECT_ROOT_KEY, localStorage.getItem(PROJECT_ROOT_KEY)],
+    [PROJECT_BACKUP_KEY, localStorage.getItem(PROJECT_BACKUP_KEY)],
     ["sto_keybind_settings", localStorage.getItem("sto_keybind_settings")],
   ]);
   const forbiddenQueries = [
@@ -49,16 +49,16 @@ async function withIsolatedProfile(run) {
 
   const accepted = async (action, revisionDelta = 1) => {
     const before = owner.getCurrentState();
-    const raw = localStorage.getItem(storage.storageKey);
+    const raw = localStorage.getItem(PROJECT_ROOT_KEY);
     const result = await action();
     const state = owner.getCurrentState();
     expect(state.authorityEpoch).toBe(before.authorityEpoch);
     expect(state.revision).toBe(before.revision + revisionDelta);
-    expect(localStorage.getItem(storage.storageKey)).not.toBe(raw);
-    const durable = JSON.parse(localStorage.getItem(storage.storageKey));
+    expect(localStorage.getItem(PROJECT_ROOT_KEY)).not.toBe(raw);
+    const durable = JSON.parse(localStorage.getItem(PROJECT_ROOT_KEY));
     expect(durable.profiles).toEqual(state.profiles);
     expect(durable.currentProfile).toBe(state.currentProfile);
-    expect(JSON.parse(localStorage.getItem(storage.backupKey)).data).toBe(raw);
+    expect(JSON.parse(localStorage.getItem(PROJECT_BACKUP_KEY)).data).toBe(raw);
     await vi.waitFor(() =>
       expect(app.commandChainUI.cache.dataState).toBe(state),
     );
@@ -80,7 +80,7 @@ async function withIsolatedProfile(run) {
     await vi.waitFor(() =>
       expect(document.getElementById("profileSelect").value).toBe(profileId),
     );
-    await run({ ...app, bus, owner, storage, accepted });
+    await run({ ...app, bus, owner, accepted });
     expect(localStorage.getItem("sto_keybind_settings")).toBe(
       rawBefore.get("sto_keybind_settings"),
     );
@@ -95,10 +95,9 @@ async function withIsolatedProfile(run) {
   } finally {
     emit.mockRestore();
     document.querySelector('[data-modal="vertigoModal"].modal-close')?.click();
-    const originalRoot = rawBefore.get(storage.storageKey);
-    if (originalRoot === null) localStorage.removeItem(storage.storageKey);
-    else localStorage.setItem(storage.storageKey, originalRoot);
-    storage.getAllData(true);
+    const originalRoot = rawBefore.get(PROJECT_ROOT_KEY);
+    if (originalRoot === null) localStorage.removeItem(PROJECT_ROOT_KEY);
+    else localStorage.setItem(PROJECT_ROOT_KEY, originalRoot);
     await request(bus, "data:reload-state");
     for (const [key, raw] of rawBefore) {
       if (raw === null) localStorage.removeItem(key);

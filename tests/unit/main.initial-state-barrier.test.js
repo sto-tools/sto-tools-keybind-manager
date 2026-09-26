@@ -15,7 +15,8 @@ const bootstrap = vi.hoisted(() => {
     ComponentStub,
     dataRpcTopics: new Set(),
     appDependencies: null,
-    dataCoordinatorOwner: null,
+    dataCoordinator: null,
+    projectRepository: null,
     devMonitorI18n: null,
     runtimeDiagnostics: null,
     syncOptions: null,
@@ -35,7 +36,8 @@ const bootstrap = vi.hoisted(() => {
       state.operations.length = 0;
       state.dataRpcTopics.clear();
       state.appDependencies = null;
-      state.dataCoordinatorOwner = null;
+      state.dataCoordinator = null;
+      state.projectRepository = null;
       state.devMonitorI18n = null;
       state.runtimeDiagnostics = null;
       state.syncOptions = null;
@@ -98,24 +100,23 @@ vi.mock("../../src/js/core/constants.js", () => ({
   DISPLAY_VERSION: "vtest",
 }));
 
+vi.mock(
+  "../../src/js/components/storage/LocalStorageProjectRepository.js",
+  () => ({
+    default: class {
+      constructor(options) {
+        bootstrap.projectRepository = { instance: this, options };
+      }
+    },
+  }),
+);
+
 vi.mock("../../src/js/components/services/index.js", () => {
-  class StorageService extends bootstrap.ComponentStub {
-    version = "test-version";
-
-    init() {
-      bootstrap.operations.push("storage:init");
-    }
-
-    destroy() {
-      bootstrap.operations.push("storage:destroy");
-    }
-  }
-
   class DataCoordinator extends bootstrap.ComponentStub {
-    constructor() {
+    constructor(options) {
       super();
       this.initialStateReady = bootstrap.initialStateReady;
-      bootstrap.dataCoordinatorOwner = this;
+      bootstrap.dataCoordinator = { owner: this, options };
       bootstrap.operations.push("coordinator:construct");
     }
 
@@ -146,7 +147,6 @@ vi.mock("../../src/js/components/services/index.js", () => {
   return {
     CommandChainValidatorService: bootstrap.ComponentStub,
     DataCoordinator,
-    StorageService,
     SyncService,
     ToastService: bootstrap.ComponentStub,
     UIUtilityService: bootstrap.ComponentStub,
@@ -237,7 +237,6 @@ describe("main DataCoordinator startup barrier", () => {
       "dataCoordinator",
       "eventBus",
       "i18next",
-      "storageService",
       "showDirectoryPicker",
     ]) {
       delete window[property];
@@ -255,7 +254,6 @@ describe("main DataCoordinator startup barrier", () => {
     await vi.waitFor(() =>
       expect(bootstrap.operations).toContain("preferences:init"),
     );
-    expect(bootstrap.operations).not.toContain("storage:init");
     expect(bootstrap.operations).not.toContain("coordinator:construct");
     expect(bootstrap.operations).not.toContain("app:construct");
     release();
@@ -290,7 +288,6 @@ describe("main DataCoordinator startup barrier", () => {
     await vi.waitFor(() =>
       expect(bootstrap.operations).toContain("preferences:destroy"),
     );
-    expect(bootstrap.operations).not.toContain("storage:init");
     expect(bootstrap.operations).not.toContain("coordinator:construct");
     expect(bootstrap.operations).not.toContain("app:construct");
     expect(localStorage.getItem("sto_keybind_manager")).toBe(before);
@@ -302,7 +299,6 @@ describe("main DataCoordinator startup barrier", () => {
     await vi.waitFor(() => {
       expect(bootstrap.operations).toContain("coordinator:init");
     });
-    expect(bootstrap.operations).not.toContain("storage:get-settings");
     expect(bootstrap.operations).not.toContain("app:construct");
     expect(bootstrap.operations).not.toContain("app:init");
 
@@ -343,9 +339,17 @@ describe("main DataCoordinator startup barrier", () => {
         currentArtifactSerializer: bootstrap.currentArtifactSerializer,
       }),
     );
+    expect(bootstrap.dataCoordinator.options).toMatchObject({
+      projectRepository: bootstrap.projectRepository.instance,
+    });
+    const { options: repositoryOptions } = bootstrap.projectRepository;
+    expect(repositoryOptions).toMatchObject({
+      version: "test-version",
+      storage: localStorage,
+    });
     expect(bootstrap.artifactCaptureOwners).toEqual({
       preferencesOwner: bootstrap.appDependencies.preferencesService,
-      dataOwner: bootstrap.dataCoordinatorOwner,
+      dataOwner: bootstrap.dataCoordinator.owner,
     });
     expect(bootstrap.currentArtifactSerializer.options).toEqual({
       capturePort: bootstrap.artifactCapturePort,
@@ -353,19 +357,14 @@ describe("main DataCoordinator startup barrier", () => {
     });
     expect(bootstrap.runtimeDiagnostics).toEqual({
       eventBus: expect.objectContaining({ emit: expect.any(Function) }),
-      storageService: expect.anything(),
       dataCoordinator: expect.anything(),
       commandChainUI: { name: "command-chain-ui" },
       keyBrowserUI: { name: "key-browser-ui" },
       keyBrowserService: { name: "key-browser-service" },
     });
     expect(Object.isFrozen(bootstrap.runtimeDiagnostics)).toBe(true);
-    expect(bootstrap.runtimeDiagnostics).not.toHaveProperty(
-      "currentArtifactSerializer",
-    );
     for (const property of [
       "eventBus",
-      "storageService",
       "dataCoordinator",
       "commandChainUI",
       "keyBrowserUI",
@@ -478,10 +477,9 @@ describe("main DataCoordinator startup barrier", () => {
     expect(bootstrap.operations).not.toContain("app:construct");
     expect(bootstrap.operations).not.toContain("app:init");
     expect(bootstrap.dataRpcTopics.size).toBe(0);
-    expect(bootstrap.operations.slice(-4)).toEqual([
+    expect(bootstrap.operations.slice(-3)).toEqual([
       "coordinator:destroy",
       "data-service:destroy",
-      "storage:destroy",
       "preferences:destroy",
     ]);
     expect(bootstrap.runtimeDiagnostics).toBeNull();

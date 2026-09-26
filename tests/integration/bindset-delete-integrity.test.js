@@ -65,7 +65,7 @@ describe("Bindset deletion owner and persistence integrity", () => {
     });
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     service = new BindsetService({ eventBus: fixture.eventBus });
@@ -80,7 +80,7 @@ describe("Bindset deletion owner and persistence integrity", () => {
     });
 
     fixture.eventBusFixture.clearEventHistory();
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
   }
 
   afterEach(() => {
@@ -109,8 +109,8 @@ describe("Bindset deletion owner and persistence integrity", () => {
 
       const ownerAfter = coordinator.getCurrentState();
       const ownerProfile = ownerAfter.profiles.captain;
-      const durableProfile = fixture.storage.getProfile("captain");
-      expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
+      const durableProfile = fixture.readProjectRoot().profiles.captain;
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
       expect(ownerAfter.revision).toBe(revisionBefore + 1);
       expect(service.cache.dataState).toBe(ownerAfter);
       expect(Object.hasOwn(ownerProfile.bindsets, "Weapons")).toBe(false);
@@ -132,9 +132,12 @@ describe("Bindset deletion owner and persistence integrity", () => {
     await start(true);
     const ownerBefore = coordinator.getCurrentState();
     const durableBefore = structuredClone(
-      fixture.storage.getProfile("captain"),
+      fixture.readProjectRoot().profiles.captain,
     );
-    fixture.storage.saveProfile.mockReturnValueOnce(false);
+    fixture.projectRepository.commit.mockReturnValueOnce({
+      status: "write_failed",
+      error: "storage_write_failed",
+    });
 
     await expect(
       request(fixture.eventBus, "bindset:delete-with-keys", {
@@ -142,10 +145,10 @@ describe("Bindset deletion owner and persistence integrity", () => {
       }),
     ).rejects.toThrow("failed_to_save_profile");
 
-    expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
+    expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
     expect(coordinator.getCurrentState()).toBe(ownerBefore);
     expect(service.cache.dataState).toBe(ownerBefore);
-    expect(fixture.storage.getProfile("captain")).toEqual(durableBefore);
+    expect(fixture.readProjectRoot().profiles.captain).toEqual(durableBefore);
     expect(ownerBefore.profiles.captain.bindsets).toHaveProperty("Weapons");
     expect(ownerBefore.profiles.captain.bindsetMetadata).toHaveProperty(
       "Weapons",

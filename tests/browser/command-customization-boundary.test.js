@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
 import { observeCommandChainProjection } from "../fixtures/ui/commandChainProjection.js";
+import {
+  PROJECT_ROOT_KEY,
+  readProjectProfile,
+} from "../fixtures/ui/projectStorage.js";
 
 const probeKey = "__command_customization_boundary_probe__";
 
@@ -11,14 +15,13 @@ function getProbeCommands(coordinator, profileId, environment) {
     .keys[probeKey];
 }
 
-function getStoredProbeCommands(storage, profileId, environment) {
-  return storage.getProfile(profileId).builds[environment].keys[probeKey];
+function getStoredProbeCommands(profileId, environment) {
+  return readProjectProfile(profileId).builds[environment].keys[probeKey];
 }
 
-function getRawProbeCommands(storage, profileId, environment) {
-  return JSON.parse(localStorage.getItem(storage.storageKey)).profiles[
-    profileId
-  ].builds[environment].keys[probeKey];
+function getRawProbeCommands(profileId, environment) {
+  return JSON.parse(localStorage.getItem(PROJECT_ROOT_KEY)).profiles[profileId]
+    .builds[environment].keys[probeKey];
 }
 
 function getToggle(selector) {
@@ -31,14 +34,12 @@ describe("Command customization checked-bundle boundary", () => {
   it("keeps a rejected toggle inert and durably converges accepted palindromic and placement clicks", async () => {
     const bus = runtime().eventBus;
     const coordinator = runtime().dataCoordinator;
-    const storage = runtime().storageService;
     const chainUi = runtime().commandChainUI;
 
     expect(bus).toBeTruthy();
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
-    expect(storage).toBeTruthy();
     expect(chainUi?.isInitialized?.()).toBe(true);
-    if (!bus || !coordinator || !storage || !chainUi) return;
+    if (!bus || !coordinator || !chainUi) return;
 
     const startingState = coordinator.getCurrentState();
     const profileId = startingState.currentProfile;
@@ -75,7 +76,7 @@ describe("Command customization checked-bundle boundary", () => {
     const profileUpdated = vi.fn();
     const detachStateChanged = bus.on("data:state-changed", stateChanged);
     const detachProfileUpdated = bus.on("profile:updated", profileUpdated);
-    let saveProfileSpy;
+    let setItemSpy;
 
     try {
       const commandOperation = hadOriginalKey
@@ -139,33 +140,42 @@ describe("Command customization checked-bundle boundary", () => {
       const ownerBeforeFailure = coordinator.getCurrentState();
       const cacheBeforeFailure = chainUi.cache.dataState;
       const durableBeforeFailure = structuredClone(
-        storage.getProfile(profileId),
+        readProjectProfile(profileId),
       );
-      const rawBeforeFailure = localStorage.getItem(storage.storageKey);
+      const rawBeforeFailure = localStorage.getItem(PROJECT_ROOT_KEY);
       stateChanged.mockClear();
       profileUpdated.mockClear();
-      saveProfileSpy = vi.spyOn(storage, "saveProfile").mockReturnValue(false);
+      const originalSetItem = Storage.prototype.setItem;
+      setItemSpy = vi
+        .spyOn(Storage.prototype, "setItem")
+        .mockImplementation((key, value) => {
+          if (key === PROJECT_ROOT_KEY) throw new Error("quota exceeded");
+          return originalSetItem.call(localStorage, key, value);
+        });
 
       expect(palindromicToggle.isConnected).toBe(true);
       expect(palindromicToggle.disabled).toBe(false);
       palindromicToggle.click();
 
       await vi.waitFor(() => {
-        expect(saveProfileSpy).toHaveBeenCalledOnce();
+        expect(setItemSpy).toHaveBeenCalledWith(
+          PROJECT_ROOT_KEY,
+          expect.any(String),
+        );
       });
       await new Promise((resolve) => window.setTimeout(resolve, 0));
       expect(coordinator.getCurrentState()).toBe(ownerBeforeFailure);
       expect(chainUi.cache.dataState).toBe(cacheBeforeFailure);
-      expect(storage.getProfile(profileId)).toEqual(durableBeforeFailure);
-      expect(localStorage.getItem(storage.storageKey)).toBe(rawBeforeFailure);
+      expect(readProjectProfile(profileId)).toEqual(durableBeforeFailure);
+      expect(localStorage.getItem(PROJECT_ROOT_KEY)).toBe(rawBeforeFailure);
       expect(stateChanged).not.toHaveBeenCalled();
       expect(profileUpdated).not.toHaveBeenCalled();
       expect(palindromicToggle.isConnected).toBe(true);
       expect(palindromicToggle.classList).toContain("active");
       expect(getToggle(".btn-placement-toggle")).toBeNull();
 
-      saveProfileSpy.mockRestore();
-      saveProfileSpy = vi.spyOn(storage, "saveProfile");
+      setItemSpy.mockRestore();
+      setItemSpy = vi.spyOn(Storage.prototype, "setItem");
       stateChanged.mockClear();
       profileUpdated.mockClear();
       const revisionBeforePalindromic = coordinator.getCurrentState().revision;
@@ -189,10 +199,10 @@ describe("Command customization checked-bundle boundary", () => {
             probeKey
           ],
         ).toEqual(expectedPalindromicCommands);
-        expect(getStoredProbeCommands(storage, profileId, environment)).toEqual(
+        expect(getStoredProbeCommands(profileId, environment)).toEqual(
           expectedPalindromicCommands,
         );
-        expect(getRawProbeCommands(storage, profileId, environment)).toEqual(
+        expect(getRawProbeCommands(profileId, environment)).toEqual(
           expectedPalindromicCommands,
         );
         const currentPalindromic = getToggle(".btn-palindromic-toggle");
@@ -202,14 +212,16 @@ describe("Command customization checked-bundle boundary", () => {
         expect(placement).toBeInstanceOf(HTMLButtonElement);
         expect(placement?.classList).not.toContain("active");
       });
-      expect(saveProfileSpy).toHaveBeenCalledOnce();
+      expect(
+        setItemSpy.mock.calls.filter(([key]) => key === PROJECT_ROOT_KEY),
+      ).toHaveLength(1);
       expect(stateChanged).toHaveBeenCalledOnce();
       expect(profileUpdated).toHaveBeenCalledOnce();
       expect(palindromicToggle.isConnected).toBe(false);
 
       const placementToggle = getToggle(".btn-placement-toggle");
       expect(placementToggle).toBeInstanceOf(HTMLButtonElement);
-      saveProfileSpy.mockClear();
+      setItemSpy.mockClear();
       stateChanged.mockClear();
       profileUpdated.mockClear();
       const revisionBeforePlacement = coordinator.getCurrentState().revision;
@@ -237,22 +249,24 @@ describe("Command customization checked-bundle boundary", () => {
             probeKey
           ],
         ).toEqual(expectedPlacementCommands);
-        expect(getStoredProbeCommands(storage, profileId, environment)).toEqual(
+        expect(getStoredProbeCommands(profileId, environment)).toEqual(
           expectedPlacementCommands,
         );
-        expect(getRawProbeCommands(storage, profileId, environment)).toEqual(
+        expect(getRawProbeCommands(profileId, environment)).toEqual(
           expectedPlacementCommands,
         );
         const currentPlacement = getToggle(".btn-placement-toggle");
         expect(currentPlacement).toBeInstanceOf(HTMLButtonElement);
         expect(currentPlacement?.classList).toContain("active");
       });
-      expect(saveProfileSpy).toHaveBeenCalledOnce();
+      expect(
+        setItemSpy.mock.calls.filter(([key]) => key === PROJECT_ROOT_KEY),
+      ).toHaveLength(1);
       expect(stateChanged).toHaveBeenCalledOnce();
       expect(profileUpdated).toHaveBeenCalledOnce();
       expect(placementToggle.isConnected).toBe(false);
     } finally {
-      saveProfileSpy?.mockRestore();
+      setItemSpy?.mockRestore();
       probeProjection.detach();
       detachStateChanged();
       detachProfileUpdated();

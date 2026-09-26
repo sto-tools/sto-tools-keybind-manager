@@ -1,5 +1,6 @@
 import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it } from "vitest";
+import { PROJECT_ROOT_KEY } from "../fixtures/ui/projectStorage.js";
 
 describe("File Explorer startup boundary", () => {
   it("opens through its initialized event consumer without a late callback", () => {
@@ -36,13 +37,12 @@ describe("File Explorer startup boundary", () => {
       return;
     }
 
-    const originalGetAllData = app.storageService.getAllData;
-    const originalGetProfile = app.storageService.getProfile;
-    let getAllDataCalls = 0;
-    let getProfileCalls = 0;
-    app.storageService.getAllData = () => {
-      getAllDataCalls += 1;
-      return {
+    expect(app).not.toHaveProperty("storageService");
+    expect(app).not.toHaveProperty("projectRepository");
+    const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
+    localStorage.setItem(
+      PROJECT_ROOT_KEY,
+      JSON.stringify({
         currentProfile: "storage-poison",
         profiles: {
           "storage-poison": {
@@ -51,16 +51,8 @@ describe("File Explorer startup boundary", () => {
             builds: { space: { keys: {} } },
           },
         },
-      };
-    };
-    app.storageService.getProfile = () => {
-      getProfileCalls += 1;
-      return {
-        id: "storage-poison",
-        name: "Storage Poison",
-        builds: { space: { keys: {} } },
-      };
-    };
+      }),
+    );
 
     try {
       openButton.click();
@@ -70,11 +62,9 @@ describe("File Explorer startup boundary", () => {
       ].map((node) => node.getAttribute("data-profileid"));
       expect(renderedIds).toEqual(Object.keys(snapshot.profiles));
       expect(renderedIds).not.toContain("storage-poison");
-      expect(getAllDataCalls).toBe(0);
-      expect(getProfileCalls).toBe(0);
     } finally {
-      app.storageService.getAllData = originalGetAllData;
-      app.storageService.getProfile = originalGetProfile;
+      if (beforeRoot === null) localStorage.removeItem(PROJECT_ROOT_KEY);
+      else localStorage.setItem(PROJECT_ROOT_KEY, beforeRoot);
       app.eventBus?.emit("modal:hide", { modalId: "fileExplorerModal" });
     }
   });

@@ -3,12 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import ExportService from "../../src/js/components/services/ExportService.js";
 import ImportService from "../../src/js/components/services/ImportService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import { respond, request } from "../../src/js/core/requestResponse.js";
 import {
   createEventBusFixture,
   createLocalStorageFixture,
 } from "../fixtures/core/index.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 const profileId = "captain";
 const aliasDescription = "Legacy punctuation alias with no commands";
@@ -51,7 +51,7 @@ const exportedProfile = {
 describe("text export/import round trips", () => {
   let eventBusFixture;
   let localStorageFixture;
-  let storage;
+  let projectRepository;
   let coordinator;
   let exportService;
   let importService;
@@ -73,16 +73,14 @@ describe("text export/import round trips", () => {
       },
     });
 
-    storage = new StorageService({
-      eventBus: eventBusFixture.eventBus,
+    projectRepository = createProjectRepository({
       version: "1.0.0",
     });
     coordinator = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
     });
-    storage.init();
     coordinator.init();
 
     await vi.waitFor(() => {
@@ -109,7 +107,6 @@ describe("text export/import round trips", () => {
     });
     importService = new ImportService({
       eventBus: eventBusFixture.eventBus,
-      storage,
       i18n: { t: (key) => key },
     });
     exportService.init();
@@ -132,7 +129,6 @@ describe("text export/import round trips", () => {
     importService?.destroy();
     exportService?.destroy();
     coordinator?.destroy();
-    storage?.destroy();
     eventBusFixture?.destroy();
     localStorageFixture?.destroy();
     vi.restoreAllMocks();
@@ -176,14 +172,14 @@ describe("text export/import round trips", () => {
     const accepted = coordinator.getCurrentState();
     const rootRaw = localStorage.getItem("sto_keybind_manager");
     const backupRaw = localStorage.getItem("sto_keybind_manager_backup");
-    const save = vi.spyOn(storage, "saveProfile");
+    const commit = vi.spyOn(projectRepository, "commit");
     eventBusFixture.clearEventHistory();
     resumePlanner();
     expect(await pending).toMatchObject({
       success: false,
       error: "import_failed",
     });
-    expect(save).not.toHaveBeenCalled();
+    expect(commit).not.toHaveBeenCalled();
     expect(coordinator.getCurrentState()).toBe(accepted);
     expect(accepted.revision).toBe(before.revision + 1);
     expect(accepted.profiles[profileId].description).toBe(
@@ -280,7 +276,9 @@ describe("text export/import round trips", () => {
     expect(importService.cache.dataState).toEqual(state);
     expect(exportService.cache.dataState).toEqual(state);
     expect(exportService.getProfileFromCache(profileId)).toEqual(ownerProfile);
-    expect(storage.getProfile(profileId)).toEqual(ownerProfile);
+    expect(projectRepository.load().value.profiles[profileId]).toEqual(
+      ownerProfile,
+    );
     expect(
       JSON.parse(localStorage.getItem("sto_keybind_manager")).profiles[
         profileId

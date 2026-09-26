@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import CommandService from "../../src/js/components/services/CommandService.js";
 import InterfaceModeService from "../../src/js/components/services/InterfaceModeService.js";
 import VFXManagerService from "../../src/js/components/services/VFXManagerService.js";
@@ -38,24 +37,27 @@ function deferred() {
 }
 
 describe("profile mutation owner-action cohorts", () => {
-  let fixture, storage, owner, services;
+  let fixture, projectRepository, owner, services;
   const i18n = { t: (key) => key };
-  const durable = () => localStorage.getItem("sto_keybind_manager");
-  const backup = () => localStorage.getItem("sto_keybind_manager_backup");
+  const durable = () =>
+    fixture.storageFixture.getRawData("sto_keybind_manager");
+  const backup = () =>
+    fixture.storageFixture.getRawData("sto_keybind_manager_backup");
   const addAlias = (name) => ({
     add: { aliases: { [name]: { commands: ["FireAll"] } } },
   });
 
   beforeEach(async () => {
-    fixture = createServiceFixture();
-    localStorage.setItem("sto_keybind_manager", JSON.stringify(root));
-    localStorage.setItem("sto_keybind_manager_visited", "true");
-    storage = new StorageService({
-      eventBus: fixture.eventBus,
-      version: "1.0.0",
+    fixture = createServiceFixture({
+      initialStorageData: { sto_keybind_manager: root },
     });
-    storage.init();
-    owner = new DataCoordinator({ eventBus: fixture.eventBus, storage, i18n });
+    localStorage.setItem("sto_keybind_manager_visited", "true");
+    projectRepository = fixture.projectRepository;
+    owner = new DataCoordinator({
+      eventBus: fixture.eventBus,
+      projectRepository,
+      i18n,
+    });
     owner.init();
     await owner.initialStateReady;
     services = [];
@@ -65,8 +67,8 @@ describe("profile mutation owner-action cohorts", () => {
   afterEach(() => {
     for (const service of services) if (!service.destroyed) service.destroy();
     if (!owner.destroyed) owner.destroy();
-    storage.destroy();
     fixture.destroy();
+    localStorage.removeItem("sto_keybind_manager_visited");
     vi.restoreAllMocks();
   });
 
@@ -80,7 +82,10 @@ describe("profile mutation owner-action cohorts", () => {
     const raw = durable();
     const backupRaw = backup();
     fixture.eventBusFixture.clearEventHistory();
-    vi.spyOn(storage, "saveProfile").mockReturnValueOnce(false);
+    vi.spyOn(projectRepository, "commit").mockReturnValueOnce({
+      status: "write_failed",
+      error: "storage_write_failed",
+    });
     await service.saveEffects();
     expect(owner.getCurrentState()).toBe(before);
     expect(service.cache.dataState).toEqual(before);
@@ -100,7 +105,7 @@ describe("profile mutation owner-action cohorts", () => {
     expect(
       Object.keys(owner.getCurrentState().profiles.captain.aliases),
     ).toEqual(["First", "Second"]);
-    expect(JSON.parse(durable()).profiles.captain.aliases).toEqual(
+    expect(fixture.readProjectRoot().profiles.captain.aliases).toEqual(
       owner.getCurrentState().profiles.captain.aliases,
     );
     expect(owner.getCurrentState().revision).toBe(before.revision + 2);
@@ -187,6 +192,9 @@ describe("profile mutation owner-action cohorts", () => {
     });
   });
 
+  // The retired public rootData override cases are now enforced at the
+  // repository boundary by LocalStorageProjectRepository's
+  // "rejects invalid roots before backup or primary mutation" test.
   it.each([
     (owner) => owner.createProfile("Constructor"),
     (owner) => owner.createProfile("!!!"),
@@ -194,14 +202,6 @@ describe("profile mutation owner-action cohorts", () => {
     (owner) => owner.cloneProfile("captain", "!!!"),
     (owner) => owner.createDefaultProfilesFromData({ unsafe: { name: 7 } }),
     (owner) => owner.normalizeAllProfiles({ unsafe: { name: 7 } }),
-    (owner) => owner.normalizeAllProfiles({}, { rootData: 7 }),
-    (owner) =>
-      owner.normalizeAllProfiles(
-        {},
-        {
-          rootData: { currentProfile: null, profiles: { unsafe: { name: 7 } } },
-        },
-      ),
   ])(
     "rejects invalid profile action intent before queue capture %#",
     async (perform) => {
@@ -239,20 +239,10 @@ describe("profile mutation owner-action cohorts", () => {
   });
 
   it("detaches queued requests before their producer can mutate them", async () => {
-    const gate = deferred();
-    const save = storage.saveProfile.bind(storage);
-    const write = vi
-      .spyOn(storage, "saveProfile")
-      .mockImplementationOnce(async (...args) => {
-        await gate.promise;
-        return save(...args);
-      });
     const first = owner.updateProfile("captain", addAlias("First"));
-    await vi.waitFor(() => expect(write).toHaveBeenCalledOnce());
     const updates = addAlias("Second");
     const queued = owner.updateProfile("captain", updates);
     updates.add.aliases.Second.commands.push("CallerChanged");
-    gate.resolve();
     await Promise.all([first, queued]);
     expect(
       owner.getCurrentState().profiles.captain.aliases.Second.commands,
@@ -260,26 +250,24 @@ describe("profile mutation owner-action cohorts", () => {
   });
 
   it("orders a replacement owner load behind an admitted predecessor write", async () => {
-    const gate = deferred();
-    const save = storage.saveProfile.bind(storage);
-    const write = vi
-      .spyOn(storage, "saveProfile")
-      .mockImplementationOnce(async (...args) => {
-        await gate.promise;
-        return save(...args);
+    const previous = owner;
+    const commit = projectRepository.commit.getMockImplementation();
+    if (!commit) throw new Error("Expected repository fixture writer");
+    vi.spyOn(projectRepository, "commit").mockImplementationOnce((...args) => {
+      previous.destroy();
+      owner = new DataCoordinator({
+        eventBus: fixture.eventBus,
+        projectRepository,
+        i18n,
       });
-    const stale = owner.updateProfile("captain", {
+      owner.init();
+      return commit(...args);
+    });
+    const stale = previous.updateProfile("captain", {
       properties: { description: "durable old write" },
     });
     const rejection = expect(stale).rejects.toThrow();
-    await vi.waitFor(() => expect(write).toHaveBeenCalledOnce());
-    owner.destroy();
-    const previous = owner;
-    owner = new DataCoordinator({ eventBus: fixture.eventBus, storage, i18n });
-    owner.init();
-    await Promise.resolve();
-    expect(owner.getCurrentState().ready).toBe(false);
-    gate.resolve();
+    await vi.waitFor(() => expect(owner).not.toBe(previous));
     await rejection;
     await owner.initialStateReady;
     expect(previous.state.profiles.captain.description).toBe("before");
@@ -332,9 +320,9 @@ describe("profile mutation owner-action cohorts", () => {
       mode: "ground",
     });
     expect(owner.getCurrentState().revision).toBe(start + 2);
-    expect(JSON.parse(durable()).profiles.captain.builds.space.keys.F1).toEqual(
-      ["FireAll", "Jump"],
-    );
+    expect(
+      fixture.readProjectRoot().profiles.captain.builds.space.keys.F1,
+    ).toEqual(["FireAll", "Jump"]);
     expect(command.cache.dataState).toEqual(owner.getCurrentState());
     expect(owner.getCurrentState().currentEnvironment).toBe("ground");
   });
@@ -351,7 +339,7 @@ describe("profile mutation owner-action cohorts", () => {
         previous.destroy();
         owner = new DataCoordinator({
           eventBus: fixture.eventBus,
-          storage,
+          projectRepository,
           i18n,
         });
         owner.init();
@@ -411,7 +399,9 @@ describe("profile mutation owner-action cohorts", () => {
         properties: { description: "accepted" },
       }),
     ).resolves.toMatchObject({ success: true });
-    expect(JSON.parse(durable()).profiles.captain.description).toBe("accepted");
+    expect(fixture.readProjectRoot().profiles.captain.description).toBe(
+      "accepted",
+    );
     expect(diagnostic).toHaveBeenCalledWith(
       "DataCoordinator publication settlement failed:",
       failure,
@@ -445,7 +435,9 @@ describe("profile mutation owner-action cohorts", () => {
     expect(publications).toEqual(["first", "second"]);
     gate.resolve();
     await expect(first).resolves.toMatchObject({ success: true });
-    expect(JSON.parse(durable()).profiles.captain.description).toBe("second");
+    expect(fixture.readProjectRoot().profiles.captain.description).toBe(
+      "second",
+    );
     expect(publications).toEqual(["first", "second"]);
   });
 });

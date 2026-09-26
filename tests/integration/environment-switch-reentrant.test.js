@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import InterfaceModeService from "../../src/js/components/services/InterfaceModeService.js";
 import { request } from "../../src/js/core/requestResponse.js";
-import { createRealEventBusFixture } from "../fixtures/core/eventBus.js";
+import { createRealServiceFixture } from "../fixtures/index.js";
 
 const profileId = "reentrant-environment";
 const profile = {
@@ -29,45 +29,30 @@ function deferred() {
 describe("reentrant environment switch ordering", () => {
   let fixture;
   let eventBus;
-  let storage;
+  let projectRepository;
   let owner;
   let service;
   let detachers;
 
   beforeEach(async () => {
-    fixture = await createRealEventBusFixture();
+    fixture = await createRealServiceFixture({
+      initialStorageData: {
+        sto_keybind_manager: {
+          currentProfile: profileId,
+          profiles: { [profileId]: profile },
+          globalAliases: {},
+          settings: {},
+          version: "1.0.0",
+          created: "2026-01-01T00:00:00.000Z",
+          lastModified: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    });
     eventBus = fixture.eventBus;
-    let durable = {
-      currentProfile: profileId,
-      profiles: { [profileId]: profile },
-      globalAliases: {},
-      settings: {},
-      version: "1.0.0",
-      lastModified: "2026-01-01T00:00:00.000Z",
-    };
-    storage = {
-      version: "1.0.0",
-      getAllData: vi.fn(() => structuredClone(durable)),
-      getProfile: vi.fn((id) => structuredClone(durable.profiles[id] ?? null)),
-      saveProfile: vi.fn((id, nextProfile) => {
-        durable = {
-          ...durable,
-          profiles: {
-            ...durable.profiles,
-            [id]: structuredClone(nextProfile),
-          },
-          lastModified: new Date().toISOString(),
-        };
-        return true;
-      }),
-      saveAllData: vi.fn((nextRoot) => {
-        durable = structuredClone(nextRoot);
-        return true;
-      }),
-    };
+    projectRepository = fixture.projectRepository;
     owner = new DataCoordinator({
       eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
     });
     owner.init();
@@ -88,7 +73,7 @@ describe("reentrant environment switch ordering", () => {
 
   it("allows an environment listener to await the next ordered switch", async () => {
     const startRevision = owner.getCurrentState().revision;
-    const writes = vi.spyOn(storage, "saveProfile");
+    const writes = vi.spyOn(projectRepository, "commit");
     const publications = [];
     let aliasSwitch;
     detachers.push(
@@ -118,14 +103,18 @@ describe("reentrant environment switch ordering", () => {
       { success: true, mode: "alias" },
     ]);
     expect(
-      writes.mock.calls.map(([, saved]) => saved.currentEnvironment),
+      writes.mock.calls.map(
+        ([root]) => root.profiles[profileId].currentEnvironment,
+      ),
     ).toEqual(["ground", "alias"]);
     expect(publications).toEqual(["ground", "alias"]);
     expect(owner.getCurrentState()).toMatchObject({
       revision: startRevision + 2,
       currentEnvironment: "alias",
     });
-    expect(storage.getProfile(profileId).currentEnvironment).toBe("alias");
+    expect(
+      fixture.readProjectRoot().profiles[profileId].currentEnvironment,
+    ).toBe("alias");
     expect(service.currentMode).toBe("alias");
   });
 
@@ -181,7 +170,9 @@ describe("reentrant environment switch ordering", () => {
       mode: "ground",
     });
     expect(replyOrder).toEqual(["alias", "ground"]);
-    expect(storage.getProfile(profileId).currentEnvironment).toBe("alias");
+    expect(
+      fixture.readProjectRoot().profiles[profileId].currentEnvironment,
+    ).toBe("alias");
     expect(service.currentMode).toBe("alias");
   });
 
@@ -213,7 +204,9 @@ describe("reentrant environment switch ordering", () => {
       request(eventBus, "environment:switch", { mode: "alias" }, 0),
     ).resolves.toEqual({ success: true, mode: "alias" });
     expect(publications).toEqual(["ground", "alias"]);
-    expect(storage.getProfile(profileId).currentEnvironment).toBe("alias");
+    expect(
+      fixture.readProjectRoot().profiles[profileId].currentEnvironment,
+    ).toBe("alias");
     expect(service.currentMode).toBe("alias");
   });
 });

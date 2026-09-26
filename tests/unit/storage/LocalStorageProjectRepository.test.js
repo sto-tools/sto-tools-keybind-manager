@@ -362,6 +362,16 @@ describe("LocalStorageProjectRepository", () => {
             : "changed",
       );
       expect(data.has(ROOT)).toBe(true);
+      if (mode === "remove_failed") {
+        expect(repository.load()).toMatchObject({
+          status: "repair_required",
+          reason: "reset_pending",
+          resetSentinel: {
+            status: "pending_consumption",
+            expectedValue: "expected",
+          },
+        });
+      }
       if (mode !== "remove_failed")
         expect(storage.removeItem).not.toHaveBeenCalled();
     },

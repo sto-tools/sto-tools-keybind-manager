@@ -1,5 +1,12 @@
-import persist from "./storageWrites.js";
-import { publishDataCoordinatorState } from "./dataCoordinatorPublication.js";
+import {
+  publishCommittedCoordinatorProject,
+  publishDataCoordinatorState,
+} from "./dataCoordinatorPublication.js";
+import {
+  adoptCoordinatorProjectRoot,
+  commitCoordinatorProjectRoot,
+  loadCoordinatorProjectRoot,
+} from "./dataCoordinatorProjectPersistence.js";
 import {
   activateDataCoordinatorOwner,
   enqueueDataCoordinatorMutation,
@@ -80,7 +87,8 @@ export function initializeDataCoordinatorState(coordinator) {
 async function loadInitialCoordinatorState(coordinator) {
   const operation = coordinator._captureOperationGeneration();
   try {
-    const data = coordinator.storage.getAllData();
+    const loaded = loadCoordinatorProjectRoot(coordinator);
+    const data = loaded.root;
     const nextState = {
       currentProfile: data.currentProfile || null,
       currentEnvironment: "space",
@@ -88,9 +96,13 @@ async function loadInitialCoordinatorState(coordinator) {
       metadata: { lastModified: data.lastModified, version: "1.0.0" },
     };
 
-    await coordinator._normalizeAllProfiles(nextState.profiles, {
-      rootData: data,
-    });
+    const profilesNormalized = await coordinator._normalizeAllProfiles(
+      nextState.profiles,
+      {
+        rootData: data,
+        persist: false,
+      },
+    );
     coordinator._assertCurrentOperation(operation);
 
     let needsDefaultProfiles = false;
@@ -108,18 +120,14 @@ async function loadInitialCoordinatorState(coordinator) {
       }
     }
 
+    let selectionChanged = false;
     if (
       !nextState.currentProfile &&
       Object.keys(nextState.profiles).length > 0
     ) {
       const firstProfileId = Object.keys(nextState.profiles)[0];
-      await persist.currentProfile(
-        coordinator.storage,
-        firstProfileId,
-        coordinator.i18n,
-      );
-      coordinator._assertCurrentOperation(operation);
       nextState.currentProfile = firstProfileId;
+      selectionChanged = true;
     }
 
     if (
@@ -131,14 +139,22 @@ async function loadInitialCoordinatorState(coordinator) {
         "space";
     }
 
-    const durableData = coordinator.storage.getAllData();
-    nextState.metadata = {
-      lastModified: durableData.lastModified,
-      version: durableData.version || "1.0.0",
-    };
+    const candidate = structuredClone(data);
+    candidate.profiles = structuredClone(nextState.profiles);
+    candidate.currentProfile = nextState.currentProfile;
+    const requiresCommit =
+      loaded.repairRequired || profilesNormalized > 0 || selectionChanged;
     coordinator._assertCurrentOperation(operation);
-
-    coordinator.state = nextState;
+    const durableData = requiresCommit
+      ? commitCoordinatorProjectRoot(coordinator, candidate, {
+          verification: "required",
+          consumeResetSentinel: loaded.resetSentinel,
+        })
+      : data;
+    adoptCoordinatorProjectRoot(coordinator, durableData, operation);
+    if (requiresCommit) {
+      publishCommittedCoordinatorProject(coordinator, durableData);
+    }
     coordinator.needsDefaultProfiles = needsDefaultProfiles;
     console.log(`[${coordinator.componentName}] Loaded initial state:`, {
       currentProfile: nextState.currentProfile,

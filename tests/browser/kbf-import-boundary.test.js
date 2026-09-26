@@ -2,6 +2,10 @@ import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import {
+  PROJECT_ROOT_KEY,
+  readProjectProfile,
+} from "../fixtures/ui/projectStorage.js";
 
 const encode = (value) => btoa(value);
 
@@ -34,20 +38,17 @@ const createMultiBindsetKBF = () => {
 describe("KBF import browser boundary", () => {
   it("commits canonical nested data through the checked-bundle owner chain", async () => {
     const bus = runtime().eventBus;
-    const storage = runtime().storageService;
     const coordinator = runtime().dataCoordinator;
     const consumer = runtime().commandChainUI;
     const beforeState = coordinator?.getCurrentState?.();
     expect(bus).toBeTruthy();
-    expect(storage).toBeTruthy();
     expect(beforeState?.ready).toBe(true);
     expect(consumer?.cache.dataState).toBe(beforeState);
-    if (!bus || !storage || !coordinator || !consumer || !beforeState?.ready)
-      return;
+    if (!bus || !coordinator || !consumer || !beforeState?.ready) return;
 
     const profileId = beforeState.currentProfile;
     const environment = beforeState.currentEnvironment;
-    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
     const beforeProfile = structuredClone(beforeState.profiles[profileId]);
     const ownershipEvents = [];
     const detachState = bus.on("data:state-changed", ({ state }) => {
@@ -86,20 +87,17 @@ describe("KBF import browser boundary", () => {
       await vi.waitFor(() => {
         expect(consumer.cache.dataState).toBe(committedState);
       });
-      expect(storage.getProfile(profileId)).toEqual(
+      expect(readProjectProfile(profileId)).toEqual(
         committedState.profiles[profileId],
       );
       expect(
-        JSON.parse(localStorage.getItem(storage.storageKey)).profiles[
-          profileId
-        ],
+        JSON.parse(localStorage.getItem(PROJECT_ROOT_KEY)).profiles[profileId],
       ).toEqual(committedState.profiles[profileId]);
     } finally {
       detachState();
       detachLegacy();
-      if (beforeRoot === null) localStorage.removeItem(storage.storageKey);
-      else localStorage.setItem(storage.storageKey, beforeRoot);
-      storage.getAllData(true);
+      if (beforeRoot === null) localStorage.removeItem(PROJECT_ROOT_KEY);
+      else localStorage.setItem(PROJECT_ROOT_KEY, beforeRoot);
       await request(bus, "data:reload-state");
       await vi.waitFor(() => {
         expect(coordinator.getCurrentState().profiles[profileId]).toEqual(
@@ -111,16 +109,13 @@ describe("KBF import browser boundary", () => {
 
   it("imports one visibly selected bindset through the checked-bundle menu workflow", async () => {
     const bus = runtime().eventBus;
-    const storage = runtime().storageService;
     const coordinator = runtime().dataCoordinator;
     const consumer = runtime().commandChainUI;
     const beforeState = coordinator?.getCurrentState?.();
     expect(bus).toBeTruthy();
-    expect(storage).toBeTruthy();
     expect(beforeState?.ready).toBe(true);
     expect(consumer?.cache.dataState).toBe(beforeState);
-    if (!bus || !storage || !coordinator || !consumer || !beforeState?.ready)
-      return;
+    if (!bus || !coordinator || !consumer || !beforeState?.ready) return;
 
     const profileId = beforeState.currentProfile;
     const environment = ["space", "ground"].includes(
@@ -128,7 +123,7 @@ describe("KBF import browser boundary", () => {
     )
       ? beforeState.currentEnvironment
       : "space";
-    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
     const beforeSettings = localStorage.getItem("sto_keybind_settings");
     const beforeProfile = structuredClone(beforeState.profiles[profileId]);
     const originalSettings = structuredClone(consumer.cache.preferences);
@@ -266,13 +261,11 @@ describe("KBF import browser boundary", () => {
       expect(
         committedState.profiles[profileId].builds[environment].keys.F23,
       ).toEqual(beforeProfile.builds[environment].keys.F23);
-      expect(storage.getProfile(profileId)).toEqual(
+      expect(readProjectProfile(profileId)).toEqual(
         committedState.profiles[profileId],
       );
       expect(
-        JSON.parse(localStorage.getItem(storage.storageKey)).profiles[
-          profileId
-        ],
+        JSON.parse(localStorage.getItem(PROJECT_ROOT_KEY)).profiles[profileId],
       ).toEqual(committedState.profiles[profileId]);
       expect(document.querySelector("#importModal")).toBeNull();
       expect(
@@ -291,9 +284,8 @@ describe("KBF import browser boundary", () => {
           localStorage.setItem("sto_keybind_settings", beforeSettings);
         }
       }
-      if (beforeRoot === null) localStorage.removeItem(storage.storageKey);
-      else localStorage.setItem(storage.storageKey, beforeRoot);
-      storage.getAllData(true);
+      if (beforeRoot === null) localStorage.removeItem(PROJECT_ROOT_KEY);
+      else localStorage.setItem(PROJECT_ROOT_KEY, beforeRoot);
       await request(bus, "data:reload-state");
       await vi.waitFor(() => {
         expect(coordinator.getCurrentState().profiles[profileId]).toEqual(
@@ -311,16 +303,14 @@ describe("KBF import browser boundary", () => {
 
   it("settles Escape and overlay import cancellation without durable effects", async () => {
     const bus = runtime().eventBus;
-    const storage = runtime().storageService;
     const coordinator = runtime().dataCoordinator;
     const beforeState = coordinator?.getCurrentState?.();
     expect(bus).toBeTruthy();
-    expect(storage).toBeTruthy();
     expect(beforeState?.ready).toBe(true);
-    if (!bus || !storage || !coordinator || !beforeState?.ready) return;
+    if (!bus || !coordinator || !beforeState?.ready) return;
 
     const profileId = beforeState.currentProfile;
-    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
     const beforeProfile = structuredClone(beforeState.profiles[profileId]);
     const requests = [];
     const detach = bus.on("rpc:import:keybind-file", ({ payload }) => {
@@ -366,8 +356,8 @@ describe("KBF import browser boundary", () => {
 
       expect(requests).toEqual([]);
       expect(coordinator.getCurrentState().revision).toBe(beforeState.revision);
-      expect(storage.getProfile(profileId)).toEqual(beforeProfile);
-      expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+      expect(readProjectProfile(profileId)).toEqual(beforeProfile);
+      expect(localStorage.getItem(PROJECT_ROOT_KEY)).toBe(beforeRoot);
     } finally {
       detach();
       document.dispatchEvent(
@@ -377,9 +367,8 @@ describe("KBF import browser boundary", () => {
         input.remove();
       }
       document.getElementById("importModal")?.remove();
-      if (beforeRoot === null) localStorage.removeItem(storage.storageKey);
-      else localStorage.setItem(storage.storageKey, beforeRoot);
-      storage.getAllData(true);
+      if (beforeRoot === null) localStorage.removeItem(PROJECT_ROOT_KEY);
+      else localStorage.setItem(PROJECT_ROOT_KEY, beforeRoot);
       await request(bus, "data:reload-state");
     }
   });
@@ -441,18 +430,15 @@ describe("KBF import browser boundary", () => {
     "rejects %s without owner or durable effects",
     async (_, content, configuration, error) => {
       const bus = runtime().eventBus;
-      const storage = runtime().storageService;
       const coordinator = runtime().dataCoordinator;
       const consumer = runtime().commandChainUI;
       const state = coordinator?.getCurrentState?.();
       expect(bus).toBeTruthy();
-      expect(storage).toBeTruthy();
       expect(state?.ready).toBe(true);
       expect(consumer?.cache.dataState).toBe(state);
-      if (!bus || !storage || !coordinator || !consumer || !state?.ready)
-        return;
+      if (!bus || !coordinator || !consumer || !state?.ready) return;
 
-      const beforeRoot = localStorage.getItem(storage.storageKey);
+      const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
       await expect(
         request(bus, "import:kbf-file", {
           content,
@@ -462,7 +448,7 @@ describe("KBF import browser boundary", () => {
           configuration,
         }),
       ).resolves.toMatchObject({ success: false, error });
-      expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+      expect(localStorage.getItem(PROJECT_ROOT_KEY)).toBe(beforeRoot);
       expect(coordinator.getCurrentState()).toBe(state);
       expect(consumer.cache.dataState).toBe(state);
     },

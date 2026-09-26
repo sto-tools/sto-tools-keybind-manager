@@ -28,7 +28,7 @@ function validateOptionalStringField(value, field) {
 
 /**
  * Parse and validate the complete persisted application root before it can
- * enter StorageService's cache. The boundary is deliberately distinct from
+ * enter DataCoordinator's accepted root. The boundary is deliberately distinct from
  * project import: already-structured profiles retain compatibility fields and
  * their exact command representation, while pure mode+keys profiles receive
  * the historical structural migration without losing optional data.

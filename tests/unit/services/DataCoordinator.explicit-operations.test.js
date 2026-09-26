@@ -362,7 +362,7 @@ describe("DataCoordinator explicit profile operations", () => {
     fixture = createServiceFixture();
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
   });
@@ -395,6 +395,17 @@ describe("DataCoordinator explicit profile operations", () => {
     const updateSource = "explicit-operation-characterization";
     coordinator.state.currentProfile = PROFILE_ID;
     coordinator.state.profiles[PROFILE_ID] = createProfile();
+    coordinator._projectRoot = {
+      currentProfile: PROFILE_ID,
+      profiles: { [PROFILE_ID]: createProfile() },
+      settings: {},
+      version: "1.0.0",
+      lastModified: FIXED_TIME,
+    };
+    fixture.projectRepository.commit.mockImplementation((candidate) => ({
+      status: "committed",
+      value: structuredClone(candidate),
+    }));
     const emitSpy = vi.spyOn(coordinator, "emit");
 
     const result = await coordinator.updateProfile(PROFILE_ID, {
@@ -407,14 +418,12 @@ describe("DataCoordinator explicit profile operations", () => {
     const ownerProfile = coordinator.state.profiles[PROFILE_ID];
     expect(ownerProfile).toEqual(result.profile);
     expect(ownerProfile).not.toBe(result.profile);
-    expect(fixture.storage.saveProfile).toHaveBeenCalledTimes(1);
-    expect(fixture.storage.saveProfile).toHaveBeenCalledWith(
-      PROFILE_ID,
-      result.profile,
-    );
-    expect(fixture.storage.getProfile(PROFILE_ID)).toEqual(result.profile);
+    expect(fixture.projectRepository.commit).toHaveBeenCalledTimes(1);
+    expect(
+      fixture.projectRepository.commit.mock.calls[0][0].profiles[PROFILE_ID],
+    ).toEqual(result.profile);
 
-    expect(emitSpy).toHaveBeenCalledTimes(1);
+    expect(emitSpy).toHaveBeenCalledTimes(2);
     expect(emitSpy).toHaveBeenCalledWith("profile:updated", {
       profileId: PROFILE_ID,
       profile: result.profile,
@@ -423,7 +432,9 @@ describe("DataCoordinator explicit profile operations", () => {
       timestamp: Date.parse(FIXED_TIME),
     });
 
-    const eventPayload = emitSpy.mock.calls[0][1];
+    const eventPayload = emitSpy.mock.calls.find(
+      ([event]) => event === "profile:updated",
+    )[1];
     expect(eventPayload.profile).toEqual(ownerProfile);
     expect(eventPayload.profile).not.toBe(ownerProfile);
     expect(eventPayload.updates).not.toBe(operations);

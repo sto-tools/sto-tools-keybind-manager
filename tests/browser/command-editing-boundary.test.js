@@ -2,6 +2,10 @@ import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import {
+  PROJECT_ROOT_KEY,
+  readProjectProfile,
+} from "../fixtures/ui/projectStorage.js";
 import de from "../../src/i18n/de.json";
 import en from "../../src/i18n/en.json";
 import { observeCommandChainProjection } from "../fixtures/ui/commandChainProjection.js";
@@ -12,14 +16,12 @@ describe("Command editing checked-bundle boundary", () => {
   it("preserves parameter edit sessions and durably replaces the captured command", async () => {
     const bus = runtime().eventBus;
     const coordinator = runtime().dataCoordinator;
-    const storage = runtime().storageService;
     const chainUi = runtime().commandChainUI;
 
     expect(bus).toBeTruthy();
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
-    expect(storage).toBeTruthy();
     expect(chainUi?.isInitialized?.()).toBe(true);
-    if (!bus || !coordinator || !storage || !chainUi) return;
+    if (!bus || !coordinator || !chainUi) return;
 
     // A focused first-run execution may begin with the welcome modal open.
     // Close that fixture state so the parameter modal is the active language-
@@ -126,8 +128,8 @@ describe("Command editing checked-bundle boundary", () => {
       const ownerBeforeEdit = coordinator.getCurrentState();
       const revisionBeforeEdit = ownerBeforeEdit.revision;
       const cacheBeforeEdit = chainUi.cache.dataState;
-      const durableBeforeEdit = structuredClone(storage.getProfile(profileId));
-      const rootBeforeEdit = localStorage.getItem(storage.storageKey);
+      const durableBeforeEdit = structuredClone(readProjectProfile(profileId));
+      const rootBeforeEdit = localStorage.getItem(PROJECT_ROOT_KEY);
       // Edit targets use the canonical primary storage path even while the
       // enabled bindset selector presents it as "Primary Bindset".
       const expectedBindset = null;
@@ -250,8 +252,8 @@ describe("Command editing checked-bundle boundary", () => {
       expect(commandEditPayloads).toHaveLength(0);
       expect(coordinator.getCurrentState()).toBe(ownerBeforeEdit);
       expect(chainUi.cache.dataState).toBe(cacheBeforeEdit);
-      expect(storage.getProfile(profileId)).toEqual(durableBeforeEdit);
-      expect(localStorage.getItem(storage.storageKey)).toBe(rootBeforeEdit);
+      expect(readProjectProfile(profileId)).toEqual(durableBeforeEdit);
+      expect(localStorage.getItem(PROJECT_ROOT_KEY)).toBe(rootBeforeEdit);
       expect(localStorage.getItem("sto_keybind_settings")).toBe(
         settingsAfterLanguageRestore,
       );
@@ -306,12 +308,11 @@ describe("Command editing checked-bundle boundary", () => {
           ],
         ).toEqual(expectedEditedCommands);
         expect(
-          storage.getProfile(profileId).builds[environment].keys[probeKey],
+          readProjectProfile(profileId).builds[environment].keys[probeKey],
         ).toEqual(expectedEditedCommands);
         expect(
-          JSON.parse(localStorage.getItem(storage.storageKey)).profiles[
-            profileId
-          ].builds[environment].keys[probeKey],
+          JSON.parse(localStorage.getItem(PROJECT_ROOT_KEY)).profiles[profileId]
+            .builds[environment].keys[probeKey],
         ).toEqual(expectedEditedCommands);
       });
       await vi.waitFor(() => {
@@ -389,9 +390,9 @@ describe("Command editing checked-bundle boundary", () => {
 
       const revisionBeforeRawCancel = coordinator.getCurrentState().revision;
       const durableBeforeRawCancel = structuredClone(
-        storage.getProfile(profileId),
+        readProjectProfile(profileId),
       );
-      const rootBeforeRawCancel = localStorage.getItem(storage.storageKey);
+      const rootBeforeRawCancel = localStorage.getItem(PROJECT_ROOT_KEY);
       const rawCancel = document.querySelector(
         '#parameterModal .btn-secondary[data-modal="parameterModal"]',
       );
@@ -405,10 +406,8 @@ describe("Command editing checked-bundle boundary", () => {
       expect(coordinator.getCurrentState().revision).toBe(
         revisionBeforeRawCancel,
       );
-      expect(storage.getProfile(profileId)).toEqual(durableBeforeRawCancel);
-      expect(localStorage.getItem(storage.storageKey)).toBe(
-        rootBeforeRawCancel,
-      );
+      expect(readProjectProfile(profileId)).toEqual(durableBeforeRawCancel);
+      expect(localStorage.getItem(PROJECT_ROOT_KEY)).toBe(rootBeforeRawCancel);
       expect(commandEditPayloads).toHaveLength(1);
     } finally {
       const cancel = document.querySelector(
@@ -479,10 +478,9 @@ describe("Command editing checked-bundle boundary", () => {
     await vi.waitFor(() => {
       const finalProfile = coordinator.getCurrentState().profiles[profileId];
       const finalCachedProfile = chainUi.cache.dataState.profiles[profileId];
-      const finalStoredProfile = storage.getProfile(profileId);
-      const finalRawProfile = JSON.parse(
-        localStorage.getItem(storage.storageKey),
-      ).profiles[profileId];
+      const finalStoredProfile = readProjectProfile(profileId);
+      const finalRawProfile = JSON.parse(localStorage.getItem(PROJECT_ROOT_KEY))
+        .profiles[profileId];
       if (hadOriginalKey) {
         expect(finalProfile.builds[environment].keys[probeKey]).toEqual(
           originalCommands,

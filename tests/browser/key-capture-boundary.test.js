@@ -2,6 +2,7 @@ import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import { readProjectProfile } from "../fixtures/ui/projectStorage.js";
 
 /** @param {typeof import("../../src/js/core/eventBus.js").default} bus */
 async function readKeyCaptureState(bus) {
@@ -46,20 +47,18 @@ describe("Key-capture checked-bundle boundary", () => {
   it("captures, confirms, persists, cancels, and reopens through the checked bundle", async () => {
     const bus = runtime().eventBus;
     const coordinator = runtime().dataCoordinator;
-    const storage = runtime().storageService;
     const chainUi = runtime().commandChainUI;
     const addKey = button("addKeyBtn");
     const modal = document.getElementById("keySelectionModal");
 
     expect(bus).toBeTruthy();
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
-    expect(storage).toBeTruthy();
     expect(chainUi?.isInitialized?.()).toBe(true);
     expect(modal).toBeInstanceOf(HTMLElement);
     expect(bus?.hasListeners("key-capture:state-changed")).toBe(true);
     expect(bus?.hasListeners("keycapture:start")).toBe(true);
     expect(bus?.hasListeners("keycapture:stop")).toBe(true);
-    if (!bus || !coordinator || !storage || !chainUi || !addKey || !modal) {
+    if (!bus || !coordinator || !chainUi || !addKey || !modal) {
       return;
     }
 
@@ -144,7 +143,7 @@ describe("Key-capture checked-bundle boundary", () => {
           ]?.keys?.[probeKey],
         ).toEqual([]);
         expect(
-          storage.getProfile(profileId)?.builds?.[environment]?.keys?.[
+          readProjectProfile(profileId)?.builds?.[environment]?.keys?.[
             probeKey
           ],
         ).toEqual([]);
@@ -219,7 +218,7 @@ describe("Key-capture checked-bundle boundary", () => {
     ).toBe(false);
     expect(
       Object.hasOwn(
-        storage.getProfile(profileId)?.builds?.[environment]?.keys || {},
+        readProjectProfile(profileId)?.builds?.[environment]?.keys || {},
         probeKey,
       ),
     ).toBe(false);

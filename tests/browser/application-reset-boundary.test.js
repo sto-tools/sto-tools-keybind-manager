@@ -2,20 +2,21 @@ import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { readPreferencesState } from "../fixtures/ui/preferencesState.js";
+import {
+  PROJECT_BACKUP_KEY,
+  PROJECT_RESET_KEY,
+  PROJECT_ROOT_KEY,
+} from "../fixtures/ui/projectStorage.js";
 
 describe("Application reset checked-bundle boundary", () => {
   it("routes the confirmed UI action through both owners before reporting success", async () => {
-    const {
-      eventBus: bus,
-      storageService: storage,
-      dataCoordinator: coordinator,
-    } = runtime();
+    const applicationRuntime = runtime();
+    const { eventBus: bus, dataCoordinator: coordinator } = applicationRuntime;
 
     expect(bus.hasListeners("rpc:application:reset")).toBe(true);
     expect(bus.hasListeners("storage:data-reset")).toBe(false);
-    expect(storage).not.toHaveProperty("handleAppReset");
-    expect(storage).not.toHaveProperty("clearAllData");
-    expect(storage).not.toHaveProperty("setPreferencesTransitionRunner");
+    expect(applicationRuntime).not.toHaveProperty("storageService");
+    expect(applicationRuntime).not.toHaveProperty("projectRepository");
     expect(coordinator.getCurrentState().currentProfile).toBeTruthy();
 
     const unrelatedKey = "application-reset-browser-unrelated";
@@ -51,9 +52,9 @@ describe("Application reset checked-bundle boundary", () => {
         "data:storage-reset",
         "toast:success",
       ]);
-      expect(localStorage.getItem(storage.storageKey)).toBeNull();
-      expect(localStorage.getItem(storage.backupKey)).toBeNull();
-      expect(localStorage.getItem("sto_app_reset")).toBe("true");
+      expect(localStorage.getItem(PROJECT_ROOT_KEY)).toBeNull();
+      expect(localStorage.getItem(PROJECT_BACKUP_KEY)).toBeNull();
+      expect(localStorage.getItem(PROJECT_RESET_KEY)).toBe("true");
       expect(localStorage.getItem(unrelatedKey)).toBe("preserved");
       expect(coordinator.getCurrentState()).toMatchObject({
         ready: true,

@@ -124,20 +124,12 @@ export type PreferencesStateSnapshot = {
     }
 );
 
-/**
- * Structural storage capability retained by the legacy late-join snapshot.
- * Naming the concrete StorageService here would recursively couple the event
- * registry back through ComponentBase.
+/** Lifecycle-only compatibility shape retained until Task 10 removes the
+ * retired StorageService component-state sender. It deliberately exposes no
+ * project data or persistence capability.
  */
 export interface StorageServiceCapability {
   isInitialized(): boolean;
-  getAllData(forceFresh?: boolean): unknown;
-  saveAllData(data: unknown, options?: { preserveBackup?: boolean }): boolean;
-  getProfile(profileId: string): unknown;
-  saveProfile(profileId: string, profile: unknown): boolean;
-  deleteProfile(profileId: string): boolean;
-  createBackup(): void;
-  invalidateCache(): void;
 }
 
 export interface StorageStateSnapshot {

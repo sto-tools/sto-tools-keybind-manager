@@ -35,7 +35,7 @@ describe("artifact ordered owner read leases", () => {
     });
     dataOwner = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n,
     });
     preferencesOwner.init();
@@ -150,7 +150,7 @@ describe("artifact ordered owner read leases", () => {
         activateDataCoordinatorOwner(
           new DataCoordinator({
             eventBus: fixture.eventBus,
-            storage: fixture.storage,
+            projectRepository: fixture.projectRepository,
             i18n: { t: (key) => key },
           }),
         );

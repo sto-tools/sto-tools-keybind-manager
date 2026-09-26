@@ -44,7 +44,8 @@ describe("CommandChainService command-chain:clear event", () => {
 
     dataCoordinator = new DataCoordinator({
       eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
+      i18n: { t: (key) => key },
     });
     await dataCoordinator.init();
     await dataCoordinator.initialStateReady;
@@ -64,9 +65,11 @@ describe("CommandChainService command-chain:clear event", () => {
   });
 
   afterEach(() => {
-    chainService.destroy();
-    dataCoordinator.destroy();
-    fixture.destroy();
+    if (chainService && !chainService.destroyed) chainService.destroy();
+    if (dataCoordinator && !dataCoordinator.destroyed) {
+      dataCoordinator.destroy();
+    }
+    fixture?.destroy();
   });
 
   it("clears the selected command chain through the UI event path", async () => {

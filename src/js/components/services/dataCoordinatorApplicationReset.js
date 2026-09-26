@@ -3,6 +3,10 @@ import {
   recordDataCoordinatorPublication,
 } from "./dataCoordinatorMutationQueue.js";
 import { durableStage } from "./storageWorkflowReceipt.js";
+import {
+  adoptPendingCoordinatorProjectRoot,
+  loadCoordinatorProjectRoot,
+} from "./dataCoordinatorProjectPersistence.js";
 
 const pending = () => durableStage("pending", false);
 
@@ -66,9 +70,10 @@ async function resetProjectPersistence(owner, operation) {
       error: "storage_write_failed",
     });
   } finally {
-    // Reset may mutate before reporting failure. The legacy writer must never
-    // resurrect its cached pre-reset root after any attempted repository reset.
-    owner.storage.invalidateCache();
+    // Any reset attempt makes the previously accepted root unsafe to reuse.
+    // Recovery must fresh-load the repository before another project commit.
+    owner._projectRoot = null;
+    owner._pendingResetSentinel = null;
   }
 
   if (resetResult) {
@@ -105,13 +110,11 @@ async function adoptEmptyProject(owner, operation) {
   const receipt = adoptionReceipt();
   try {
     owner._assertCurrentOperation(operation);
-    owner.state.currentProfile = null;
-    owner.state.profiles = {};
-    owner.state.currentEnvironment = "space";
-    owner.state.metadata = {
-      lastModified: new Date().toISOString(),
-      version: owner.storage.version || owner.state.metadata.version || "1.0.0",
-    };
+    const loaded = loadCoordinatorProjectRoot(owner);
+    if (!loaded.repairRequired || !loaded.resetSentinel) {
+      throw new Error("operation_cancelled");
+    }
+    adoptPendingCoordinatorProjectRoot(owner, loaded, operation);
 
     owner._publishState("storage-reset");
     owner._assertCurrentOperation(operation);

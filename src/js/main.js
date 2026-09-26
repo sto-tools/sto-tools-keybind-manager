@@ -6,11 +6,7 @@ import en from "../i18n/en.json";
 import de from "../i18n/de.json";
 import fr from "../i18n/fr.json";
 import es from "../i18n/es.json";
-import {
-  StorageService,
-  DataCoordinator,
-  ToastService,
-} from "./components/services/index.js";
+import { DataCoordinator, ToastService } from "./components/services/index.js";
 import DataService from "./components/services/DataService.js";
 import PreferencesService from "./components/services/PreferencesService.js";
 import {
@@ -132,23 +128,20 @@ const dataService = new DataService({
     return;
   }
 
-  const storageService = new StorageService({ eventBus, i18n: i18next });
   const projectRepository = new LocalStorageProjectRepository({
     storage: settingsStorage,
-    version: storageService.version,
+    version: stoData.settings.version,
     now: () => new Date().toISOString(),
     settingsDefaults: defaults,
   });
 
-  // DataCoordinator remains the separate profile-data authority.
+  // DataCoordinator owns the accepted project root and its repository writer.
   const dataCoordinator = new DataCoordinator({
     eventBus,
-    storage: storageService,
     projectRepository,
     i18n: i18next,
   });
   try {
-    storageService.init();
     dataService.init();
     dataCoordinator.init();
     await dataCoordinator.initialStateReady;
@@ -157,7 +150,6 @@ const dataService = new DataService({
     for (const component of [
       dataCoordinator,
       dataService,
-      storageService,
       preferencesService,
     ]) {
       if (typeof component.destroy === "function") component.destroy();
@@ -270,7 +262,6 @@ const dataService = new DataService({
     // Initialize app after dependencies are available
     const app = new STOToolsKeybindManager({
       i18n: i18next,
-      storageService,
       preferencesService,
       applicationDataResetTransitionRunner:
         dataCoordinator.runApplicationResetTransition.bind(dataCoordinator),
@@ -291,7 +282,6 @@ const dataService = new DataService({
     if (devMonitor.isDevelopment) {
       devMonitor.registerRuntimeDiagnostics({
         eventBus,
-        storageService,
         dataCoordinator,
         commandChainUI: app.commandChainUI,
         keyBrowserUI: app.keyBrowserUI,

@@ -29,15 +29,14 @@ describe("DataCoordinator complete project import owner action", () => {
     fixture = createServiceFixture();
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles: {},
     });
     coordinator.init();
     await coordinator.initialStateReady;
-    fixture.storage.getAllData.mockClear();
-    fixture.storage.saveAllData.mockClear();
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.load.mockClear();
+    fixture.projectRepository.commit.mockClear();
     fixture.eventBusFixture.clearEventHistory();
   });
 
@@ -75,16 +74,15 @@ describe("DataCoordinator complete project import owner action", () => {
     });
 
     expect(persistImportedSettings).not.toHaveBeenCalled();
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
   });
 
   it("rejects a complete-root candidate when the current durable root is corrupt", async () => {
-    const destination = fixture.storage.getAllData();
-    fixture.storage.getAllData.mockReturnValueOnce({
+    const destination = structuredClone(coordinator._projectRoot);
+    coordinator._projectRoot = {
       ...destination,
       globalAliases: [],
-    });
+    };
 
     await expect(
       coordinator.replaceProjectFromImport({
@@ -106,7 +104,7 @@ describe("DataCoordinator complete project import owner action", () => {
       },
     });
 
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
   });
 
   it("persists settings once, replaces the complete root once, then publishes adopted owner state", async () => {
@@ -144,9 +142,8 @@ describe("DataCoordinator complete project import owner action", () => {
       },
     });
     expect(persistImportedSettings).toHaveBeenCalledOnce();
-    expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
-    expect(fixture.storage.saveAllData).toHaveBeenCalledWith(
+    expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
+    expect(fixture.projectRepository.commit).toHaveBeenCalledWith(
       expect.objectContaining({
         currentProfile: "imported",
         profiles: expect.objectContaining({
@@ -154,6 +151,7 @@ describe("DataCoordinator complete project import owner action", () => {
           imported: expect.objectContaining({ name: "Imported" }),
         }),
       }),
+      { verification: "not_requested" },
     );
     expect(coordinator.getCurrentState()).toMatchObject({
       currentProfile: "imported",
@@ -167,7 +165,10 @@ describe("DataCoordinator complete project import owner action", () => {
 
   it("retains an acknowledged settings stage when the one root write is indeterminate", async () => {
     const acceptedSettings = createDefaultPreferencesSettings("en");
-    fixture.storage.saveAllData.mockReturnValueOnce(false);
+    fixture.projectRepository.commit.mockReturnValueOnce({
+      status: "write_failed",
+      error: "storage_write_failed",
+    });
 
     const result = await coordinator.replaceProjectFromImport(
       {
@@ -200,7 +201,7 @@ describe("DataCoordinator complete project import owner action", () => {
         dataActivation: { status: "skipped", committed: false },
       },
     });
-    expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
+    expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
     expect(fixture.getEventHistory()).not.toContainEqual(
       expect.objectContaining({ event: "data:state-changed" }),
     );
@@ -212,8 +213,14 @@ describe("DataCoordinator complete project import owner action", () => {
       currentProfile: "imported",
     };
     const fingerprint = fingerprintWorkflowValue(project);
-    fixture.storage.getAllData.mockReturnValue(structuredClone(project));
-    const writesBefore = fixture.storage.saveAllData.mock.calls.length;
+    fixture.projectRepository.load.mockReturnValue({
+      status: "current",
+      value: {
+        ...structuredClone(coordinator._projectRoot),
+        ...structuredClone(project),
+      },
+    });
+    const writesBefore = fixture.projectRepository.commit.mock.calls.length;
 
     await expect(
       coordinator.activateProjectFromImport(project, { fingerprint }),
@@ -222,9 +229,11 @@ describe("DataCoordinator complete project import owner action", () => {
       currentProfile: "imported",
       receipt: { status: "complete", fingerprint },
     });
-    expect(fixture.storage.getAllData).toHaveBeenCalledOnce();
-    expect(fixture.storage.getAllData).toHaveBeenCalledWith(true);
-    expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(writesBefore);
+    expect(fixture.projectRepository.load).toHaveBeenCalledOnce();
+    expect(fixture.projectRepository.load).toHaveBeenCalledWith();
+    expect(fixture.projectRepository.commit).toHaveBeenCalledTimes(
+      writesBefore,
+    );
     expect(coordinator.getCurrentState()).toMatchObject({
       currentProfile: "imported",
       currentEnvironment: "ground",
@@ -239,8 +248,10 @@ describe("DataCoordinator complete project import owner action", () => {
       error: "invalid_project_activation",
       retryable: true,
     });
-    expect(fixture.storage.getAllData).toHaveBeenCalledOnce();
-    expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(writesBefore);
+    expect(fixture.projectRepository.load).toHaveBeenCalledOnce();
+    expect(fixture.projectRepository.commit).toHaveBeenCalledTimes(
+      writesBefore,
+    );
   });
 
   it("refuses retained activation when current durability has changed", async () => {
@@ -249,11 +260,14 @@ describe("DataCoordinator complete project import owner action", () => {
       currentProfile: "imported",
     };
     const before = coordinator.getCurrentState();
-    fixture.storage.getAllData.mockReturnValue({
-      profiles: { replacement: profile("Replacement") },
-      currentProfile: "replacement",
-      version: "1.0.0",
-      lastModified: "2026-09-26T00:00:00.000Z",
+    fixture.projectRepository.load.mockReturnValue({
+      status: "current",
+      value: {
+        ...structuredClone(coordinator._projectRoot),
+        profiles: { replacement: profile("Replacement") },
+        currentProfile: "replacement",
+        lastModified: "2026-09-26T00:00:00.000Z",
+      },
     });
 
     await expect(
@@ -266,7 +280,7 @@ describe("DataCoordinator complete project import owner action", () => {
       retryable: true,
       receipt: { error: "verification_failed" },
     });
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
     expect(coordinator.getCurrentState()).toBe(before);
   });
 
@@ -275,8 +289,8 @@ describe("DataCoordinator complete project import owner action", () => {
       coordinator.replaceProjectFromImport(["not", "a", "project"]),
     ).rejects.toThrow("invalid_project_file");
 
-    expect(fixture.storage.getAllData).not.toHaveBeenCalled();
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.load).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
   });
 
   it("reports an indeterminate settings stage when settings persistence throws", async () => {
@@ -310,7 +324,7 @@ describe("DataCoordinator complete project import owner action", () => {
     });
 
     expect(persistImportedSettings).toHaveBeenCalledOnce();
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
   });
 
   it("rejects a committed settings receipt whose value is not canonical", async () => {
@@ -347,13 +361,13 @@ describe("DataCoordinator complete project import owner action", () => {
     });
 
     expect(persistImportedSettings).toHaveBeenCalledOnce();
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
   });
 
   it("reports an indeterminate project stage when the complete-root writer throws", async () => {
-    fixture.storage.saveAllData.mockRejectedValueOnce(
-      new Error("project storage unavailable"),
-    );
+    fixture.projectRepository.commit.mockImplementationOnce(() => {
+      throw new Error("project storage unavailable");
+    });
 
     await expect(
       coordinator.replaceProjectFromImport({
@@ -376,7 +390,7 @@ describe("DataCoordinator complete project import owner action", () => {
       },
     });
 
-    expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
+    expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
     expect(fixture.getEventHistory()).not.toContainEqual(
       expect.objectContaining({ event: "data:state-changed" }),
     );
@@ -405,7 +419,7 @@ describe("DataCoordinator complete project import owner action", () => {
       },
     });
 
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
   });
 
   it("rejects malformed retained material and a retained activation queued after owner expiry", async () => {
@@ -440,6 +454,6 @@ describe("DataCoordinator complete project import owner action", () => {
         error: "operation_cancelled",
       },
     });
-    expect(fixture.storage.getAllData).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.load).not.toHaveBeenCalled();
   });
 });

@@ -4,9 +4,9 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import { createEventBusFixture } from "../fixtures/core/eventBus.js";
 import { createLocalStorageFixture } from "../fixtures/core/storage.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 const FIXTURE_DIRECTORY = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -21,7 +21,7 @@ function readFixture(fileName) {
 
 describe("persisted storage ingress owner chain", () => {
   let eventBusFixture;
-  let storage;
+  let projectRepository;
   let coordinator;
 
   beforeEach(() => {
@@ -32,23 +32,20 @@ describe("persisted storage ingress owner chain", () => {
 
   afterEach(() => {
     coordinator?.destroy();
-    storage?.destroy();
     eventBusFixture?.destroy();
     localStorage.clear();
     vi.restoreAllMocks();
   });
 
   async function startOwnerChain(version = "2.0.0") {
-    storage = new StorageService({
-      eventBus: eventBusFixture.eventBus,
+    projectRepository = createProjectRepository({
       version,
     });
     coordinator = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
     });
-    storage.init();
     coordinator.init();
     await vi.waitFor(() => {
       expect(coordinator.getCurrentState().ready).toBe(true);
@@ -125,24 +122,18 @@ describe("persisted storage ingress owner chain", () => {
       quotaError: true,
     });
     vi.spyOn(console, "error").mockImplementation(() => {});
-    storage = new StorageService({
-      eventBus: eventBusFixture.eventBus,
+    projectRepository = createProjectRepository({
       version: "2.0.0",
     });
     coordinator = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
     });
 
     try {
-      expect(() => storage.init()).toThrow("storage_write_failed");
-      expect(storage.isInitialized()).toBe(false);
-      expect(storage.getCurrentState().isReady).toBe(false);
-      expect(eventBusFixture.eventBus.hasListeners("component:register")).toBe(
-        false,
-      );
-      await expect(coordinator.loadInitialState()).rejects.toThrow(
+      coordinator.init();
+      await expect(coordinator.initialStateReady).rejects.toThrow(
         "failed_to_load_profile_data",
       );
 

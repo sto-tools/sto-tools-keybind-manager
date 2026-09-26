@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import ImportService from "../../src/js/components/services/ImportService.js";
 import ProjectManagementService from "../../src/js/components/services/ProjectManagementService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import SyncService from "../../src/js/components/services/SyncService.js";
 import {
   createEventBusFixture,
@@ -11,6 +10,7 @@ import {
 } from "../fixtures/core/index.js";
 import { createRequestBackedPreferencesTransition } from "../fixtures/services/projectRestore.js";
 import { importedProject } from "../fixtures/services/projectImportOwnerChain.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 const destinationRoot = {
   version: "1.0.0",
@@ -49,13 +49,13 @@ const profileProject = JSON.stringify({
 describe("project restore no-replay boundary", () => {
   let eventBusFixture;
   let localStorageFixture;
-  let storage;
+  let projectRepository;
   let coordinator;
   let importer;
   let projectManager;
   let sync;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
@@ -72,13 +72,10 @@ describe("project restore no-replay boundary", () => {
         },
       },
     });
-    storage = new StorageService({
-      eventBus: eventBusFixture.eventBus,
-      version: "1.0.0",
-    });
+    projectRepository = createProjectRepository();
     coordinator = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles: {},
     });
@@ -100,8 +97,8 @@ describe("project restore no-replay boundary", () => {
     });
     sync = null;
 
-    storage.init();
     coordinator.init();
+    await coordinator.initialStateReady;
     importer.init();
     projectManager.init();
   });
@@ -111,7 +108,6 @@ describe("project restore no-replay boundary", () => {
     projectManager?.destroy();
     importer?.destroy();
     coordinator?.destroy();
-    storage?.destroy();
     eventBusFixture?.destroy();
     localStorageFixture?.destroy();
     vi.restoreAllMocks();
@@ -175,7 +171,7 @@ describe("project restore no-replay boundary", () => {
       "importProjectWithinPreferencesTransition",
     );
     const ownerReplace = vi.spyOn(coordinator, "replaceProjectFromImport");
-    const profileWrites = vi.spyOn(storage, "saveProfile");
+    const projectWrites = vi.spyOn(projectRepository, "commit");
 
     sync.stagePendingSyncDecision("import", null);
     await sync.applyPendingSyncDecision();
@@ -190,7 +186,7 @@ describe("project restore no-replay boundary", () => {
     expect(restore).toHaveBeenCalledOnce();
     expect(importProject).toHaveBeenCalledOnce();
     expect(ownerReplace).toHaveBeenCalledOnce();
-    expect(profileWrites).not.toHaveBeenCalled();
+    expect(projectWrites).toHaveBeenCalledOnce();
     expect(getFileHandle).toHaveBeenCalledOnce();
     expect(getFile).toHaveBeenCalledOnce();
     expect(text).toHaveBeenCalledOnce();
@@ -218,7 +214,7 @@ describe("project restore no-replay boundary", () => {
     expect(restore).toHaveBeenCalledOnce();
     expect(importProject).toHaveBeenCalledOnce();
     expect(ownerReplace).toHaveBeenCalledOnce();
-    expect(profileWrites).not.toHaveBeenCalled();
+    expect(projectWrites).toHaveBeenCalledOnce();
     expect(getFileHandle).toHaveBeenCalledOnce();
     expect(text).toHaveBeenCalledOnce();
     expect(backupWrites).toBe(1);
@@ -259,24 +255,14 @@ describe("project restore no-replay boundary", () => {
 
     const restore = vi.spyOn(projectManager, "restoreFromProjectContent");
     const retry = vi.spyOn(projectManager, "retryRestoreActivation");
-    const saveAllData = storage.saveAllData.bind(storage);
-    let projectRootCommitted = false;
+    const commitProject = projectRepository.commit.bind(projectRepository);
     const rootWrites = vi
-      .spyOn(storage, "saveAllData")
-      .mockImplementation(async (...args) => {
-        const result = await saveAllData(...args);
-        projectRootCommitted = true;
+      .spyOn(projectRepository, "commit")
+      .mockImplementationOnce((...args) => {
+        const result = commitProject(...args);
+        coordinator._lifecycleGeneration += 1;
         return result;
       });
-    const getAllData = storage.getAllData.bind(storage);
-    let rejectAdoption = true;
-    vi.spyOn(storage, "getAllData").mockImplementation((...args) => {
-      if (projectRootCommitted && rejectAdoption) {
-        rejectAdoption = false;
-        throw new Error("reload blocked");
-      }
-      return getAllData(...args);
-    });
 
     sync.stagePendingSyncDecision("import", null);
     await sync.applyPendingSyncDecision();
@@ -290,7 +276,7 @@ describe("project restore no-replay boundary", () => {
       success: true,
       currentProfile: "existing",
     });
-    expect(storage.getAllData(true).currentProfile).toBe("existing");
+    expect(projectRepository.load().value.currentProfile).toBe("existing");
     expect(rootWrites).toHaveBeenCalledOnce();
     expect(getSyncDirectoryState).toHaveBeenCalledOnce();
     expect(getFileHandle).toHaveBeenCalledOnce();
@@ -301,11 +287,11 @@ describe("project restore no-replay boundary", () => {
 
   it("adopts the durable project on a fresh DataCoordinator lifecycle without replay", async () => {
     const before = coordinator.getCurrentState();
-    const saveAllData = storage.saveAllData.bind(storage);
+    const commitProject = projectRepository.commit.bind(projectRepository);
     const rootWrites = vi
-      .spyOn(storage, "saveAllData")
+      .spyOn(projectRepository, "commit")
       .mockImplementationOnce((...args) => {
-        const result = saveAllData(...args);
+        const result = commitProject(...args);
         coordinator.destroy();
         return result;
       });
@@ -331,7 +317,7 @@ describe("project restore no-replay boundary", () => {
 
     coordinator = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles: {},
     });
@@ -348,17 +334,14 @@ describe("project restore no-replay boundary", () => {
   });
 
   it("refuses activation-only retry after an intervening durable owner mutation", async () => {
-    const saveAllData = vi.spyOn(storage, "saveAllData");
-    const getAllData = storage.getAllData.bind(storage);
-    let rejectImportedAdoption = true;
-    vi.spyOn(storage, "getAllData").mockImplementation((...args) => {
-      const root = getAllData(...args);
-      if (rejectImportedAdoption && root.currentProfile === "imported") {
-        rejectImportedAdoption = false;
-        throw new Error("reload blocked");
-      }
-      return root;
-    });
+    const commitProject = projectRepository.commit.bind(projectRepository);
+    const projectWrites = vi
+      .spyOn(projectRepository, "commit")
+      .mockImplementationOnce((...args) => {
+        const receipt = commitProject(...args);
+        coordinator._lifecycleGeneration += 1;
+        return receipt;
+      });
 
     await expect(
       projectManager.restoreFromProjectContent(profileProject, "project.json"),
@@ -368,13 +351,22 @@ describe("project restore no-replay boundary", () => {
       durable: true,
       activation: { data: "pending", preferences: "not-required" },
     });
-    expect(saveAllData).toHaveBeenCalledOnce();
+    expect(projectWrites).toHaveBeenCalledOnce();
 
+    coordinator.destroy();
+    coordinator = new DataCoordinator({
+      eventBus: eventBusFixture.eventBus,
+      projectRepository,
+      i18n: { t: (key) => key },
+      defaultProfiles: {},
+    });
+    coordinator.init();
+    await coordinator.initialStateReady;
     await coordinator.updateProfile("existing", {
       properties: { description: "intervening owner mutation" },
     });
     const stateAfterInterveningMutation = coordinator.getCurrentState();
-    expect(saveAllData).toHaveBeenCalledTimes(2);
+    expect(projectWrites).toHaveBeenCalledTimes(2);
 
     await expect(projectManager.retryRestoreActivation()).resolves.toEqual({
       success: false,
@@ -385,9 +377,9 @@ describe("project restore no-replay boundary", () => {
       imported: { profiles: 1, settings: false },
       activation: { data: "pending", preferences: "not-required" },
     });
-    expect(saveAllData).toHaveBeenCalledTimes(2);
+    expect(projectWrites).toHaveBeenCalledTimes(2);
     expect(coordinator.getCurrentState()).toBe(stateAfterInterveningMutation);
-    expect(storage.getAllData(true)).toMatchObject({
+    expect(projectRepository.load().value).toMatchObject({
       currentProfile: "imported",
       profiles: {
         existing: { description: "intervening owner mutation" },

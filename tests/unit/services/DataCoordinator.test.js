@@ -10,22 +10,33 @@ const storedProfile = (name, fields = {}) => ({
 
 describe("DataCoordinator Service", () => {
   let dataCoordinator;
-  let fixture, mockStorage, mockEventBus;
+  let fixture, projectRepository, mockEventBus;
+
+  const completeRoot = (data = {}) => ({
+    currentProfile: null,
+    profiles: {},
+    settings: {},
+    globalAliases: {},
+    version: "1.0.0",
+    lastModified: "2026-07-19T00:00:00.000Z",
+    ...data,
+  });
 
   beforeEach(() => {
     // Create aggregated fixture
     fixture = createServiceFixture();
     mockEventBus = fixture.eventBus;
-    mockStorage = fixture.storage;
+    projectRepository = fixture.projectRepository;
 
     // Setup default storage responses
-    mockStorage.getAllData.mockReturnValue({
-      currentProfile: null,
-      profiles: {},
-      settings: {},
+    projectRepository.load.mockReturnValue({
+      status: "current",
+      value: completeRoot(),
     });
-
-    mockStorage.saveAllData.mockResolvedValue();
+    projectRepository.commit.mockImplementation((candidate) => ({
+      status: "committed",
+      value: structuredClone(candidate),
+    }));
 
     // Mock i18n for DataCoordinator
     const mockI18n = {
@@ -40,9 +51,10 @@ describe("DataCoordinator Service", () => {
 
     dataCoordinator = new DataCoordinator({
       eventBus: mockEventBus,
-      storage: mockStorage,
+      projectRepository,
       i18n: mockI18n,
     });
+    dataCoordinator._projectRoot = completeRoot();
   });
 
   afterEach(() => {
@@ -86,7 +98,7 @@ describe("DataCoordinator Service", () => {
 
     it("loads profile state without adopting embedded root settings", async () => {
       const embeddedSettings = { theme: "dark" };
-      const mockData = {
+      const mockData = completeRoot({
         currentProfile: "test-profile",
         profiles: {
           "test-profile": storedProfile("Test Profile", {
@@ -94,9 +106,12 @@ describe("DataCoordinator Service", () => {
           }),
         },
         settings: embeddedSettings,
-      };
+      });
 
-      mockStorage.getAllData.mockReturnValue(mockData);
+      projectRepository.load.mockReturnValue({
+        status: "current",
+        value: mockData,
+      });
 
       dataCoordinator.init();
       await dataCoordinator.initialStateReady;
@@ -113,25 +128,29 @@ describe("DataCoordinator Service", () => {
     });
 
     it("should set first profile as current if none specified", async () => {
-      const mockData = {
+      const mockData = completeRoot({
         currentProfile: null,
         profiles: {
           profile1: storedProfile("Profile 1"),
           profile2: storedProfile("Profile 2"),
         },
         settings: {},
-      };
+      });
 
-      mockStorage.getAllData.mockReturnValue(mockData);
+      projectRepository.load.mockReturnValue({
+        status: "current",
+        value: mockData,
+      });
 
       dataCoordinator.init();
       await dataCoordinator.initialStateReady;
 
       expect(dataCoordinator.state.currentProfile).toBe("profile1");
-      expect(mockStorage.saveAllData).toHaveBeenCalledWith(
+      expect(projectRepository.commit).toHaveBeenCalledWith(
         expect.objectContaining({
           currentProfile: "profile1",
         }),
+        { verification: "required" },
       );
     });
   });
@@ -170,6 +189,9 @@ describe("DataCoordinator Service", () => {
     it("should return current profile data in state", () => {
       dataCoordinator.state.currentProfile = "test-profile";
       dataCoordinator.state.profiles["test-profile"] = { name: "Test Profile" };
+      dataCoordinator._projectRoot.profiles["test-profile"] = {
+        name: "Test Profile",
+      };
 
       const state = dataCoordinator.getCurrentState();
 
@@ -243,6 +265,9 @@ describe("DataCoordinator Service", () => {
           },
         },
       );
+      dataCoordinator._projectRoot.profiles["source-profile"] = structuredClone(
+        dataCoordinator.state.profiles["source-profile"],
+      );
 
       const result = await dataCoordinator.cloneProfile(
         "source-profile",
@@ -263,6 +288,9 @@ describe("DataCoordinator Service", () => {
       // Setup existing profile
       dataCoordinator.state.profiles["test-profile"] =
         storedProfile("Old Name");
+      dataCoordinator._projectRoot.profiles["test-profile"] = structuredClone(
+        dataCoordinator.state.profiles["test-profile"],
+      );
 
       const result = await dataCoordinator.renameProfile(
         "test-profile",
@@ -284,6 +312,10 @@ describe("DataCoordinator Service", () => {
       dataCoordinator.state.profiles["profile1"] = storedProfile("Profile 1");
       dataCoordinator.state.profiles["profile2"] = storedProfile("Profile 2");
       dataCoordinator.state.currentProfile = "profile1";
+      dataCoordinator._projectRoot.currentProfile = "profile1";
+      dataCoordinator._projectRoot.profiles = structuredClone(
+        dataCoordinator.state.profiles,
+      );
 
       const result = await dataCoordinator.deleteProfile("profile1");
 
@@ -331,12 +363,12 @@ describe("DataCoordinator Service", () => {
   describe("Storage Operations", () => {
     it("saves profile updates without replacing embedded root settings", async () => {
       const embeddedSettings = { theme: "root-only", legacy: true };
-      const durableRoot = {
+      const durableRoot = completeRoot({
         currentProfile: "test-profile",
         profiles: { "test-profile": storedProfile("Test Profile") },
         settings: embeddedSettings,
-      };
-      mockStorage.getAllData.mockReturnValue(durableRoot);
+      });
+      dataCoordinator._projectRoot = structuredClone(durableRoot);
       dataCoordinator.state.profiles["test-profile"] =
         storedProfile("Test Profile");
 
@@ -344,7 +376,7 @@ describe("DataCoordinator Service", () => {
         properties: { description: "Updated" },
       });
 
-      expect(mockStorage.saveAllData).toHaveBeenCalledWith(
+      expect(projectRepository.commit).toHaveBeenCalledWith(
         expect.objectContaining({
           profiles: expect.objectContaining({
             "test-profile": expect.objectContaining({
@@ -353,6 +385,7 @@ describe("DataCoordinator Service", () => {
           }),
           settings: embeddedSettings,
         }),
+        { verification: "not_requested" },
       );
       expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     });
@@ -362,7 +395,7 @@ describe("DataCoordinator Service", () => {
       dataCoordinator.init();
       await dataCoordinator.initialStateReady;
 
-      const newData = {
+      const newData = completeRoot({
         currentProfile: "reloaded-profile",
         // A genuine pre-builds stored profile keeps this test's requirement:
         // normalization does not invent canonical builds in owner state.
@@ -370,9 +403,12 @@ describe("DataCoordinator Service", () => {
           "reloaded-profile": { name: "Reloaded", mode: "space", keys: {} },
         },
         settings: { newSetting: "value" },
-      };
+      });
 
-      mockStorage.getAllData.mockReturnValue(newData);
+      projectRepository.load.mockReturnValue({
+        status: "current",
+        value: newData,
+      });
 
       const result = await dataCoordinator.reloadState();
 
@@ -402,9 +438,9 @@ describe("DataCoordinator Service", () => {
 
   describe("Error Handling", () => {
     it("should handle storage errors gracefully", async () => {
-      mockStorage.saveProfile = vi
-        .fn()
-        .mockRejectedValue(new Error("Storage error"));
+      projectRepository.commit.mockImplementationOnce(() => {
+        throw new Error("Storage error");
+      });
 
       await expect(
         dataCoordinator.createProfile("Test Profile"),
@@ -430,7 +466,7 @@ describe("DataCoordinator Service", () => {
         "createIfMissing requires a replacement-only profile update",
       );
 
-      expect(mockStorage.saveProfile).not.toHaveBeenCalled();
+      expect(projectRepository.commit).not.toHaveBeenCalled();
       expect(dataCoordinator.state.profiles).not.toHaveProperty("non-existent");
     });
 

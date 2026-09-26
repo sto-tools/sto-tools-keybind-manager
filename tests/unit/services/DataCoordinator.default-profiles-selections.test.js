@@ -19,10 +19,10 @@ const defaultProfilesData = {
 describe("DataCoordinator default profiles - selections propagation", () => {
   let fixture;
   let eventBus;
-  let storage;
+  let projectRepository;
   let dataCoordinator;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Seed storage as first-run with no profiles
     fixture = createServiceFixture({
       initialStorageData: {
@@ -35,16 +35,36 @@ describe("DataCoordinator default profiles - selections propagation", () => {
       },
     });
     eventBus = fixture.eventBus;
-    storage = fixture.storage;
+    projectRepository = fixture.projectRepository;
+    projectRepository.load.mockReturnValue({
+      status: "current",
+      value: {
+        currentProfile: null,
+        profiles: {},
+        settings: {},
+        globalAliases: {},
+        version: "1.0.0",
+        lastModified: "2026-07-19T00:00:00.000Z",
+      },
+    });
+    projectRepository.commit.mockImplementation((candidate) => ({
+      status: "committed",
+      value: structuredClone(candidate),
+    }));
+    localStorage.setItem("sto_keybind_manager_visited", "true");
     dataCoordinator = new DataCoordinator({
       eventBus,
-      storage,
+      projectRepository,
       defaultProfiles: defaultProfilesData,
     });
+    dataCoordinator.init();
+    await dataCoordinator.initialStateReady;
+    projectRepository.commit.mockClear();
   });
 
   afterEach(() => {
     fixture.destroy();
+    localStorage.removeItem("sto_keybind_manager_visited");
   });
 
   it("copies selections from defaultProfiles into created profile", async () => {
@@ -60,7 +80,7 @@ describe("DataCoordinator default profiles - selections propagation", () => {
     });
 
     // Also verify persistence happened with selections present
-    const persisted = storage.getAllData();
+    const persisted = projectRepository.commit.mock.calls[0][0];
     expect(persisted.profiles["default"]).toBeDefined();
     expect(persisted.profiles["default"].selections).toEqual({
       space: "F1",
@@ -79,7 +99,7 @@ describe("DataCoordinator default profiles - selections propagation", () => {
     });
 
     expect(request).not.toHaveBeenCalled();
-    expect(storage.saveAllData).toHaveBeenCalledTimes(1);
+    expect(projectRepository.commit).toHaveBeenCalledTimes(1);
     expect(dataCoordinator.state.profiles.default.selections).toEqual(
       defaultProfilesData.default.selections,
     );
@@ -133,7 +153,9 @@ describe("DataCoordinator default profiles - selections propagation", () => {
     }
     expect(created.created).not.toBe("source-created");
     expect(created.lastModified).not.toBe("source-modified");
-    expect(storage.getAllData().profiles.allowlisted).toEqual(created);
+    expect(
+      projectRepository.commit.mock.calls[0][0].profiles.allowlisted,
+    ).toEqual(created);
     expect(source).toEqual(sourceBefore);
   });
 
@@ -157,7 +179,9 @@ describe("DataCoordinator default profiles - selections propagation", () => {
     });
     expect(dataCoordinator.state.currentProfile).toBe("default");
     expect(dataCoordinator.state.currentEnvironment).toBe("space");
-    expect(storage.getAllData().profiles.default).toEqual(fallback);
-    expect(storage.saveAllData).toHaveBeenCalledTimes(1);
+    expect(projectRepository.commit.mock.calls[0][0].profiles.default).toEqual(
+      fallback,
+    );
+    expect(projectRepository.commit).toHaveBeenCalledTimes(1);
   });
 });

@@ -71,7 +71,7 @@ describe("Regression: Import from Key or Alias request routing", () => {
     // Spin up DataCoordinator so it can register respond handlers
     dataCoordinator = new DataCoordinator({
       eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     dataCoordinator.init();
@@ -113,7 +113,7 @@ describe("Regression: Import from Key or Alias request routing", () => {
     const commandAdds = [];
     eventBus.on("profile:updated", (event) => profileUpdates.push(event));
     eventBus.on("command-added", (event) => commandAdds.push(event));
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
 
     const result = await request(eventBus, "command:import-from-source", {
       sourceValue: "space:F1",
@@ -130,8 +130,8 @@ describe("Regression: Import from Key or Alias request routing", () => {
       sourceName: "F1",
     });
     expect(
-      fixture.storage.saveProfile.mock.calls.map(
-        ([, profile]) => profile.builds.space.keys.F2,
+      fixture.projectRepository.commit.mock.calls.map(
+        ([root]) => root.profiles.testProfile.builds.space.keys.F2,
       ),
     ).toEqual([[], ["FireAll"], ["FireAll", "FirePhasers"]]);
     expect(
@@ -142,7 +142,7 @@ describe("Regression: Import from Key or Alias request routing", () => {
       { key: "F2", command: "FirePhasers" },
     ]);
 
-    const persisted = fixture.storage.getProfile("testProfile");
+    const persisted = fixture.readProjectRoot().profiles.testProfile;
     expect(persisted.builds.space.keys).toEqual({
       F1: ["FireAll", "FirePhasers"],
       F2: ["FireAll", "FirePhasers"],
@@ -156,7 +156,7 @@ describe("Regression: Import from Key or Alias request routing", () => {
 
   it("clears an alias without overwriting its metadata", async () => {
     await dataCoordinator.setEnvironment("alias");
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
 
     const result = await request(eventBus, "command:import-from-source", {
       sourceValue: "alias:sourceAlias",
@@ -167,8 +167,8 @@ describe("Regression: Import from Key or Alias request routing", () => {
 
     expect(result).toMatchObject({ success: true, importedCount: 2 });
     expect(
-      fixture.storage.saveProfile.mock.calls.map(
-        ([, profile]) => profile.aliases.targetAlias,
+      fixture.projectRepository.commit.mock.calls.map(
+        ([root]) => root.profiles.testProfile.aliases.targetAlias,
       ),
     ).toEqual([
       {
@@ -191,7 +191,7 @@ describe("Regression: Import from Key or Alias request routing", () => {
       },
     ]);
     expect(
-      fixture.storage.getProfile("testProfile").aliases.targetAlias,
+      fixture.readProjectRoot().profiles.testProfile.aliases.targetAlias,
     ).toEqual({
       commands: ["FireAll", "FirePhasers"],
       description: "Target alias",

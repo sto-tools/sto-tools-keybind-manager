@@ -58,15 +58,19 @@ export function decodeProjectRepositoryJson(
   raw,
   { defaults, version, resetSentinel },
 ) {
+  const resetRecovery = resetSentinel
+    ? {
+        status: /** @type {const} */ ("pending_consumption"),
+        expectedValue: resetSentinel,
+      }
+    : { status: /** @type {const} */ ("not_applicable") };
   if (!raw) {
     // The historical sentinel contract is truthiness, not key existence.
     return {
       status: "repair_required",
       value: structuredClone(defaults),
       reason: "missing",
-      resetSentinel: resetSentinel
-        ? { status: "pending_consumption", expectedValue: resetSentinel }
-        : { status: "not_applicable" },
+      resetSentinel: resetRecovery,
     };
   }
   const decoded = decodeStoredApplicationJson(raw, { defaults, version });
@@ -75,15 +79,23 @@ export function decodeProjectRepositoryJson(
       status: "repair_required",
       value: structuredClone(defaults),
       reason: decoded.error,
-      resetSentinel: { status: "not_applicable" },
+      resetSentinel: resetRecovery,
     };
   }
-  if (!decoded.changed) return { status: "current", value: decoded.value };
+  if (!decoded.changed) {
+    if (!resetSentinel) return { status: "current", value: decoded.value };
+    return {
+      status: "repair_required",
+      value: decoded.value,
+      reason: "reset_pending",
+      resetSentinel: resetRecovery,
+    };
+  }
   return {
     status: "repair_required",
     value: decoded.value,
     reason: decoded.migrated ? "legacy" : "repaired",
-    resetSentinel: { status: "not_applicable" },
+    resetSentinel: resetRecovery,
   };
 }
 

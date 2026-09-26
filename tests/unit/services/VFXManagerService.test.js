@@ -56,7 +56,7 @@ describe("VFXManagerService", () => {
   });
 
   afterEach(() => {
-    coordinator?.destroy();
+    if (coordinator && !coordinator.destroyed) coordinator.destroy();
     if (service && !service.destroyed) service.destroy();
     fixture.destroy();
   });
@@ -141,7 +141,7 @@ describe("VFXManagerService", () => {
     });
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     coordinator.init();

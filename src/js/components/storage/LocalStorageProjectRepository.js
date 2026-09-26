@@ -83,9 +83,9 @@ function decodeWriteOptions(input) {
 
 /**
  * Whole legacy-shaped roots, exact previous-root backups, and reset sentinel
- * only. Tranche 8 composes `reset()` behind DataCoordinator; the remaining
- * legacy project writes stay on StorageService until the writer cutover. No
- * cache, owner effects, or global lookup.
+ * only. DataCoordinator is the sole owner of this capability and supplies all
+ * domain planning, adoption, and publication. No cache, owner effects, or
+ * global lookup live in this adapter.
  * @implements {ProjectRepositoryPort}
  */
 export default class LocalStorageProjectRepository {

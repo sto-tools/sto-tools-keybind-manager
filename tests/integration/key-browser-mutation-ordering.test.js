@@ -70,7 +70,7 @@ describe("Integration: KeyBrowserUI mutation result ordering", () => {
     inputDialog = { prompt: vi.fn() };
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n,
       defaultProfiles: {},
     });

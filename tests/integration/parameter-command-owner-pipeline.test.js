@@ -199,7 +199,7 @@ describe("Parameter command EventBus owner pipeline", () => {
 
     coordinator = new DataCoordinator({
       eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n,
     });
     coordinator.init();
@@ -228,7 +228,7 @@ describe("Parameter command EventBus owner pipeline", () => {
       expect(chainService.cache.dataState?.ready).toBe(true);
     });
     await publishContext();
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
   });
 
   afterEach(() => {
@@ -286,7 +286,7 @@ describe("Parameter command EventBus owner pipeline", () => {
     expect(addedEvents).toEqual([
       { key: "F2", command: addRequests[0].command },
     ]);
-    const persisted = fixture.storage.getProfile("captain");
+    const persisted = fixture.readProjectRoot().profiles.captain;
     expect(persisted.builds.space.keys.F2).toEqual(["PrimaryExisting"]);
     expect(persisted.bindsets.Tactical.space.keys.F2).toEqual([
       "TacticalExisting",
@@ -357,10 +357,9 @@ describe("Parameter command EventBus owner pipeline", () => {
       updatedCommand: { command: 'Target "Beta"' },
       commands: ['Target "Beta"', 'Target "Second"'],
     });
-    expect(fixture.storage.getProfile("captain").builds.space.keys.F1).toEqual([
-      'Target "Beta"',
-      'Target "Second"',
-    ]);
+    expect(
+      fixture.readProjectRoot().profiles.captain.builds.space.keys.F1,
+    ).toEqual(['Target "Beta"', 'Target "Second"']);
   });
 
   it("rejects a parameter edit queued behind an owner revision that shifts its index", async () => {
@@ -376,13 +375,14 @@ describe("Parameter command EventBus owner pipeline", () => {
 
     const writeStarted = deferred();
     const releaseWrite = deferred();
-    const saveProfile = fixture.storage.saveProfile.getMockImplementation();
-    if (!saveProfile) throw new Error("Expected storage fixture writer");
-    fixture.storage.saveProfile.mockImplementationOnce(async (...args) => {
-      writeStarted.resolve();
-      await releaseWrite.promise;
-      return saveProfile(...args);
-    });
+    const updateProfile = coordinator._updateProfile.bind(coordinator);
+    vi.spyOn(coordinator, "_updateProfile").mockImplementationOnce(
+      async (...args) => {
+        writeStarted.resolve();
+        await releaseWrite.promise;
+        return updateProfile(...args);
+      },
+    );
     const editCommand = vi.spyOn(commandService, "editCommand");
     const deleting = request(eventBus, "command:delete", {
       key: "F1",
@@ -412,10 +412,10 @@ describe("Parameter command EventBus owner pipeline", () => {
       "command_edit_target_changed",
       "warning",
     );
-    expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
-    expect(fixture.storage.getProfile("captain").builds.space.keys.F1).toEqual([
-      'Target "Second"',
-    ]);
+    expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
+    expect(
+      fixture.readProjectRoot().profiles.captain.builds.space.keys.F1,
+    ).toEqual(['Target "Second"']);
     expect(
       coordinator.getCurrentState().profiles.captain.builds.space.keys.F1,
     ).toEqual(['Target "Second"']);

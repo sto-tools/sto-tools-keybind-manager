@@ -1,6 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
 import { normalizeProfile } from "../../lib/profileNormalizer.js";
-import persist from "./storageWrites.js";
 import {
   createDataStateSnapshot,
   nextDataStateAuthorityEpoch,
@@ -55,9 +54,17 @@ import {
 } from "./dataCoordinatorMutationQueue.js";
 import {
   publishCurrentCoordinatorProfile,
+  publishCommittedCoordinatorProject,
   publishDataCoordinatorState,
   publishReloadedCoordinatorState,
 } from "./dataCoordinatorPublication.js";
+import {
+  adoptCoordinatorProjectRoot,
+  cloneCoordinatorProjectRoot,
+  commitCoordinatorProjectRoot,
+  coordinatorProjectVersion,
+  loadCoordinatorProjectRoot,
+} from "./dataCoordinatorProjectPersistence.js";
 
 /** @param {unknown} error */
 const errMsg = (error) =>
@@ -157,23 +164,24 @@ export default class DataCoordinator extends ComponentBase {
   /**
    * @param {{
    *   eventBus: import('./serviceTypes.js').EventBus,
-   *   storage: import('./serviceTypes.js').Storage,
-   *   projectRepository?: import('../../types/storage-contracts.js').ProjectRepositoryPort | null,
+   *   projectRepository: import('../../types/storage-contracts.js').ProjectRepositoryPort,
    *   i18n: import('./serviceTypes.js').I18n,
    *   defaultProfiles?: Record<string, unknown>
    * }} options
    */
   constructor({
     eventBus,
-    storage,
-    projectRepository = null,
+    projectRepository,
     i18n,
     defaultProfiles = builtInDefaultProfiles,
   }) {
     super(eventBus);
     this.componentName = "DataCoordinator";
-    this.storage = storage;
     this.projectRepository = projectRepository;
+    /** @type {import('./dataCoordinatorProjectPersistence.js').CoordinatorProjectRoot | null} */
+    this._projectRoot = null;
+    /** @type {string | null} */
+    this._pendingResetSentinel = null;
     this.i18n = i18n;
     this.defaultProfileDefinitions = defaultProfiles;
 
@@ -522,26 +530,16 @@ export default class DataCoordinator extends ComponentBase {
       validatePlannedProfileRoot(
         profileId,
         updatedProfile,
-        this.storage.getAllData(),
-        { version: this.storage.version },
+        cloneCoordinatorProjectRoot(this),
+        { version: coordinatorProjectVersion(this) },
       );
-      const persistedProfile = await persist.profile(
-        this.storage,
-        profileId,
-        updatedProfile,
-        this.i18n,
-      );
+      const candidate = cloneCoordinatorProjectRoot(this);
+      candidate.profiles[profileId] = structuredClone(updatedProfile);
       this._assertCurrentOperation(operation);
-
-      // Update in-memory cache regardless of what changed
-      this.state.profiles[profileId] = persistedProfile;
-      if (
-        profileId === this.state.currentProfile &&
-        persistedProfile.currentEnvironment
-      ) {
-        this.state.currentEnvironment = persistedProfile.currentEnvironment;
-      }
-      this.state.metadata.lastModified = new Date().toISOString();
+      const accepted = commitCoordinatorProjectRoot(this, candidate);
+      adoptCoordinatorProjectRoot(this, accepted, operation);
+      publishCommittedCoordinatorProject(this, accepted);
+      const persistedProfile = this.state.profiles[profileId];
 
       if (publishState) {
         this._publishState(
@@ -776,21 +774,22 @@ export default class DataCoordinator extends ComponentBase {
       profiles[profileId] = rawProfile;
     }
 
-    const {
-      nextProfiles,
-      nextCurrentProfile,
-      nextCurrentEnvironment,
-      profileActivated,
-    } = planProfileBatch(this.state, profiles);
+    const { nextProfiles, nextCurrentProfile, profileActivated } =
+      planProfileBatch(this.state, profiles);
 
     // Persist the complete profile batch and any initial activation as one root
     // write before exposing either through owner state.
-    const nextRoot = structuredClone(this.storage.getAllData());
+    const nextRoot = cloneCoordinatorProjectRoot(this);
     nextRoot.profiles = structuredClone(nextProfiles);
     nextRoot.currentProfile = nextCurrentProfile;
     try {
-      validatePlannedProjectRoot(nextRoot, { version: this.storage.version });
-      await persist.all(this.storage, nextRoot, this.i18n);
+      validatePlannedProjectRoot(nextRoot, {
+        version: coordinatorProjectVersion(this),
+      });
+      this._assertCurrentOperation(operation);
+      const accepted = commitCoordinatorProjectRoot(this, nextRoot);
+      adoptCoordinatorProjectRoot(this, accepted, operation);
+      publishCommittedCoordinatorProject(this, accepted);
     } catch (error) {
       const message = this.i18n.t("failed_to_save_profile", {
         error: errMsg(error),
@@ -798,20 +797,6 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error(message);
     }
     this._assertCurrentOperation(operation);
-
-    const durableRoot = this.storage.getAllData();
-
-    this.state.profiles = nextProfiles;
-    this.state.currentProfile = nextCurrentProfile;
-    this.state.currentEnvironment = nextCurrentEnvironment;
-    this.state.metadata = {
-      lastModified:
-        durableRoot.lastModified ??
-        nextRoot.lastModified ??
-        new Date().toISOString(),
-      version:
-        durableRoot.version || nextRoot.version || this.state.metadata.version,
-    };
 
     const publications = [
       publishDataCoordinatorState(this, "default-profiles-created").settled,
@@ -860,21 +845,22 @@ export default class DataCoordinator extends ComponentBase {
     fallbackProfile.lastModified = new Date().toISOString();
     normalizeProfile(fallbackProfile);
     const fallbackProfiles = { default: fallbackProfile };
-    const {
-      nextProfiles,
-      nextCurrentProfile,
-      nextCurrentEnvironment,
-      profileActivated,
-    } = planProfileBatch(this.state, fallbackProfiles);
+    const { nextProfiles, nextCurrentProfile, profileActivated } =
+      planProfileBatch(this.state, fallbackProfiles);
 
     // The fallback profile and its initial activation form one durable root
     // commit, so neither can survive independently after a failed write.
-    const nextRoot = structuredClone(this.storage.getAllData());
+    const nextRoot = cloneCoordinatorProjectRoot(this);
     nextRoot.profiles = structuredClone(nextProfiles);
     nextRoot.currentProfile = nextCurrentProfile;
     try {
-      validatePlannedProjectRoot(nextRoot, { version: this.storage.version });
-      await persist.all(this.storage, nextRoot, this.i18n);
+      validatePlannedProjectRoot(nextRoot, {
+        version: coordinatorProjectVersion(this),
+      });
+      this._assertCurrentOperation(operation);
+      const accepted = commitCoordinatorProjectRoot(this, nextRoot);
+      adoptCoordinatorProjectRoot(this, accepted, operation);
+      publishCommittedCoordinatorProject(this, accepted);
     } catch (error) {
       const message = this.i18n.t("failed_to_save_profile", {
         error: errMsg(error),
@@ -882,19 +868,6 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error(message);
     }
     this._assertCurrentOperation(operation);
-
-    const durableRoot = this.storage.getAllData();
-    this.state.profiles = nextProfiles;
-    this.state.currentProfile = nextCurrentProfile;
-    this.state.currentEnvironment = nextCurrentEnvironment;
-    this.state.metadata = {
-      lastModified:
-        durableRoot.lastModified ??
-        nextRoot.lastModified ??
-        new Date().toISOString(),
-      version:
-        durableRoot.version || nextRoot.version || this.state.metadata.version,
-    };
 
     const publications = [
       publishDataCoordinatorState(this, "fallback-profiles-created").settled,
@@ -923,16 +896,9 @@ export default class DataCoordinator extends ComponentBase {
   // Normalize all profiles to use canonical string commands
   /**
    * @param {Record<string, import('./serviceTypes.js').ProfileData>} [profiles]
-   * @param {{ rootData?: any }} [options]
    * @returns {Promise<number>}
    */
-  async normalizeAllProfiles(profiles, options = {}) {
-    const safeOptions = materializeMutationRequest(options, ["rootData"]);
-    if (safeOptions.rootData != null) {
-      // Validate the supplied envelope before reading any owner/storage value.
-      // The actual storage version and merged candidate are checked in-queue.
-      validatePlannedProjectRoot(safeOptions.rootData, { version: "1.0.0" });
-    }
+  async normalizeAllProfiles(profiles) {
     const detached =
       profiles === undefined ? undefined : materializeProfileMap(profiles);
     return enqueueDataCoordinatorMutation(this, async () => {
@@ -940,18 +906,17 @@ export default class DataCoordinator extends ComponentBase {
         /** @type {Record<string, import('./serviceTypes.js').ProfileData>} */ (
           detached ?? structuredClone(this.state.profiles)
         );
-      const count = await this._normalizeAllProfiles(candidate, safeOptions);
-      if (profiles === undefined) this.state.profiles = candidate;
+      const count = await this._normalizeAllProfiles(candidate);
       return count;
     });
   }
 
   /** @param {Record<string, import('./serviceTypes.js').ProfileData>} profiles
-   * @param {{rootData?: any}} [options]
+   * @param {{rootData?: any, persist?: boolean}} [options]
    * @returns {Promise<number>}
    */
-  async _normalizeAllProfiles(profiles, { rootData } = {}) {
-    return normalizeCoordinatorProfiles(this, profiles, { rootData });
+  async _normalizeAllProfiles(profiles, { rootData, persist } = {}) {
+    return normalizeCoordinatorProfiles(this, profiles, { rootData, persist });
   }
 
   // Reload state from storage (used after data import/restore)
@@ -978,42 +943,41 @@ export default class DataCoordinator extends ComponentBase {
     try {
       this._assertCurrentOperation(operation);
 
-      // Get fresh data from storage
-      const allData = this.storage.getAllData();
-
+      const loaded = loadCoordinatorProjectRoot(this);
+      const allData = loaded.root;
       const nextProfiles = structuredClone(allData.profiles || {});
-      const nextCurrentProfile = allData.currentProfile || null;
+      let nextCurrentProfile = allData.currentProfile || null;
 
       // Normalize any newly imported profiles
       const profilesNormalized = await this._normalizeAllProfiles(
         nextProfiles,
         {
           rootData: allData,
+          persist: false,
         },
       );
       this._assertCurrentOperation(operation);
-      const durableRoot =
-        profilesNormalized > 0 ? this.storage.getAllData() : allData;
-
-      // Set current environment from current profile if available
-      let nextCurrentEnvironment = "space";
-      if (
-        nextCurrentProfile &&
-        Object.prototype.hasOwnProperty.call(nextProfiles, nextCurrentProfile)
-      ) {
-        const currentProfile = nextProfiles[nextCurrentProfile];
-        nextCurrentEnvironment = currentProfile.currentEnvironment || "space";
+      let selectionChanged = false;
+      if (!nextCurrentProfile && Object.keys(nextProfiles).length > 0) {
+        nextCurrentProfile = Object.keys(nextProfiles)[0];
+        selectionChanged = true;
       }
+      const candidate = structuredClone(allData);
+      candidate.profiles = structuredClone(nextProfiles);
+      candidate.currentProfile = nextCurrentProfile;
+      const requiresCommit =
+        loaded.repairRequired || profilesNormalized > 0 || selectionChanged;
+      this._assertCurrentOperation(operation);
+      const durableRoot = requiresCommit
+        ? commitCoordinatorProjectRoot(this, candidate, {
+            verification: "required",
+            consumeResetSentinel: loaded.resetSentinel,
+          })
+        : allData;
+      adoptCoordinatorProjectRoot(this, durableRoot, operation);
+      if (requiresCommit) publishCommittedCoordinatorProject(this, durableRoot);
 
       // Commit the fully normalized draft as one owner-state transition.
-      this.state.profiles = nextProfiles;
-      this.state.currentProfile = nextCurrentProfile;
-      this.state.currentEnvironment = nextCurrentEnvironment;
-      this.state.metadata = {
-        lastModified: durableRoot.lastModified,
-        version: durableRoot.version || "1.0.0",
-      };
-
       const publicationsSettled = publishReloadedCoordinatorState(
         this,
         operation,
@@ -1046,6 +1010,8 @@ export default class DataCoordinator extends ComponentBase {
     this._lifecycleGeneration += 1;
     this._stateReady = false;
     this._currentStateSnapshot = null;
+    this._projectRoot = null;
+    this._pendingResetSentinel = null;
     for (const detach of this._responseDetachFunctions) detach();
     this._responseDetachFunctions = [];
   }

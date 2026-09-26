@@ -56,25 +56,18 @@ describe("Project artifact checked-bundle parity", () => {
   });
 
   it("downloads and syncs byte-identical artifacts from the live owner state", async () => {
-    const bus = runtime().eventBus;
-    const storage = runtime().storageService;
-    const dataCoordinator = runtime().dataCoordinator;
+    const applicationRuntime = runtime();
+    const bus = applicationRuntime.eventBus;
+    const dataCoordinator = applicationRuntime.dataCoordinator;
     expect(bus?.hasListeners("project:save")).toBe(true);
     expect(bus?.hasListeners("rpc:export:sync-to-folder")).toBe(true);
-    expect(storage).toBeTruthy();
+    expect(applicationRuntime).not.toHaveProperty("storageService");
+    expect(applicationRuntime).not.toHaveProperty("projectRepository");
     expect(dataCoordinator).toBeTruthy();
-    if (!bus || !storage || !dataCoordinator) return;
+    if (!bus || !dataCoordinator) return;
 
     const dataSnapshot = dataCoordinator.getCurrentState();
     expect(dataSnapshot.ready).toBe(true);
-    const legacyGetAllData = storage.getAllData;
-    const legacyGetProfile = storage.getProfile;
-    storage.getAllData = () => {
-      throw new Error("legacy storage project read must not run");
-    };
-    storage.getProfile = () => {
-      throw new Error("legacy storage profile read must not run");
-    };
     let settingsSnapshot;
 
     vi.useFakeTimers({ toFake: ["Date"] });
@@ -159,8 +152,6 @@ describe("Project artifact checked-bundle parity", () => {
       if (settingsSnapshot) {
         await request(bus, "preferences:set-settings", settingsSnapshot);
       }
-      storage.getAllData = legacyGetAllData;
-      storage.getProfile = legacyGetProfile;
     }
   });
 });

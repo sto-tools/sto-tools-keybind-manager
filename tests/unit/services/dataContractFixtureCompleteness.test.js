@@ -150,8 +150,20 @@ describe("complete persisted-data contract fixture", () => {
         routineStateQueryRpcTopics: 0,
       },
       testDisposition: {
-        retired: [],
-        rule: "Tranche 0 retires no behavior test or legacy fixture",
+        retired: [
+          {
+            path: "tests/integration/profile-management.test.js",
+            tranche: 4,
+            removedRequirement:
+              "The fixture-only StorageService save/load facade and fake profile:switch/query RPC contracts are not production protocols; query RPC state access is prohibited.",
+            equivalentCoverage: [
+              "tests/unit/storage/LocalStorageProjectRepository.test.js",
+              "tests/unit/services/dataCoordinatorRepositoryCutover.test.js",
+              "tests/integration/project-repository-owner-chain.test.js",
+            ],
+          },
+        ],
+        rule: "A frozen baseline test may retire only with its removed requirement and named equivalent coverage.",
       },
     });
   });
@@ -240,6 +252,9 @@ describe("complete persisted-data contract fixture", () => {
     const baseline = readFixture("tranche-0-baseline.json");
     const pathList = fixtureText(baseline.activeTests.pathList);
     const testPaths = pathList.trimEnd().split("\n");
+    const retiredPaths = new Set(
+      baseline.testDisposition.retired.map(({ path }) => path),
+    );
     const categories = {
       unit: testPaths.filter((path) => path.startsWith("tests/unit/")).length,
       integration: testPaths.filter((path) =>
@@ -254,8 +269,24 @@ describe("complete persisted-data contract fixture", () => {
     expect(sha256(pathList)).toBe(baseline.activeTests.sha256);
     expect(categories).toEqual(baseline.activeTests.counts);
     expect(
-      testPaths.filter((path) => !existsSync(join(process.cwd(), path))),
+      testPaths.filter(
+        (path) =>
+          !retiredPaths.has(path) && !existsSync(join(process.cwd(), path)),
+      ),
     ).toEqual([]);
+    expect([...retiredPaths].every((path) => testPaths.includes(path))).toBe(
+      true,
+    );
+    for (const disposition of baseline.testDisposition.retired) {
+      expect(existsSync(join(process.cwd(), disposition.path))).toBe(false);
+      expect(disposition.removedRequirement).not.toBe("");
+      expect(disposition.equivalentCoverage.length).toBeGreaterThan(0);
+      expect(
+        disposition.equivalentCoverage.every((path) =>
+          existsSync(join(process.cwd(), path)),
+        ),
+      ).toBe(true);
+    }
   });
 
   it("materializes every known root, profile, command, alias, and settings field", () => {

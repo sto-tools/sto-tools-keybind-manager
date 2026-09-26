@@ -7,11 +7,11 @@ import ImportService from "../../src/js/components/services/ImportService.js";
 import ModalManagerService from "../../src/js/components/services/ModalManagerService.js";
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
 import { createProjectSettingsRepository } from "../fixtures/services/projectRestore.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import ImportUI from "../../src/js/components/ui/ImportUI.js";
 import { STOCommandParser } from "../../src/js/lib/STOCommandParser.js";
 import { createRealEventBusFixture } from "../fixtures/core/eventBus.js";
 import { createLocalStorageFixture } from "../fixtures/core/storage.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 const profileId = "captain";
 const keysetKBF = readFileSync(
@@ -55,7 +55,7 @@ function createI18nFixture() {
 describe("ImportUI workflow integration", () => {
   let eventBusFixture;
   let localStorageFixture;
-  let storage;
+  let projectRepository;
   let coordinator;
   let importService;
   let preferences;
@@ -85,18 +85,14 @@ describe("ImportUI workflow integration", () => {
       },
     });
 
-    storage = new StorageService({
-      eventBus: eventBusFixture.eventBus,
-      version: "1.0.0",
-    });
+    projectRepository = createProjectRepository();
     coordinator = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      projectRepository,
       i18n: i18nFixture.i18n,
     });
     importService = new ImportService({
       eventBus: eventBusFixture.eventBus,
-      storage,
       i18n: i18nFixture.i18n,
     });
     preferences = new PreferencesService({
@@ -106,7 +102,6 @@ describe("ImportUI workflow integration", () => {
     });
     new STOCommandParser(eventBusFixture.eventBus);
 
-    storage.init();
     coordinator.init();
     importService.init();
     preferences.init();
@@ -137,7 +132,6 @@ describe("ImportUI workflow integration", () => {
     preferences?.destroy();
     importService?.destroy();
     coordinator?.destroy();
-    storage?.destroy();
     eventBusFixture?.destroy();
     localStorageFixture?.destroy();
     document.body.replaceChildren();
@@ -158,6 +152,8 @@ describe("ImportUI workflow integration", () => {
 
   const selectKeybindFile = (content) =>
     selectImportFile("keybinds", content, "keybinds.txt");
+  const durableProfile = () =>
+    projectRepository.load().value.profiles[profileId];
 
   async function recreateImportUIWithModalManager() {
     importUI.destroy();
@@ -215,9 +211,7 @@ describe("ImportUI workflow integration", () => {
         strategy: "merge_keep",
       },
     ]);
-    expect(storage.getProfile(profileId).builds.ground.keys.F1).toEqual([
-      "FireAll",
-    ]);
+    expect(durableProfile().builds.ground.keys.F1).toEqual(["FireAll"]);
     expect(
       importUI.cache.dataState.profiles[profileId].builds.ground.keys.F1,
     ).toEqual(["FireAll"]);
@@ -235,7 +229,7 @@ describe("ImportUI workflow integration", () => {
     });
     eventBusFixture.eventBus.on("toast:show", (toast) => toasts.push(toast));
 
-    const beforeProfile = structuredClone(storage.getProfile(profileId));
+    const beforeProfile = structuredClone(durableProfile());
     const beforeRevision = coordinator.getCurrentState().revision;
     const input = await selectKeybindFile('F2 "Target_Enemy_Near"');
     await waitForModal("importModal", true);
@@ -254,7 +248,7 @@ describe("ImportUI workflow integration", () => {
     expect(requests).toEqual([]);
     expect(toasts).toEqual([]);
     expect(coordinator.getCurrentState().revision).toBe(beforeRevision);
-    expect(storage.getProfile(profileId)).toEqual(beforeProfile);
+    expect(durableProfile()).toEqual(beforeProfile);
     expect(coordinator.getCurrentState().profiles[profileId]).toEqual(
       beforeProfile,
     );
@@ -268,7 +262,7 @@ describe("ImportUI workflow integration", () => {
       ({ payload }) => requests.push(payload),
     );
     const beforeRevision = coordinator.getCurrentState().revision;
-    const beforeProfile = structuredClone(storage.getProfile(profileId));
+    const beforeProfile = structuredClone(durableProfile());
     const predecessorInput = await selectKeybindFile('F3 "FireAll"');
 
     const predecessor = await waitForModal("importModal", true);
@@ -294,7 +288,7 @@ describe("ImportUI workflow integration", () => {
     replacementInput.dispatchEvent(new Event("cancel"));
     expect(replacementInput.isConnected).toBe(false);
     expect(coordinator.getCurrentState().revision).toBe(beforeRevision);
-    expect(storage.getProfile(profileId)).toEqual(beforeProfile);
+    expect(durableProfile()).toEqual(beforeProfile);
     detachRequest();
   });
 
@@ -310,8 +304,8 @@ describe("ImportUI workflow integration", () => {
       toasts.push(toast),
     );
     const beforeRevision = coordinator.getCurrentState().revision;
-    const beforeProfile = structuredClone(storage.getProfile(profileId));
-    const beforeDurable = localStorage.getItem("sto_keybind_manager");
+    const beforeProfile = structuredClone(durableProfile());
+    const beforeDurable = projectRepository.load().value;
 
     const predecessorInput = await selectImportFile(
       "kbf",
@@ -383,12 +377,12 @@ describe("ImportUI workflow integration", () => {
     expect(replacementInput?.isConnected).toBe(false);
     expect(document.querySelectorAll('input[type="file"]')).toHaveLength(0);
     expect(coordinator.getCurrentState().revision).toBe(beforeRevision);
-    expect(storage.getProfile(profileId)).toEqual(beforeProfile);
+    expect(durableProfile()).toEqual(beforeProfile);
     expect(coordinator.getCurrentState().profiles[profileId]).toEqual(
       beforeProfile,
     );
     expect(importUI.cache.dataState.profiles[profileId]).toEqual(beforeProfile);
-    expect(localStorage.getItem("sto_keybind_manager")).toBe(beforeDurable);
+    expect(projectRepository.load().value).toEqual(beforeDurable);
 
     detachRequest();
     detachToast();
@@ -514,7 +508,7 @@ describe("ImportUI workflow integration", () => {
       bindsetMappings: { [sourceName]: "custom" },
       bindsetRenames: { [sourceName]: destination },
     });
-    const committed = storage.getProfile(profileId);
+    const committed = durableProfile();
     expect(committed.bindsets[destination].space.keys.Space).toContain(
       "+TrayExecByTray 0 0",
     );
@@ -522,8 +516,7 @@ describe("ImportUI workflow integration", () => {
       importUI.cache.dataState.profiles[profileId].bindsets[destination].space
         .keys.Space,
     ).toEqual(committed.bindsets[destination].space.keys.Space);
-    const durable = JSON.parse(localStorage.getItem("sto_keybind_manager"))
-      .profiles[profileId];
+    const durable = durableProfile();
     expect(durable.bindsets[destination].space.keys.Space).toEqual(
       committed.bindsets[destination].space.keys.Space,
     );

@@ -6,10 +6,13 @@ import AutoSync from "../../src/js/components/services/AutoSync.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
 import ApplicationResetService from "../../src/js/components/services/ApplicationResetService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import LocalStorageProjectRepository from "../../src/js/components/storage/LocalStorageProjectRepository.js";
 import { request } from "../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../fixtures/index.js";
+
+const projectRootKey = "sto_keybind_manager";
+const projectBackupKey = "sto_keybind_manager_backup";
+const projectVersion = "test-reset-activation";
 
 function createProfile() {
   return {
@@ -27,7 +30,7 @@ function createProfile() {
 
 describe("application reset settings activation", () => {
   let fixture;
-  let storage;
+  let projectRepository;
   let settingsRepository;
   let coordinator;
   let preferences;
@@ -46,21 +49,28 @@ describe("application reset settings activation", () => {
         i18n.language = language;
       }),
     };
-    storage = new StorageService({
-      eventBus: fixture.eventBus,
-      version: "test-reset-activation",
-      i18n,
-    });
     settingsRepository = createProjectSettingsRepository();
-    storage.init();
-
-    const root = storage.getEmptyData();
+    projectRepository = new LocalStorageProjectRepository({
+      storage: localStorage,
+      version: projectVersion,
+      now: () => new Date().toISOString(),
+      settingsDefaults: createPreferencesState().settings,
+    });
+    const defaults = projectRepository.load();
+    expect(defaults.status).toBe("repair_required");
+    expect(
+      projectRepository.commit(defaults.value, { verification: "required" })
+        .status,
+    ).toBe("committed");
+    const root = projectRepository.load().value;
     root.currentProfile = "captain";
     root.profiles = { captain: createProfile() };
     // The embedded compatibility field deliberately diverges. Runtime settings
     // continue to come only from the standalone authority.
     root.settings = { ...root.settings, theme: "default", language: "fr" };
-    expect(storage.saveAllData(root)).toBe(true);
+    expect(
+      projectRepository.commit(root, { verification: "required" }).status,
+    ).toBe("committed");
     expect(
       settingsRepository.replace({
         ...createPreferencesState().settings,
@@ -74,13 +84,7 @@ describe("application reset settings activation", () => {
 
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage,
-      projectRepository: new LocalStorageProjectRepository({
-        storage: localStorage,
-        version: storage.version,
-        now: () => new Date().toISOString(),
-        settingsDefaults: createPreferencesState().settings,
-      }),
+      projectRepository,
       i18n,
       defaultProfiles: {},
     });
@@ -118,7 +122,6 @@ describe("application reset settings activation", () => {
     resetService?.destroy();
     preferences?.destroy();
     coordinator?.destroy();
-    storage?.destroy();
     fixture?.destroy();
     document.documentElement.removeAttribute("data-theme");
     document.body.classList.remove("compact-view");
@@ -155,8 +158,8 @@ describe("application reset settings activation", () => {
       },
     });
 
-    expect(localStorage.getItem(storage.storageKey)).toBeNull();
-    expect(localStorage.getItem(storage.backupKey)).toBeNull();
+    expect(localStorage.getItem(projectRootKey)).toBeNull();
+    expect(localStorage.getItem(projectBackupKey)).toBeNull();
     expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
       preferences.getCurrentState().settings,
     );
@@ -237,8 +240,8 @@ describe("application reset settings activation", () => {
       },
     });
 
-    expect(localStorage.getItem(storage.storageKey)).toBeNull();
-    expect(localStorage.getItem(storage.backupKey)).toBeNull();
+    expect(localStorage.getItem(projectRootKey)).toBeNull();
+    expect(localStorage.getItem(projectBackupKey)).toBeNull();
     expect(localStorage.getItem("sto_keybind_settings")).toBeNull();
     expect(localStorage.getItem("sto_app_reset")).toBe("true");
     expect(coordinator.getCurrentState()).toBe(dataBefore);
@@ -267,10 +270,9 @@ describe("application reset settings activation", () => {
     fixture.eventBusFixture.clearEventHistory();
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage,
       projectRepository: new LocalStorageProjectRepository({
         storage: localStorage,
-        version: storage.version,
+        version: projectVersion,
         now: () => new Date().toISOString(),
         settingsDefaults: createPreferencesState().settings,
       }),
@@ -341,7 +343,7 @@ describe("application reset settings activation", () => {
     const reset = request(fixture.eventBus, "application:reset", {}, 0);
 
     await Promise.resolve();
-    expect(localStorage.getItem(storage.storageKey)).not.toBeNull();
+    expect(localStorage.getItem(projectRootKey)).not.toBeNull();
     expect(
       fixture.eventBusFixture.getEventsOfType("data:state-changed"),
     ).toHaveLength(0);

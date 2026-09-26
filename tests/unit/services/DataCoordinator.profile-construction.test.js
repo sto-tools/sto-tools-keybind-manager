@@ -11,31 +11,37 @@ describe("DataCoordinator profile construction facade", () => {
   beforeEach(async () => {
     localStorage.setItem("sto_keybind_manager_visited", "true");
     fixture = createServiceFixture();
-    durableProfiles = {};
-
-    fixture.storage.getAllData.mockReturnValue({
+    let durableRoot = {
       currentProfile: null,
       profiles: {},
       settings: {},
       version: "1.0.0",
       lastModified: "2026-07-19T02:59:00.000Z",
+    };
+    durableProfiles = durableRoot.profiles;
+    fixture.projectRepository.load.mockReturnValue({
+      status: "current",
+      value: structuredClone(durableRoot),
     });
-
-    fixture.storage.saveProfile.mockImplementation((profileId, profile) => {
-      durableProfiles[profileId] = {
-        ...structuredClone(profile),
-        lastModified: "2026-07-19T03:00:00.000Z",
-        storageExtension: { accepted: true },
-      };
-      return true;
+    fixture.projectRepository.commit.mockImplementation((candidate) => {
+      const added = Object.keys(candidate.profiles).find(
+        (profileId) => !Object.hasOwn(durableRoot.profiles, profileId),
+      );
+      durableRoot = structuredClone(candidate);
+      if (added) {
+        durableRoot.profiles[added] = {
+          ...durableRoot.profiles[added],
+          lastModified: "2026-07-19T03:00:00.000Z",
+          storageExtension: { accepted: true },
+        };
+      }
+      durableProfiles = durableRoot.profiles;
+      return { status: "committed", value: structuredClone(durableRoot) };
     });
-    fixture.storage.getProfile.mockImplementation((profileId) =>
-      structuredClone(durableProfiles[profileId] || null),
-    );
 
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     coordinator.init();
@@ -66,7 +72,8 @@ describe("DataCoordinator profile construction facade", () => {
       "ground",
     );
 
-    const persistedDraft = fixture.storage.saveProfile.mock.calls[0][1];
+    const persistedDraft =
+      fixture.projectRepository.commit.mock.calls[0][0].profiles._new_captain_;
     expect(result.profileId).toBe("_new_captain_");
     expect(persistedDraft).toEqual({
       name: "New Captain",
@@ -129,13 +136,15 @@ describe("DataCoordinator profile construction facade", () => {
     };
     const sourceBefore = structuredClone(source);
     coordinator.state.profiles.captain = source;
+    coordinator._projectRoot.profiles.captain = structuredClone(source);
 
     const result = await coordinator.cloneProfile(
       "captain",
       "  Captain Copy  ",
     );
 
-    const persistedDraft = fixture.storage.saveProfile.mock.calls[0][1];
+    const persistedDraft =
+      fixture.projectRepository.commit.mock.calls[0][0].profiles._captain_copy_;
     expect(result.profileId).toBe("_captain_copy_");
     expect(persistedDraft).toMatchObject({
       name: "Captain Copy",

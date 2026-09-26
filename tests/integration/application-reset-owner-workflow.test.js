@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ApplicationResetService from "../../src/js/components/services/ApplicationResetService.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import LocalStorageProjectRepository from "../../src/js/components/storage/LocalStorageProjectRepository.js";
 import LocalStorageSettingsRepository from "../../src/js/components/storage/LocalStorageSettingsRepository.js";
 import { request } from "../../src/js/core/requestResponse.js";
@@ -14,6 +13,7 @@ const ROOT_KEY = "sto_keybind_manager";
 const BACKUP_KEY = "sto_keybind_manager_backup";
 const SETTINGS_KEY = "sto_keybind_settings";
 const RESET_KEY = "sto_app_reset";
+const PROJECT_VERSION = "test-reset-failure-matrix";
 const RECEIPT_STAGES = [
   "validation",
   "rootClear",
@@ -259,7 +259,6 @@ const cases = [
 
 describe("application reset durable failure and restart matrix", () => {
   let fixture;
-  let storage;
   let repositoryStorage;
   let projectRepository;
   let settingsRepository;
@@ -273,10 +272,9 @@ describe("application reset durable failure and restart matrix", () => {
   const createCoordinator = async () => {
     const next = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage,
       projectRepository: new LocalStorageProjectRepository({
         storage: repositoryStorage,
-        version: storage.version,
+        version: PROJECT_VERSION,
         now: () => "2026-09-26T12:00:00.000Z",
         settingsDefaults: createPreferencesState().settings,
       }),
@@ -316,17 +314,24 @@ describe("application reset durable failure and restart matrix", () => {
         i18n.language = language;
       }),
     };
-    storage = new StorageService({
-      eventBus: fixture.eventBus,
-      version: "test-reset-failure-matrix",
-      i18n,
+    projectRepository = new LocalStorageProjectRepository({
+      storage: repositoryStorage,
+      version: PROJECT_VERSION,
+      now: () => "2026-09-26T12:00:00.000Z",
+      settingsDefaults: createPreferencesState().settings,
     });
-    storage.init();
-
-    const root = storage.getEmptyData();
+    const defaults = projectRepository.load();
+    expect(defaults.status).toBe("repair_required");
+    expect(
+      projectRepository.commit(defaults.value, { verification: "required" })
+        .status,
+    ).toBe("committed");
+    const root = projectRepository.load().value;
     root.currentProfile = "captain";
     root.profiles = { captain: createProfile() };
-    expect(storage.saveAllData(root)).toBe(true);
+    expect(
+      projectRepository.commit(root, { verification: "required" }).status,
+    ).toBe("committed");
 
     settingsRepository = new LocalStorageSettingsRepository({
       storage: repositoryStorage,
@@ -341,15 +346,8 @@ describe("application reset durable failure and restart matrix", () => {
       }).status,
     ).toBe("committed");
 
-    projectRepository = new LocalStorageProjectRepository({
-      storage: repositoryStorage,
-      version: storage.version,
-      now: () => "2026-09-26T12:00:00.000Z",
-      settingsDefaults: createPreferencesState().settings,
-    });
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage,
       projectRepository,
       i18n,
       defaultProfiles: {},
@@ -393,7 +391,6 @@ describe("application reset durable failure and restart matrix", () => {
     resetService?.destroy();
     if (preferences && !preferences.destroyed) preferences.destroy();
     if (coordinator && !coordinator.destroyed) coordinator.destroy();
-    storage?.destroy();
     fixture?.destroy();
     repositoryStorage?.clearFault();
     document.documentElement.removeAttribute("data-theme");
@@ -405,12 +402,13 @@ describe("application reset durable failure and restart matrix", () => {
   it.each(cases)(
     "records exact persistence and restarts safely after $stage failure",
     async (testCase) => {
-      const invalidateCache = vi.spyOn(storage, "invalidateCache");
+      const resetProjectOperation =
+        projectRepository.reset.bind(projectRepository);
+      const resetProject = vi.spyOn(projectRepository, "reset");
       if (testCase.fault) repositoryStorage.arm(testCase.fault);
       if (testCase.ownerFailure === "data") {
-        const reset = projectRepository.reset.bind(projectRepository);
-        vi.spyOn(projectRepository, "reset").mockImplementationOnce(() => {
-          const result = reset();
+        resetProject.mockImplementationOnce(() => {
+          const result = resetProjectOperation();
           coordinator.destroy();
           return result;
         });
@@ -434,7 +432,7 @@ describe("application reset durable failure and restart matrix", () => {
 
       expect(result).toMatchObject({ success: false, stage: testCase.stage });
       expect(compactReceipt(result.receipt)).toEqual(testCase.receipt);
-      expect(invalidateCache).toHaveBeenCalledOnce();
+      expect(resetProject).toHaveBeenCalledOnce();
 
       const expectedRaw = {
         unchanged: initialRaw,

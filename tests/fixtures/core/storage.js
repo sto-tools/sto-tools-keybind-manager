@@ -2,6 +2,7 @@
 // Provides mock storage with realistic behavior for testing
 
 import { vi } from "vitest";
+import LocalStorageProjectRepository from "../../../src/js/components/storage/LocalStorageProjectRepository.js";
 import LocalStorageSettingsRepository from "../../../src/js/components/storage/LocalStorageSettingsRepository.js";
 import { createDefaultPreferencesSettings } from "../../../src/js/components/services/preferencesDefaults.js";
 import {
@@ -23,6 +24,9 @@ export function createStorageFixture(options = {}) {
     initialData = null,
     persistAcrossTests = false,
     trackOperations = true,
+    projectVersion = "1.0.0",
+    projectNow = () => "2026-01-01T00:00:00.000Z",
+    projectSettingsDefaults = createDefaultPreferencesSettings(),
   } = options;
 
   const fixtureId = generateFixtureId("storage");
@@ -201,9 +205,26 @@ export function createStorageFixture(options = {}) {
     clear: vi.fn(() => repository.clear()),
   };
 
+  const concreteProjectRepository = new LocalStorageProjectRepository({
+    storage: mockLocalStorage,
+    version: projectVersion,
+    now: projectNow,
+    settingsDefaults: projectSettingsDefaults,
+  });
+  const projectRepository = {
+    load: vi.fn(() => concreteProjectRepository.load()),
+    commit: vi.fn((root, commitOptions) =>
+      commitOptions === undefined
+        ? concreteProjectRepository.commit(root)
+        : concreteProjectRepository.commit(root, commitOptions),
+    ),
+    reset: vi.fn(() => concreteProjectRepository.reset()),
+  };
+
   const fixture = {
     localStorage: mockLocalStorage,
     storageService: mockStorageService,
+    projectRepository,
     settingsRepository,
 
     // Testing utilities
@@ -252,6 +273,16 @@ export function createStorageFixture(options = {}) {
         }
       }
       return null;
+    },
+
+    getRawData: (key) => store.get(key) ?? null,
+    readProjectRoot: () => {
+      const raw = store.get("sto_keybind_manager");
+      return raw === undefined ? null : JSON.parse(raw);
+    },
+    readProjectBackup: () => {
+      const raw = store.get("sto_keybind_manager_backup");
+      return raw === undefined ? null : JSON.parse(raw);
     },
 
     hasData: (key) => {

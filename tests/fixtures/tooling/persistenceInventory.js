@@ -12,7 +12,7 @@ export const storageServiceMethodNames = Object.freeze([
 ]);
 
 export const expectedCallsByFile = Object.freeze({
-  "components/services/StorageService.js": 6,
+  "components/storage/LocalStorageProjectRepository.js": 12,
   "components/storage/LocalStorageSettingsRepository.js": 5,
   "components/services/commandPresentationState.js": 6,
   "components/services/dataCoordinatorInitialState.js": 1,
@@ -22,8 +22,8 @@ export const expectedCallsByFile = Object.freeze({
 });
 
 export const expectedScalarWrites = Object.freeze({
-  "components/services/StorageService.js|removeItem": 1,
-  "components/services/StorageService.js|setItem": 2,
+  "components/storage/LocalStorageProjectRepository.js|removeItem": 3,
+  "components/storage/LocalStorageProjectRepository.js|setItem": 3,
   "components/storage/LocalStorageSettingsRepository.js|removeItem": 1,
   "components/storage/LocalStorageSettingsRepository.js|setItem": 1,
   "components/services/commandPresentationState.js|removeItem": 1,
@@ -33,23 +33,9 @@ export const expectedScalarWrites = Object.freeze({
   "core/welcomeMessage.js|setItem": 2,
 });
 
-// Tranche 8 composes the project adapter's reset boundary only. Its remaining
-// commit/load surface stays dormant until the legacy writer cutover.
-export const unusedRepositoryScalarCallsites = Object.freeze({
-  "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|RESET_KEY": 2,
-  "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|ROOT_KEY": 4,
-  "components/storage/LocalStorageProjectRepository.js|this.#storage|removeItem|BACKUP_KEY": 1,
-  "components/storage/LocalStorageProjectRepository.js|this.#storage|removeItem|RESET_KEY": 1,
-  "components/storage/LocalStorageProjectRepository.js|this.#storage|removeItem|ROOT_KEY": 1,
-  "components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|BACKUP_KEY|backup": 1,
-  'components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|RESET_KEY|"true"': 1,
-  "components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|ROOT_KEY|prepared.json": 1,
-});
+export const unusedRepositoryScalarCallsites = Object.freeze({});
 
-export const unusedRepositoryScalarWrites = Object.freeze({
-  "components/storage/LocalStorageProjectRepository.js|removeItem": 3,
-  "components/storage/LocalStorageProjectRepository.js|setItem": 3,
-});
+export const unusedRepositoryScalarWrites = Object.freeze({});
 
 // This is the complete production syntactic surface for the ten legacy
 // StorageService method names. Entries that are owner/domain calls rather than
@@ -57,64 +43,27 @@ export const unusedRepositoryScalarWrites = Object.freeze({
 // hide an unregistered persistence access.
 export const expectedNamedMethodCalls = Object.freeze({
   "components/services/BindsetService.js|this|getProfile": 4,
-  "components/services/DataCoordinator.js|this.storage|getAllData": 7,
-  "components/services/dataCoordinatorProfileActions.js|owner.storage|getAllData": 6,
   "components/services/PreferencesService.js|this|getSettings": 1,
   "components/services/PreferencesService.js|this|saveSettings": 1,
-  "components/services/StorageService.js|this|createBackup": 1,
-  "components/services/StorageService.js|this|getAllData": 4,
-  "components/services/StorageService.js|this|saveAllData": 3,
-  "components/services/dataCoordinatorInitialState.js|coordinator.storage|getAllData": 2,
-  "components/services/dataCoordinatorProfileNormalization.js|owner.storage|getAllData": 1,
-  "components/services/dataCoordinatorProjectImport.js|owner.storage|getAllData": 3,
-  "components/services/dataCoordinatorProjectImport.js|owner.storage|saveAllData": 1,
   "components/services/dataCoordinatorResponders.js|coordinator|deleteProfile": 1,
-  "components/services/dataCoordinatorApplicationReset.js|owner.storage|invalidateCache": 1,
   "components/services/preferencesApplicationReset.js|owner|getSettings": 2,
   "components/services/preferencesOwnerMutationOperations.js|owner|getSettings": 11,
-  "components/services/storageWrites.js|storage|deleteProfile": 1,
-  "components/services/storageWrites.js|storage|getAllData": 1,
-  "components/services/storageWrites.js|storage|getProfile": 1,
-  "components/services/storageWrites.js|storage|saveAllData": 2,
-  "components/services/storageWrites.js|storage|saveProfile": 1,
   "components/ui/PreferencesUI.js|this|saveSettings": 1,
 });
 
-export const storageServiceCallClass = Object.freeze({
-  "components/services/DataCoordinator.js|this.storage|getAllData": "external",
-  "components/services/dataCoordinatorProfileActions.js|owner.storage|getAllData":
-    "external",
-  "components/services/StorageService.js|this|createBackup": "internal",
-  "components/services/StorageService.js|this|getAllData": "internal",
-  "components/services/StorageService.js|this|saveAllData": "internal",
-  "components/services/dataCoordinatorInitialState.js|coordinator.storage|getAllData":
-    "external",
-  "components/services/dataCoordinatorProfileNormalization.js|owner.storage|getAllData":
-    "external",
-  "components/services/dataCoordinatorProjectImport.js|owner.storage|getAllData":
-    "external",
-  "components/services/dataCoordinatorProjectImport.js|owner.storage|saveAllData":
-    "external",
-  "components/services/dataCoordinatorApplicationReset.js|owner.storage|invalidateCache":
-    "external",
-  "components/services/storageWrites.js|storage|deleteProfile": "helper",
-  "components/services/storageWrites.js|storage|getAllData": "helper",
-  "components/services/storageWrites.js|storage|getProfile": "helper",
-  "components/services/storageWrites.js|storage|saveAllData": "helper",
-  "components/services/storageWrites.js|storage|saveProfile": "helper",
-});
+export const storageServiceCallClass = Object.freeze({});
 
 export const expectedStorageServiceCallsByMethod = Object.freeze({
-  getAllData: 24,
-  saveAllData: 6,
-  getProfile: 1,
-  saveProfile: 1,
-  deleteProfile: 1,
+  getAllData: 0,
+  saveAllData: 0,
+  getProfile: 0,
+  saveProfile: 0,
+  deleteProfile: 0,
   getSettings: 0,
   saveSettings: 0,
   clearSettings: 0,
-  createBackup: 1,
-  invalidateCache: 1,
+  createBackup: 0,
+  invalidateCache: 0,
 });
 
 // These production workflow cohorts have no storage or repository capability.
@@ -262,14 +211,17 @@ export const rpcActionTopics = Object.freeze([
 ]);
 
 export const expectedScalarCallsites = Object.freeze({
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|ROOT_KEY": 4,
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|RESET_KEY": 2,
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|BACKUP_KEY|backup": 1,
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|ROOT_KEY|prepared.json": 1,
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|removeItem|RESET_KEY": 1,
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|removeItem|ROOT_KEY": 1,
+  "components/storage/LocalStorageProjectRepository.js|this.#storage|removeItem|BACKUP_KEY": 1,
+  'components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|RESET_KEY|"true"': 1,
   "components/storage/LocalStorageSettingsRepository.js|this.#storage|getItem|SETTINGS_KEY": 3,
   "components/storage/LocalStorageSettingsRepository.js|this.#storage|removeItem|SETTINGS_KEY": 1,
   "components/storage/LocalStorageSettingsRepository.js|this.#storage|setItem|SETTINGS_KEY|prepared.json": 1,
-  "components/services/StorageService.js|localStorage|getItem|this.storageKey": 2,
-  'components/services/StorageService.js|localStorage|getItem|"sto_app_reset"': 1,
-  'components/services/StorageService.js|localStorage|removeItem|"sto_app_reset"': 1,
-  "components/services/StorageService.js|localStorage|setItem|this.storageKey|JSON.stringify(dataWithMeta)": 1,
-  "components/services/StorageService.js|localStorage|setItem|this.backupKey|JSON.stringify(backup)": 1,
   "components/services/commandPresentationState.js|storage|key|index": 1,
   "components/services/commandPresentationState.js|storage|getItem|key": 2,
   "components/services/commandPresentationState.js|storage|setItem|`${commandCategoryPrefix}${categoryId}${collapsedSuffix}`|String(isCollapsed)": 1,
@@ -330,94 +282,4 @@ export const expectedIndexedDbCallsites = Object.freeze({
   "components/services/FileSystemService.js|restoreSyncDirectoryState|db|close": 1,
 });
 
-export const storageCallsiteDispositions = Object.freeze({
-  "components/services/DataCoordinator.js|_updateProfile|this.storage|getAllData":
-    [1, "owner", "4"],
-  "components/services/dataCoordinatorProfileActions.js|executeProfileSwitch|owner.storage|getAllData":
-    [1, "owner", "4"],
-  "components/services/dataCoordinatorProfileActions.js|executeProfileCreate|owner.storage|getAllData":
-    [1, "owner", "4"],
-  "components/services/dataCoordinatorProfileActions.js|executeProfileClone|owner.storage|getAllData":
-    [1, "owner", "4"],
-  "components/services/dataCoordinatorProfileActions.js|executeProfileRename|owner.storage|getAllData":
-    [1, "owner", "4"],
-  "components/services/dataCoordinatorProfileActions.js|executeProfileDelete|owner.storage|getAllData":
-    [2, "owner", "4"],
-  "components/services/DataCoordinator.js|_createDefaultProfilesFromData|this.storage|getAllData":
-    [2, "owner", "4"],
-  "components/services/DataCoordinator.js|_createFallbackProfiles|this.storage|getAllData":
-    [2, "owner", "4"],
-  "components/services/dataCoordinatorProfileNormalization.js|normalizeCoordinatorProfiles|owner.storage|getAllData":
-    [1, "owner", "4"],
-  "components/services/DataCoordinator.js|_reloadState|this.storage|getAllData":
-    [2, "owner", "4"],
-  "components/services/dataCoordinatorInitialState.js|loadInitialCoordinatorState|coordinator.storage|getAllData":
-    [2, "owner", "4"],
-  "components/services/dataCoordinatorProjectImport.js|replaceProjectFromImport|owner.storage|getAllData":
-    [2, "owner", "4"],
-  "components/services/dataCoordinatorProjectImport.js|replaceProjectFromImport|owner.storage|saveAllData|nextRoot":
-    [1, "owner", "4"],
-  "components/services/dataCoordinatorProjectImport.js|activateImportedProject|owner.storage|getAllData|true":
-    [1, "owner", "7"],
-  "components/services/StorageService.js|onInit|this|getAllData|true": [
-    1,
-    "workflow",
-    "4",
-  ],
-  "components/services/StorageService.js|onInit|this|saveAllData|data": [
-    1,
-    "workflow",
-    "4",
-  ],
-  "components/services/StorageService.js|saveAllData|this|createBackup|savedAt":
-    [1, "compatibility", "4"],
-  "components/services/StorageService.js|getProfile|this|getAllData": [
-    1,
-    "compatibility",
-    "4",
-  ],
-  "components/services/StorageService.js|saveProfile|this|getAllData|true": [
-    1,
-    "compatibility",
-    "4",
-  ],
-  "components/services/StorageService.js|saveProfile|this|saveAllData|data": [
-    1,
-    "compatibility",
-    "4",
-  ],
-  "components/services/StorageService.js|deleteProfile|this|getAllData": [
-    1,
-    "compatibility",
-    "4",
-  ],
-  "components/services/StorageService.js|deleteProfile|this|saveAllData|data": [
-    1,
-    "compatibility",
-    "4",
-  ],
-  "components/services/storageWrites.js|all|storage|saveAllData|data": [
-    1,
-    "compatibility",
-    "4",
-  ],
-  "components/services/storageWrites.js|all|storage|saveAllData|data|options": [
-    1,
-    "compatibility",
-    "4",
-  ],
-  "components/services/storageWrites.js|profile|storage|saveProfile|profileId|profile":
-    [1, "compatibility", "4"],
-  "components/services/storageWrites.js|profile|storage|getProfile|profileId": [
-    1,
-    "compatibility",
-    "4",
-  ],
-  "components/services/storageWrites.js|currentProfile|storage|getAllData": [
-    1,
-    "compatibility",
-    "4",
-  ],
-  "components/services/storageWrites.js|deleteProfile|storage|deleteProfile|profileId":
-    [1, "dead", "4"],
-});
+export const storageCallsiteDispositions = Object.freeze({});

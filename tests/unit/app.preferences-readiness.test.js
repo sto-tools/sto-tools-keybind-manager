@@ -43,7 +43,6 @@ function createAppHarness(preferencesReady) {
   const preferencesService = createComponentStub(preferencesReady);
   const app = new STOToolsKeybindManager({
     i18n: { t: (key) => key },
-    storageService: {},
     preferencesService,
     applicationDataResetTransitionRunner: vi.fn(),
     syncService: {},

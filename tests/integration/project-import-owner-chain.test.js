@@ -6,8 +6,6 @@ import ImportService from "../../src/js/components/services/ImportService.js";
 import ProjectManagementService from "../../src/js/components/services/ProjectManagementService.js";
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
 import ApplicationResetService from "../../src/js/components/services/ApplicationResetService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
-import LocalStorageProjectRepository from "../../src/js/components/storage/LocalStorageProjectRepository.js";
 import { request } from "../../src/js/core/requestResponse.js";
 import { MAX_PROJECT_JSON_BYTES } from "../../src/js/components/services/jsonDataBoundary.js";
 import HeaderMenuUI from "../../src/js/components/ui/HeaderMenuUI.js";
@@ -21,11 +19,14 @@ import {
   destinationRoot,
   importedProject,
 } from "../fixtures/services/projectImportOwnerChain.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
+
+const projectRootKey = "sto_keybind_manager";
+const projectBackupKey = "sto_keybind_manager_backup";
 
 describe("project import authoritative owner chain", () => {
   let eventBusFixture;
   let localStorageFixture;
-  let storage;
   let settingsRepository;
   let coordinator;
   let importedProjectOwnerAction;
@@ -53,19 +54,11 @@ describe("project import authoritative owner chain", () => {
         sto_keybind_manager_visited: "true",
       },
     });
-    storage = new StorageService({
-      eventBus: eventBusFixture.eventBus,
-      version: "1.0.0",
-    });
-    projectRepository = new LocalStorageProjectRepository({
-      storage: localStorage,
-      version: storage.version,
+    projectRepository = createProjectRepository({
       now: () => new Date().toISOString(),
-      settingsDefaults: storage.getDefaultSettings(),
     });
     coordinator = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
-      storage,
       projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles: {},
@@ -108,7 +101,6 @@ describe("project import authoritative owner chain", () => {
 
     preferences.init();
     await preferences.initialStateReady;
-    storage.init();
     coordinator.init();
     await vi.waitFor(() => {
       expect(coordinator.getCurrentState().ready).toBe(true);
@@ -132,7 +124,6 @@ describe("project import authoritative owner chain", () => {
     importer?.destroy();
     preferences?.destroy();
     coordinator?.destroy();
-    storage?.destroy();
     eventBusFixture?.destroy();
     localStorageFixture?.destroy();
     vi.restoreAllMocks();
@@ -203,7 +194,7 @@ describe("project import authoritative owner chain", () => {
     expect(importedProjectOwnerAction.mock.calls[0][0]).not.toBe(
       importedProject.data,
     );
-    expect(storage.getAllData()).toMatchObject({
+    expect(projectRepository.load().value).toMatchObject({
       currentProfile: "imported",
       profiles: {
         existing: { name: "Existing" },
@@ -223,36 +214,21 @@ describe("project import authoritative owner chain", () => {
   });
 
   it("serializes application reset behind an in-flight project restore", async () => {
-    const saveAllData = storage.saveAllData.bind(storage);
-    let releaseRootWrite = () => {};
-    let markRootWriteStarted = () => {};
-    const rootWriteStarted = new Promise((resolve) => {
-      markRootWriteStarted = resolve;
-    });
-    const rootWriteBlocked = new Promise((resolve) => {
-      releaseRootWrite = resolve;
-    });
-    const rootWrites = vi
-      .spyOn(storage, "saveAllData")
-      .mockImplementationOnce(async (...args) => {
-        markRootWriteStarted();
-        await rootWriteBlocked;
-        return saveAllData(...args);
-      });
-    const profileWrites = vi.spyOn(storage, "saveProfile");
+    const commit = projectRepository.commit.bind(projectRepository);
     const resetProject = vi.spyOn(projectRepository, "reset");
+    let reset;
+    const rootWrites = vi
+      .spyOn(projectRepository, "commit")
+      .mockImplementationOnce((...args) => {
+        reset = request(eventBusFixture.eventBus, "application:reset", {}, 0);
+        expect(resetProject).not.toHaveBeenCalled();
+        return commit(...args);
+      });
 
     const restore = projectManager.restoreFromProjectContent(
       JSON.stringify(importedProject),
       "project.json",
     );
-    await rootWriteStarted;
-
-    const reset = request(eventBusFixture.eventBus, "application:reset", {}, 0);
-    await Promise.resolve();
-    expect(resetProject).not.toHaveBeenCalled();
-
-    releaseRootWrite();
     await expect(restore).resolves.toEqual({
       success: true,
       currentProfile: "imported",
@@ -261,10 +237,9 @@ describe("project import authoritative owner chain", () => {
     await expect(reset).resolves.toMatchObject({ success: true });
 
     expect(rootWrites).toHaveBeenCalledOnce();
-    expect(profileWrites).not.toHaveBeenCalled();
     expect(resetProject).toHaveBeenCalledOnce();
-    expect(localStorage.getItem(storage.storageKey)).toBeNull();
-    expect(localStorage.getItem(storage.backupKey)).toBeNull();
+    expect(localStorage.getItem(projectRootKey)).toBeNull();
+    expect(localStorage.getItem(projectBackupKey)).toBeNull();
     expect(coordinator.getCurrentState()).toMatchObject({
       currentProfile: null,
       profiles: {},
@@ -308,7 +283,7 @@ describe("project import authoritative owner chain", () => {
       "restoreFromProjectContent",
     );
     const busEmit = vi.spyOn(realEventBusFixture.eventBus, "emit");
-    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeRoot = localStorage.getItem(projectRootKey);
     const beforeSettings = localStorage.getItem("sto_keybind_settings");
     const beforeState = coordinator.getCurrentState();
 
@@ -362,7 +337,7 @@ describe("project import authoritative owner chain", () => {
       ).toEqual([]);
       expect(showToast).toHaveBeenCalledOnce();
       expect(showToast).toHaveBeenCalledWith("backup_restore_failed", "error");
-      expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+      expect(localStorage.getItem(projectRootKey)).toBe(beforeRoot);
       expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeSettings);
       expect(coordinator.getCurrentState()).toBe(beforeState);
     } finally {
@@ -379,7 +354,7 @@ describe("project import authoritative owner chain", () => {
     const stateChanged = vi.fn();
     eventBusFixture.eventBus.on("data:state-changed", stateChanged);
 
-    rejectFinalProjectRootWrite(storage);
+    rejectFinalProjectRootWrite({ storageKey: projectRootKey });
 
     const result = await projectManager.restoreFromProjectContent(
       JSON.stringify({
@@ -410,19 +385,19 @@ describe("project import authoritative owner chain", () => {
       },
     });
     expect(durableRoot.profiles).not.toHaveProperty("imported");
-    expect(storage.getAllData()).toMatchObject(durableRoot);
+    expect(projectRepository.load().value).toMatchObject(durableRoot);
     expect(coordinator.getCurrentState()).toBe(beforeState);
     expect(stateChanged).not.toHaveBeenCalled();
     expect(projectManager.ui.showToast).not.toHaveBeenCalled();
   });
 
   it("keeps acknowledged mundane settings after final-root failure and activates them on restart", async () => {
-    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeRoot = localStorage.getItem(projectRootKey);
     const beforeDataState = coordinator.getCurrentState();
     const beforePreferencesState = preferences.getCurrentState();
     const dataPublications = vi.fn();
     eventBusFixture.eventBus.on("data:state-changed", dataPublications);
-    rejectFinalProjectRootWrite(storage);
+    rejectFinalProjectRootWrite({ storageKey: projectRootKey });
 
     await expect(
       projectManager.restoreFromProjectContent(JSON.stringify(importedProject)),
@@ -434,7 +409,7 @@ describe("project import authoritative owner chain", () => {
       committed: { profiles: [], settings: true, project: false },
     });
 
-    expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+    expect(localStorage.getItem(projectRootKey)).toBe(beforeRoot);
     expect(coordinator.getCurrentState()).toBe(beforeDataState);
     expect(preferences.getCurrentState()).toBe(beforePreferencesState);
     expect(dataPublications).not.toHaveBeenCalled();
@@ -466,25 +441,22 @@ describe("project import authoritative owner chain", () => {
       ready: true,
       settings: { theme: "light", language: "de" },
     });
-    expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+    expect(localStorage.getItem(projectRootKey)).toBe(beforeRoot);
   });
 
   it("reports durable import evidence when owner reload fails and converges on retry", async () => {
     const beforeState = coordinator.getCurrentState();
     const stateChanged = vi.fn();
     eventBusFixture.eventBus.on("data:state-changed", stateChanged);
-    const saveAllData = vi.spyOn(storage, "saveAllData");
+    const commitProjectRoot = projectRepository.commit.bind(projectRepository);
+    const commitProject = vi
+      .spyOn(projectRepository, "commit")
+      .mockImplementationOnce((...args) => {
+        const receipt = commitProjectRoot(...args);
+        coordinator._lifecycleGeneration += 1;
+        return receipt;
+      });
     const settingsWrites = vi.spyOn(settingsRepository, "replace");
-    const getAllData = storage.getAllData.bind(storage);
-    let rejectImportedAdoption = true;
-    vi.spyOn(storage, "getAllData").mockImplementation((...args) => {
-      const root = getAllData(...args);
-      if (rejectImportedAdoption && root.currentProfile === "imported") {
-        rejectImportedAdoption = false;
-        throw new Error("reload blocked");
-      }
-      return root;
-    });
     const content = JSON.stringify(importedProject);
 
     await expect(
@@ -499,11 +471,11 @@ describe("project import authoritative owner chain", () => {
       activation: { data: "pending", preferences: "pending" },
     });
     expect(importedProjectOwnerAction).toHaveBeenCalledOnce();
-    expect(saveAllData).toHaveBeenCalledOnce();
+    expect(commitProject).toHaveBeenCalledOnce();
     expect(settingsWrites).toHaveBeenCalledOnce();
     expect(coordinator.getCurrentState()).toBe(beforeState);
     expect(stateChanged).not.toHaveBeenCalled();
-    expect(storage.getAllData()).toMatchObject({
+    expect(projectRepository.load().value).toMatchObject({
       currentProfile: "imported",
       profiles: { imported: { name: "Imported" } },
     });
@@ -514,7 +486,7 @@ describe("project import authoritative owner chain", () => {
       imported: { profiles: 1, settings: true },
     });
     expect(importedProjectOwnerAction).toHaveBeenCalledOnce();
-    expect(saveAllData).toHaveBeenCalledOnce();
+    expect(commitProject).toHaveBeenCalledOnce();
     expect(settingsWrites).toHaveBeenCalledOnce();
     expect(stateChanged).toHaveBeenCalledOnce();
     expect(coordinator.getCurrentState()).toMatchObject({

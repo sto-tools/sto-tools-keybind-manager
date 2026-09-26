@@ -4,9 +4,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import eventBus from "../../src/js/core/eventBus.js";
 import SelectionService from "../../src/js/components/services/SelectionService.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import InterfaceModeService from "../../src/js/components/services/InterfaceModeService.js";
 import ComponentBase from "../../src/js/components/ComponentBase.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 class SelectionCacheConsumer extends ComponentBase {}
 
@@ -14,13 +14,13 @@ describe("Selection Restoration Fix - Page Reload", () => {
   let selectionService,
     selectionConsumer,
     dataCoordinator,
-    storageService,
+    projectRepository,
     interfaceModeService;
 
   beforeEach(async () => {
     // Set up storage with profile containing selections
-    storageService = new StorageService({ eventBus });
-    await storageService.init();
+    localStorage.clear();
+    projectRepository = createProjectRepository();
 
     const testProfile = {
       name: "Test Profile",
@@ -42,23 +42,29 @@ describe("Selection Restoration Fix - Page Reload", () => {
       lastModified: new Date().toISOString(),
     };
 
-    await storageService.saveProfile("test-profile", testProfile);
-    const allData = storageService.getAllData();
-    allData.currentProfile = "test-profile";
-    await storageService.saveAllData(allData);
+    expect(
+      projectRepository.commit({
+        currentProfile: "test-profile",
+        profiles: { "test-profile": testProfile },
+        globalAliases: {},
+        settings: {},
+        version: "1.0.0",
+        created: "2026-01-01T00:00:00.000Z",
+        lastModified: "2026-01-01T00:00:00.000Z",
+      }).status,
+    ).toBe("committed");
 
     // Initialize DataCoordinator first (simulates app startup order)
     dataCoordinator = new DataCoordinator({
       eventBus,
-      storage: storageService,
+      projectRepository,
+      i18n: { t: (key) => key },
     });
-    await dataCoordinator.init();
+    dataCoordinator.init();
+    await dataCoordinator.initialStateReady;
 
     // Initialize the real environment owner in the same order as the app.
-    interfaceModeService = new InterfaceModeService({
-      eventBus,
-      storage: storageService,
-    });
+    interfaceModeService = new InterfaceModeService({ eventBus });
     interfaceModeService.init();
 
     // Initialize SelectionService second (simulates app startup order)
@@ -79,7 +85,8 @@ describe("Selection Restoration Fix - Page Reload", () => {
     selectionConsumer?.destroy?.();
     selectionService?.destroy?.();
     dataCoordinator?.destroy?.();
-    storageService?.destroy?.();
+    eventBus.clear();
+    localStorage.clear();
     vi.clearAllMocks();
   });
 
@@ -131,11 +138,6 @@ describe("Selection Restoration Fix - Page Reload", () => {
       lastModified: new Date().toISOString(),
     };
 
-    await storageService.saveProfile("alias-profile", aliasProfile);
-    const allData = storageService.getAllData();
-    allData.currentProfile = "alias-profile";
-    await storageService.saveAllData(allData);
-
     // Tear down the old authority before creating the replacement, matching the
     // application's single-writer lifecycle during a page reload.
     interfaceModeService.destroy();
@@ -144,17 +146,21 @@ describe("Selection Restoration Fix - Page Reload", () => {
     selectionService.destroy();
     dataCoordinator.destroy();
 
+    const root = projectRepository.load().value;
+    root.profiles["alias-profile"] = aliasProfile;
+    root.currentProfile = "alias-profile";
+    expect(projectRepository.commit(root).status).toBe("committed");
+
     // Create new instances to simulate page reload
     dataCoordinator = new DataCoordinator({
       eventBus,
-      storage: storageService,
+      projectRepository,
+      i18n: { t: (key) => key },
     });
-    await dataCoordinator.init();
+    dataCoordinator.init();
+    await dataCoordinator.initialStateReady;
 
-    interfaceModeService = new InterfaceModeService({
-      eventBus,
-      storage: storageService,
-    });
+    interfaceModeService = new InterfaceModeService({ eventBus });
     interfaceModeService.init();
 
     selectionService = new SelectionService({ eventBus });

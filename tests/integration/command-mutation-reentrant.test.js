@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CommandService from "../../src/js/components/services/CommandService.js";
 import CommandChainService from "../../src/js/components/services/CommandChainService.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import { createRealEventBusFixture } from "../fixtures/core/eventBus.js";
 import { createLocalStorageFixture } from "../fixtures/core/index.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 describe("Command mutation reentrant owner listeners", () => {
-  let bus, local, storage, owner, commands, chain, release;
+  let bus, local, projectRepository, owner, commands, chain, release;
   beforeEach(async () => {
     bus = await createRealEventBusFixture();
     local = createLocalStorageFixture({
@@ -32,10 +32,10 @@ describe("Command mutation reentrant owner listeners", () => {
         },
       },
     });
-    storage = new StorageService({ eventBus: bus.eventBus, version: "1.0.0" });
+    projectRepository = createProjectRepository();
     owner = new DataCoordinator({
       eventBus: bus.eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
     });
     commands = new CommandService({
@@ -46,7 +46,6 @@ describe("Command mutation reentrant owner listeners", () => {
       eventBus: bus.eventBus,
       i18n: { t: (key) => key },
     });
-    storage.init();
     owner.init();
     commands.init();
     chain.init();
@@ -58,7 +57,6 @@ describe("Command mutation reentrant owner listeners", () => {
     commands.destroy();
     chain.destroy();
     owner.destroy();
-    storage.destroy();
     bus.destroy();
     local.destroy();
     vi.restoreAllMocks();
@@ -66,7 +64,7 @@ describe("Command mutation reentrant owner listeners", () => {
 
   it("allows a committed command listener to await a later command without a queue cycle", async () => {
     const revision = owner.getCurrentState().revision;
-    const write = vi.spyOn(storage, "saveProfile");
+    const write = vi.spyOn(projectRepository, "commit");
     let nested;
     bus.eventBus.on("data:state-changed", ({ state }) => {
       if (state.revision === revision + 1) {
@@ -77,7 +75,9 @@ describe("Command mutation reentrant owner listeners", () => {
     await expect(commands.addCommand("F1", "Two")).resolves.toBe(true);
     await expect(nested).resolves.toBe(true);
     expect(
-      write.mock.calls.map(([, profile]) => profile.builds.space.keys.F1),
+      write.mock.calls.map(
+        ([root]) => root.profiles.captain.builds.space.keys.F1,
+      ),
     ).toEqual([
       ["One", "Two"],
       ["One", "Two", "Three"],
@@ -111,11 +111,9 @@ describe("Command mutation reentrant owner listeners", () => {
     expect(
       commands.cache.dataState.profiles.captain.builds.space.keys.F1,
     ).toEqual(["One", "Two", "Three"]);
-    expect(storage.getProfile("captain").builds.space.keys.F1).toEqual([
-      "One",
-      "Two",
-      "Three",
-    ]);
+    expect(
+      projectRepository.load().value.profiles.captain.builds.space.keys.F1,
+    ).toEqual(["One", "Two", "Three"]);
   });
 
   it.each([
@@ -166,9 +164,9 @@ describe("Command mutation reentrant owner listeners", () => {
           expect.objectContaining({ commands: expected }),
         ),
       );
-      expect(storage.getProfile("captain").builds.space.keys.F1).toEqual(
-        expected,
-      );
+      expect(
+        projectRepository.load().value.profiles.captain.builds.space.keys.F1,
+      ).toEqual(expected);
     },
   );
 });

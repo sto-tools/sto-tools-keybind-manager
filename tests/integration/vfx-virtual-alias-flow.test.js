@@ -127,7 +127,7 @@ describe("VFX virtual alias projection flow", () => {
 
     dataCoordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n,
     });
     dataCoordinator.init();

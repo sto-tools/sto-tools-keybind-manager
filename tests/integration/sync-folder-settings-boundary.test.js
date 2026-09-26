@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
 import { createProjectSettingsRepository } from "../fixtures/services/projectRestore.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import SyncService from "../../src/js/components/services/SyncService.js";
 import eventBus from "../../src/js/core/eventBus.js";
 import { createLocalStorageFixture } from "../fixtures/core/index.js";
@@ -34,7 +33,6 @@ function createHandle(projectContent = null, name = "Fleet Builds") {
 
 describe("sync folder settings owner integration", () => {
   let localStorageFixture;
-  let storage;
   let preferences;
   let sync;
   let ui;
@@ -72,7 +70,6 @@ describe("sync folder settings owner integration", () => {
       isSupported: vi.fn().mockReturnValue(true),
       pick: vi.fn().mockResolvedValue(handle),
     };
-    storage = new StorageService({ eventBus });
     sync = new SyncService({
       eventBus,
       ui,
@@ -87,7 +84,6 @@ describe("sync folder settings owner integration", () => {
       eventBus,
     });
 
-    storage.init();
     // Exercise the supported pre-owner consumer lifecycle: SyncService is live before the
     // Preferences owner announces its complete initial snapshot.
     sync.init();
@@ -108,7 +104,6 @@ describe("sync folder settings owner integration", () => {
   afterEach(() => {
     if (preferences && !preferences.destroyed) preferences.destroy();
     if (sync && !sync.destroyed) sync.destroy();
-    if (storage && !storage.destroyed) storage.destroy();
     eventBus.clear();
     localStorageFixture?.destroy();
     vi.restoreAllMocks();

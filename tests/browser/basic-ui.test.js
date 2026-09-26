@@ -421,12 +421,10 @@ describe("Application browser smoke", () => {
   it("rejects deeply invalid project data before the live import route writes", async () => {
     const bus = runtime().commandChainUI?.eventBus;
     const coordinator = runtime().dataCoordinator;
-    const storage = runtime().storageService;
 
     expect(bus?.hasListeners("rpc:import:project-file")).toBe(true);
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
-    expect(storage).toBeTruthy();
-    if (!bus || !coordinator || !storage) return;
+    if (!bus || !coordinator) return;
 
     const beforeRoot = localStorage.getItem("sto_keybind_manager");
     const beforeSettings = localStorage.getItem("sto_keybind_settings");
@@ -462,12 +460,10 @@ describe("Application browser smoke", () => {
   it("restores a valid wrapped project through the live owner chain", async () => {
     const bus = runtime().commandChainUI?.eventBus;
     const coordinator = runtime().dataCoordinator;
-    const storage = runtime().storageService;
 
     expect(bus?.hasListeners("rpc:project:restore-from-content")).toBe(true);
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
-    expect(storage).toBeTruthy();
-    if (!bus || !coordinator || !storage) return;
+    if (!bus || !coordinator) return;
 
     const beforeStorage = new Map();
     for (let index = 0; index < localStorage.length; index++) {
@@ -525,7 +521,9 @@ describe("Application browser smoke", () => {
           },
         });
       });
-      expect(storage.getAllData()).toMatchObject({
+      expect(
+        JSON.parse(localStorage.getItem("sto_keybind_manager")),
+      ).toMatchObject({
         currentProfile: profileId,
         profiles: {
           [profileId]: { name: "Browser project import probe" },
@@ -536,7 +534,6 @@ describe("Application browser smoke", () => {
       for (const [key, value] of beforeStorage) {
         if (value !== null) localStorage.setItem(key, value);
       }
-      storage.getAllData(true);
       await request(bus, "data:reload-state");
     }
   });

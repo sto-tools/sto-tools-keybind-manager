@@ -3,8 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import InterfaceModeService from "../../src/js/components/services/InterfaceModeService.js";
 import SelectionService from "../../src/js/components/services/SelectionService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import eventBus from "../../src/js/core/eventBus.js";
+import { createLocalStorageFixture } from "../fixtures/core/index.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 const profileId = "environment-switch-persistence";
 
@@ -27,33 +28,37 @@ function createProfile() {
 }
 
 describe("Environment switch persistence boundary", () => {
-  let storageService;
+  let localStorageFixture;
+  let projectRepository;
   let dataCoordinator;
   let interfaceModeService;
   let selectionService;
 
   beforeEach(async () => {
-    localStorage.clear();
     const i18n = { t: (key) => key };
-
-    storageService = new StorageService({ eventBus, i18n });
-    storageService.init();
-    expect(storageService.saveProfile(profileId, createProfile())).toBe(true);
-    const root = storageService.getAllData();
-    root.currentProfile = profileId;
-    expect(storageService.saveAllData(root)).toBe(true);
+    localStorageFixture = createLocalStorageFixture({
+      initialData: {
+        sto_keybind_manager: {
+          currentProfile: profileId,
+          profiles: { [profileId]: createProfile() },
+          globalAliases: {},
+          settings: {},
+          version: "1.0.0",
+          created: "2026-01-01T00:00:00.000Z",
+          lastModified: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    });
+    projectRepository = createProjectRepository();
 
     dataCoordinator = new DataCoordinator({
       eventBus,
-      storage: storageService,
+      projectRepository,
       i18n,
     });
     dataCoordinator.init();
 
-    interfaceModeService = new InterfaceModeService({
-      eventBus,
-      storage: storageService,
-    });
+    interfaceModeService = new InterfaceModeService({ eventBus });
     interfaceModeService.init();
 
     selectionService = new SelectionService({ eventBus });
@@ -77,8 +82,9 @@ describe("Environment switch persistence boundary", () => {
     selectionService?.destroy?.();
     interfaceModeService?.destroy?.();
     dataCoordinator?.destroy?.();
-    storageService?.destroy?.();
-    localStorage.clear();
+    eventBus.clear();
+    localStorageFixture?.destroy();
+    vi.restoreAllMocks();
   });
 
   it("persists a changed selection and restores it after switching away and back", async () => {
@@ -93,7 +99,9 @@ describe("Environment switch persistence boundary", () => {
       expect(
         dataCoordinator.getCurrentState().profiles[profileId].selections.space,
       ).toBe("F2");
-      expect(storageService.getProfile(profileId).selections.space).toBe("F2");
+      expect(
+        projectRepository.load().value.profiles[profileId].selections.space,
+      ).toBe("F2");
     });
 
     await expect(
@@ -106,7 +114,7 @@ describe("Environment switch persistence boundary", () => {
         currentEnvironment: "ground",
         selectedKey: "G1",
       });
-      expect(storageService.getProfile(profileId)).toMatchObject({
+      expect(projectRepository.load().value.profiles[profileId]).toMatchObject({
         currentEnvironment: "ground",
         selections: { space: "F2", ground: "G1" },
       });
@@ -129,7 +137,7 @@ describe("Environment switch persistence boundary", () => {
           selections: { space: "F2", ground: "G1" },
         },
       });
-      expect(storageService.getProfile(profileId)).toMatchObject({
+      expect(projectRepository.load().value.profiles[profileId]).toMatchObject({
         currentEnvironment: "space",
         selections: { space: "F2", ground: "G1" },
       });
@@ -141,7 +149,7 @@ describe("Environment switch persistence boundary", () => {
     async (failureKind) => {
       const ownerBefore = dataCoordinator.getCurrentState();
       const persistedBefore = structuredClone(
-        storageService.getProfile(profileId),
+        projectRepository.load().value.profiles[profileId],
       );
       const interfaceBefore = interfaceModeService.getCurrentState();
       const selectionBefore = selectionService.getCurrentState();
@@ -165,11 +173,14 @@ describe("Environment switch persistence boundary", () => {
           publications.profile.push(payload),
         ),
       ];
-      const saveProfile = vi.spyOn(storageService, "saveProfile");
+      const commit = vi.spyOn(projectRepository, "commit");
       if (failureKind === "resolved false") {
-        saveProfile.mockReturnValueOnce(false);
+        commit.mockReturnValueOnce({
+          status: "write_failed",
+          error: "storage_write_failed",
+        });
       } else {
-        saveProfile.mockRejectedValueOnce(new Error("storage unavailable"));
+        commit.mockRejectedValueOnce(new Error("storage unavailable"));
       }
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -187,7 +198,9 @@ describe("Environment switch persistence boundary", () => {
         expect(dataCoordinator.getCurrentState().revision).toBe(
           ownerBefore.revision,
         );
-        expect(storageService.getProfile(profileId)).toEqual(persistedBefore);
+        expect(projectRepository.load().value.profiles[profileId]).toEqual(
+          persistedBefore,
+        );
         expect(interfaceModeService.getCurrentState()).toEqual(interfaceBefore);
         expect(selectionService.getCurrentState()).toEqual(selectionBefore);
         expect(publications).toEqual({
@@ -211,9 +224,10 @@ describe("Environment switch persistence boundary", () => {
             currentEnvironment: "ground",
             currentProfileData: { currentEnvironment: "ground" },
           });
-          expect(storageService.getProfile(profileId).currentEnvironment).toBe(
-            "ground",
-          );
+          expect(
+            projectRepository.load().value.profiles[profileId]
+              .currentEnvironment,
+          ).toBe("ground");
           expect(interfaceModeService.currentMode).toBe("ground");
           expect(selectionService.getCurrentState()).toMatchObject({
             currentEnvironment: "ground",
@@ -231,7 +245,7 @@ describe("Environment switch persistence boundary", () => {
         expect(publications.profile).toEqual([]);
       } finally {
         error.mockRestore();
-        saveProfile.mockRestore();
+        commit.mockRestore();
         for (const detach of detachers) detach();
       }
     },

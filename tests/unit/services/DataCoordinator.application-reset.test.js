@@ -34,29 +34,48 @@ describe("DataCoordinator application reset owner action", () => {
   beforeEach(async () => {
     localStorage.setItem("sto_keybind_manager_visited", "true");
     fixture = createServiceFixture();
-    fixture.storage.getAllData.mockReturnValue({
-      currentProfile: "alpha",
-      profiles: {
-        alpha: {
-          name: "Alpha",
-          currentEnvironment: "ground",
-          builds: { space: { keys: {} }, ground: { keys: {} } },
-          aliases: {},
-          bindsets: {},
-          keybindMetadata: {},
-          aliasMetadata: {},
-          bindsetMetadata: {},
-          migrationVersion: "2.1.1",
+    projectRepository = fixture.projectRepository;
+    projectRepository.load.mockReturnValue({
+      status: "current",
+      value: {
+        currentProfile: "alpha",
+        profiles: {
+          alpha: {
+            name: "Alpha",
+            currentEnvironment: "ground",
+            builds: { space: { keys: {} }, ground: { keys: {} } },
+            aliases: {},
+            bindsets: {},
+            keybindMetadata: {},
+            aliasMetadata: {},
+            bindsetMetadata: {},
+            migrationVersion: "2.1.1",
+          },
         },
+        settings: { theme: "dark" },
+        version: "1.0.0",
+        lastModified: "2026-09-26T00:00:00.000Z",
       },
-      settings: { theme: "dark" },
-      version: "1.0.0",
-      lastModified: "2026-09-26T00:00:00.000Z",
     });
-    projectRepository = { reset: vi.fn(successfulReset) };
+    projectRepository.reset.mockImplementation(() => {
+      projectRepository.load.mockReturnValue({
+        status: "repair_required",
+        value: {
+          currentProfile: null,
+          profiles: {},
+          settings: {},
+          version: "1.0.0",
+          lastModified: "2026-09-26T00:00:01.000Z",
+        },
+        resetSentinel: {
+          status: "pending_consumption",
+          expectedValue: "reset-token",
+        },
+      });
+      return successfulReset();
+    });
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
       projectRepository,
       i18n: { t: (key) => key },
     });
@@ -103,7 +122,6 @@ describe("DataCoordinator application reset owner action", () => {
     });
     await action.settlement;
     expect(projectRepository.reset).toHaveBeenCalledTimes(1);
-    expect(fixture.storage.invalidateCache).toHaveBeenCalledTimes(1);
     expect(coordinator.getCurrentState()).toMatchObject({
       ready: true,
       revision: priorRevision + 1,
@@ -206,7 +224,6 @@ describe("DataCoordinator application reset owner action", () => {
         },
       });
       await action.settlement;
-      expect(fixture.storage.invalidateCache).toHaveBeenCalledTimes(1);
       expect(coordinator.getCurrentState()).toBe(stateBefore);
       expect(
         fixture.eventBusFixture.getEventsOfType("data:state-changed"),
@@ -240,7 +257,6 @@ describe("DataCoordinator application reset owner action", () => {
         resetSentinel: { status: "pending", committed: false },
       },
     });
-    expect(fixture.storage.invalidateCache).toHaveBeenCalledTimes(1);
   });
 
   it("returns publication settlement separately from ordered mutation completion", async () => {
@@ -295,7 +311,6 @@ describe("DataCoordinator application reset owner action", () => {
         },
       },
     });
-    expect(fixture.storage.invalidateCache).toHaveBeenCalledTimes(1);
     expect(
       fixture.eventBusFixture.getEventsOfType("data:state-changed"),
     ).toHaveLength(0);

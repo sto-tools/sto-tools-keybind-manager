@@ -36,19 +36,22 @@ describe("command-chain validation projection lifecycle", () => {
 
   it("validates a late-joined owner snapshot without a preview responder", async () => {
     localStorage.setItem("sto_keybind_manager_visited", "true");
-    fixture = createServiceFixture();
     const profile = createProfile();
-    fixture.storage.getAllData.mockReturnValue({
-      currentProfile: "captain",
-      profiles: { captain: profile },
-      settings: {},
-      version: "1.0.0",
-      lastModified: "2026-07-20T00:00:00.000Z",
+    fixture = createServiceFixture({
+      initialStorageData: {
+        sto_keybind_manager: {
+          currentProfile: "captain",
+          profiles: { captain: profile },
+          settings: {},
+          version: "1.0.0",
+          lastModified: "2026-07-20T00:00:00.000Z",
+        },
+      },
     });
 
     const coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     components.push(coordinator);

@@ -18,7 +18,7 @@ describe("DataCoordinator normalization facade", () => {
     const fixture = createServiceFixture();
     const coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     fixtures.push({ coordinator, fixture });
@@ -46,6 +46,8 @@ describe("DataCoordinator normalization facade", () => {
       currentProfile: "legacy",
       profiles,
       settings: { theme: "dark" },
+      globalAliases: {},
+      lastModified: "2099-07-18T00:00:00.000Z",
       extension: { retained: true },
     };
     vi.spyOn(console, "log").mockImplementation((message) => {
@@ -55,9 +57,9 @@ describe("DataCoordinator normalization facade", () => {
       sequence.push("clock:normalization");
       return normalizedAt;
     });
-    fixture.storage.saveAllData.mockImplementation((nextRoot, options) => {
+    fixture.projectRepository.commit.mockImplementation((nextRoot, options) => {
       sequence.push("storage:save-all");
-      expect(options).toEqual({ preserveBackup: true });
+      expect(options).toEqual({ verification: "not_requested" });
       expect(profiles.legacy).not.toHaveProperty("migrationVersion");
       expect(nextRoot).toMatchObject({
         currentProfile: "legacy",
@@ -71,12 +73,11 @@ describe("DataCoordinator normalization facade", () => {
           },
         },
       });
-      return true;
+      return { status: "committed", value: structuredClone(nextRoot) };
     });
 
-    await expect(
-      coordinator.normalizeAllProfiles(profiles, { rootData }),
-    ).resolves.toBe(1);
+    coordinator._projectRoot = structuredClone(rootData);
+    await expect(coordinator.normalizeAllProfiles(profiles)).resolves.toBe(1);
 
     expect(sequence).toEqual([
       "[DataCoordinator] Migrating profile: legacy",
@@ -86,11 +87,13 @@ describe("DataCoordinator normalization facade", () => {
       "clock:normalization",
       "[DataCoordinator] Profile legacy migrated from 2.0.0 to 2.1.1",
       "storage:save-all",
+      '[DataCoordinator] emit → storage:data-changed (options: {"synchronous":true})',
       "[DataCoordinator] Migrated 1 profiles",
     ]);
     // Public normalization now detaches its request before queue/owner access.
     // The durable draft, not the caller-owned input, receives normalization.
-    const persisted = fixture.storage.saveAllData.mock.calls[0][0].profiles;
+    const persisted =
+      fixture.projectRepository.commit.mock.calls[0][0].profiles;
     expect(persisted.legacy).toMatchObject({
       migrationVersion: "2.1.1",
       lastModified: normalizedAt,
@@ -123,14 +126,49 @@ describe("DataCoordinator normalization facade", () => {
 
     await expect(coordinator.normalizeAllProfiles(profiles)).resolves.toBe(0);
 
-    expect(fixture.storage.getAllData).not.toHaveBeenCalled();
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.load).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
     expect(isoSpy).not.toHaveBeenCalled();
     expect(logSpy).not.toHaveBeenCalled();
     expect(profiles).toEqual(sourceBefore);
   });
 
-  it("uses the storage fallback for a null root and stamps down a future version", async () => {
+  it("keeps the repository-returned root authoritative after implicit normalization", async () => {
+    const { coordinator, fixture } = createCoordinator();
+    const legacyProfile = {
+      name: "Legacy",
+      builds: { space: { keys: { F1: [{ command: "FireAll" }] } } },
+      aliases: {},
+    };
+    const rootData = {
+      version: "1.0.0",
+      currentProfile: "legacy",
+      profiles: { legacy: legacyProfile },
+      settings: {},
+      globalAliases: {},
+      lastModified: "2099-07-18T00:00:00.000Z",
+    };
+    coordinator._projectRoot = structuredClone(rootData);
+    coordinator.state.profiles = structuredClone(rootData.profiles);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    fixture.projectRepository.commit.mockImplementation((candidate) => {
+      const accepted = structuredClone(candidate);
+      accepted.profiles.legacy.repositoryCanonical = true;
+      return { status: "committed", value: accepted };
+    });
+
+    await expect(coordinator.normalizeAllProfiles()).resolves.toBe(1);
+
+    expect(coordinator.state.profiles).toEqual(
+      coordinator._projectRoot.profiles,
+    );
+    expect(coordinator.state.profiles.legacy).toMatchObject({
+      migrationVersion: "2.1.1",
+      repositoryCanonical: true,
+    });
+  });
+
+  it("uses the accepted owner root for a null override and stamps down a future version", async () => {
     const { coordinator, fixture } = createCoordinator();
     const sequence = [];
     const normalizedAt = "2099-07-20T00:00:00.000Z";
@@ -147,9 +185,12 @@ describe("DataCoordinator normalization facade", () => {
       currentProfile: "future",
       profiles: { ignored: { name: "Root profile" } },
       settings: { language: "fr" },
+      globalAliases: {},
+      version: "1.0.0",
+      lastModified: "2099-07-19T00:00:00.000Z",
       extension: { retained: true },
     };
-    fixture.storage.getAllData.mockReturnValue(storedRoot);
+    coordinator._projectRoot = structuredClone(storedRoot);
     const logSpy = vi.spyOn(console, "log").mockImplementation((message) => {
       sequence.push(message);
     });
@@ -159,17 +200,15 @@ describe("DataCoordinator normalization facade", () => {
         sequence.push("clock:normalization");
         return normalizedAt;
       });
-    fixture.storage.saveAllData.mockImplementation(() => {
+    fixture.projectRepository.commit.mockImplementation((candidate) => {
       sequence.push("storage:save-all");
-      return true;
+      return { status: "committed", value: structuredClone(candidate) };
     });
 
-    await expect(
-      coordinator.normalizeAllProfiles(profiles, { rootData: null }),
-    ).resolves.toBe(1);
+    await expect(coordinator.normalizeAllProfiles(profiles)).resolves.toBe(1);
 
-    expect(fixture.storage.getAllData).toHaveBeenCalledTimes(1);
-    expect(fixture.storage.saveAllData).toHaveBeenCalledWith(
+    expect(fixture.projectRepository.load).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).toHaveBeenCalledWith(
       expect.objectContaining({
         currentProfile: "future",
         settings: { language: "fr" },
@@ -178,13 +217,13 @@ describe("DataCoordinator normalization facade", () => {
           future: expect.objectContaining({ migrationVersion: "2.1.1" }),
         },
       }),
-      { preserveBackup: true },
+      { verification: "not_requested" },
     );
     expect(
-      fixture.storage.saveAllData.mock.calls[0][0].profiles,
+      fixture.projectRepository.commit.mock.calls[0][0].profiles,
     ).not.toHaveProperty("ignored");
     expect(
-      fixture.storage.saveAllData.mock.calls[0][0].profiles.future,
+      fixture.projectRepository.commit.mock.calls[0][0].profiles.future,
     ).toEqual({
       name: "Future",
       migrationVersion: "2.1.1",
@@ -197,13 +236,14 @@ describe("DataCoordinator normalization facade", () => {
       "clock:normalization",
       "[DataCoordinator] Profile future migrated from 9.0.0 to 2.1.1",
       "storage:save-all",
+      '[DataCoordinator] emit → storage:data-changed (options: {"synchronous":true})',
       "[DataCoordinator] Migrated 1 profiles",
     ]);
-    expect(logSpy).toHaveBeenCalledTimes(3);
+    expect(logSpy).toHaveBeenCalledTimes(4);
     expect(isoSpy).toHaveBeenCalledTimes(1);
     expect(profiles.future).toBe(sourceProfile);
     expect(
-      fixture.storage.saveAllData.mock.calls[0][0].profiles.future,
+      fixture.projectRepository.commit.mock.calls[0][0].profiles.future,
     ).not.toBe(sourceProfile);
     expect(sourceProfile.migrationVersion).toBe("9.0.0");
     expect(sourceProfile).not.toHaveProperty("lastModified");
@@ -232,8 +272,8 @@ describe("DataCoordinator normalization facade", () => {
 
     await expect(coordinator.normalizeAllProfiles(profiles)).rejects.toThrow();
 
-    expect(fixture.storage.getAllData).not.toHaveBeenCalled();
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.load).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
     expect(profiles.first).toBe(firstSource);
     expect(profiles.first).not.toHaveProperty("migrationVersion");
     expect(profiles.first.builds.space.keys.F1).toEqual([

@@ -171,7 +171,7 @@ describe("CommandChainService stabilization owner atomicity", () => {
     });
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     service = new CommandChainService({
@@ -189,7 +189,7 @@ describe("CommandChainService stabilization owner atomicity", () => {
     });
 
     fixture.eventBusFixture.clearEventHistory();
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
   });
 
   afterEach(() => {
@@ -237,14 +237,14 @@ describe("CommandChainService stabilization owner atomicity", () => {
       stabilize: false,
       bindset: "Primary Bindset",
     });
-    expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
+    expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
     expect(ownerAfter.revision).toBe(revisionBefore + 1);
     expect(ownerAfter.profiles.captain.builds.space.keys.F1).toEqual(
       mixedCommands,
     );
-    expect(fixture.storage.getProfile("captain").builds.space.keys.F1).toEqual(
-      mixedCommands,
-    );
+    expect(
+      fixture.readProjectRoot().profiles.captain.builds.space.keys.F1,
+    ).toEqual(mixedCommands);
     expect(ui.cache.dataState?.profiles.captain.builds.space.keys.F1).toEqual(
       mixedCommands,
     );
@@ -268,9 +268,12 @@ describe("CommandChainService stabilization owner atomicity", () => {
         aliases: service.cache.aliases,
       });
       const durableBefore = structuredClone(
-        fixture.storage.getProfile("captain"),
+        fixture.readProjectRoot().profiles.captain,
       );
-      fixture.storage.saveProfile.mockReturnValue(false);
+      fixture.projectRepository.commit.mockReturnValue({
+        status: "write_failed",
+        error: "storage_write_failed",
+      });
       vi.spyOn(console, "error").mockImplementation(() => {});
 
       await expect(
@@ -280,7 +283,7 @@ describe("CommandChainService stabilization owner atomicity", () => {
         error: "failed_to_save_profile",
       });
 
-      expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
       expect(coordinator.getCurrentState()).toEqual(ownerBefore);
       expect(service.cache.dataState).toEqual(cacheBefore);
       expect({
@@ -289,7 +292,7 @@ describe("CommandChainService stabilization owner atomicity", () => {
         keys: service.cache.keys,
         aliases: service.cache.aliases,
       }).toEqual(compatibilityBefore);
-      expect(fixture.storage.getProfile("captain")).toEqual(durableBefore);
+      expect(fixture.readProjectRoot().profiles.captain).toEqual(durableBefore);
       expect(
         fixture
           .getEventHistory()
@@ -318,11 +321,11 @@ describe("CommandChainService stabilization owner atomicity", () => {
     async (target) => {
       configureTarget(service, target);
       const order = [];
-      const saveProfile = fixture.storage.saveProfile.getMockImplementation();
-      if (!saveProfile) throw new Error("Expected storage fixture writer");
-      fixture.storage.saveProfile.mockImplementation((...args) => {
+      const commit = fixture.projectRepository.commit.getMockImplementation();
+      if (!commit) throw new Error("Expected repository fixture writer");
+      fixture.projectRepository.commit.mockImplementation((...args) => {
         order.push("storage:save");
-        return saveProfile(...args);
+        return commit(...args);
       });
       const detachState = fixture.eventBus.on("data:state-changed", () =>
         order.push("data:state-changed"),
@@ -346,11 +349,11 @@ describe("CommandChainService stabilization owner atomicity", () => {
       }
 
       const ownerAfter = coordinator.getCurrentState();
-      const durableAfter = fixture.storage.getProfile("captain");
+      const durableAfter = fixture.readProjectRoot().profiles.captain;
       const ownerMetadata = targetMetadata(ownerAfter.profiles.captain, target);
       const durableMetadata = targetMetadata(durableAfter, target);
 
-      expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
       expect(ownerAfter.revision).toBe(revisionBefore + 1);
       expect(ownerMetadata).toEqual({
         ...metadataBefore,
@@ -369,12 +372,19 @@ describe("CommandChainService stabilization owner atomicity", () => {
         emitted.filter(({ event }) => event === "profile:updated"),
       ).toHaveLength(1);
       expect(
+        emitted.filter(({ event }) => event === "storage:data-changed"),
+      ).toEqual([
+        expect.objectContaining({
+          data: {
+            data: expect.objectContaining({
+              profiles: expect.objectContaining({ captain: durableAfter }),
+            }),
+          },
+        }),
+      ]);
+      expect(
         emitted.filter(({ event }) =>
-          [
-            "chain-data-changed",
-            "storage:data-changed",
-            "stabilize-changed",
-          ].includes(event),
+          ["chain-data-changed", "stabilize-changed"].includes(event),
         ),
       ).toEqual([]);
 

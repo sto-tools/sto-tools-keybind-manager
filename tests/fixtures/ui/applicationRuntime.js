@@ -1,7 +1,6 @@
 /**
  * @typedef {Object} BrowserApplicationRuntime
  * @property {typeof import("../../../src/js/core/eventBus.js").default} eventBus
- * @property {import("../../../src/js/components/services/StorageService.js").default} storageService
  * @property {import("../../../src/js/components/services/DataCoordinator.js").default} dataCoordinator
  * @property {import("../../../src/js/components/ui/CommandChainUI.js").default} commandChainUI
  * @property {import("../../../src/js/components/ui/KeyBrowserUI.js").default} keyBrowserUI
@@ -35,7 +34,6 @@ export function ambientGlobals() {
     "STO_DATA",
     "COMMANDS",
     "localizeCommandData",
-    "storageService",
     "dataCoordinator",
     "eventBus",
     "commandChainUI",

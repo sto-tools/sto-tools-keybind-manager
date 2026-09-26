@@ -23,11 +23,12 @@ describe("DataCoordinator complete state snapshots", () => {
   let fixture;
   let coordinator;
   let projectRepository;
+  let durableRoot;
 
   beforeEach(() => {
     localStorage.setItem("sto_keybind_manager_visited", "true");
     fixture = createServiceFixture();
-    fixture.storage.getAllData.mockReturnValue({
+    durableRoot = {
       currentProfile: "alpha",
       profiles: {
         alpha: profile("Alpha"),
@@ -36,18 +37,41 @@ describe("DataCoordinator complete state snapshots", () => {
       settings: { theme: "dark" },
       version: "1.0.0",
       lastModified: "2026-07-16T00:00:00.000Z",
+    };
+    projectRepository = fixture.projectRepository;
+    projectRepository.load.mockImplementation(() => ({
+      status: "current",
+      value: structuredClone(durableRoot),
+    }));
+    projectRepository.commit.mockImplementation((candidate) => {
+      durableRoot = structuredClone(candidate);
+      return { status: "committed", value: structuredClone(durableRoot) };
     });
-    projectRepository = {
-      reset: vi.fn(() => ({
+    projectRepository.reset.mockImplementation(() => {
+      durableRoot = {
+        currentProfile: null,
+        profiles: {},
+        settings: {},
+        version: "1.0.0",
+        lastModified: "2026-07-16T01:00:00.000Z",
+      };
+      projectRepository.load.mockReturnValue({
+        status: "repair_required",
+        value: structuredClone(durableRoot),
+        resetSentinel: {
+          status: "pending_consumption",
+          expectedValue: "reset-token",
+        },
+      });
+      return {
         status: "reset",
         rootRemoval: { status: "acknowledged" },
         backupRemoval: { status: "acknowledged" },
         sentinelWrite: { status: "acknowledged" },
-      })),
-    };
+      };
+    });
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
       projectRepository,
       i18n: { t: (key) => key },
     });
@@ -106,7 +130,7 @@ describe("DataCoordinator complete state snapshots", () => {
   });
 
   it("publishes detached snapshots without mutating canonical profiles", async () => {
-    const canonicalProfile = fixture.storage.getAllData().profiles.alpha;
+    const canonicalProfile = durableRoot.profiles.alpha;
     await initialize();
 
     const published = stateEvents()[0].data.state;
@@ -208,7 +232,10 @@ describe("DataCoordinator complete state snapshots", () => {
   it("does not advance or publish when persistence rejects a mutation", async () => {
     await initialize();
     clearEvents();
-    fixture.storage.saveProfile.mockReturnValueOnce(false);
+    projectRepository.commit.mockReturnValueOnce({
+      status: "write_failed",
+      error: "storage_write_failed",
+    });
 
     await expect(
       coordinator.updateProfile("alpha", {
@@ -287,15 +314,18 @@ describe("DataCoordinator complete state snapshots", () => {
     });
     expect(coordinator.state).not.toHaveProperty("settings");
     expect(projectRepository.reset).toHaveBeenCalledTimes(1);
-    expect(fixture.storage.invalidateCache).toHaveBeenCalledTimes(1);
 
     clearEvents();
-    fixture.storage.getAllData.mockReturnValueOnce({
+    durableRoot = {
       currentProfile: "restored",
       profiles: { restored: profile("Restored", "ground") },
       settings: { language: "de" },
       version: "2.1.0",
       lastModified: "2026-07-16T02:00:00.000Z",
+    };
+    projectRepository.load.mockReturnValueOnce({
+      status: "current",
+      value: structuredClone(durableRoot),
     });
 
     await coordinator.reloadState();
@@ -325,24 +355,20 @@ describe("DataCoordinator complete state snapshots", () => {
     await initialize();
 
     clearEvents();
-    fixture.storage.saveAllData.mockClear();
-    fixture.storage.saveProfile.mockClear();
+    projectRepository.commit.mockClear();
     await coordinator.createDefaultProfilesFromData({
       imported_default: profile("Imported Default"),
     });
     expect(stateEvents()).toHaveLength(1);
     expect(stateEvents()[0].data.reason).toBe("default-profiles-created");
-    expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(projectRepository.commit).toHaveBeenCalledTimes(1);
 
     clearEvents();
-    fixture.storage.saveAllData.mockClear();
-    fixture.storage.saveProfile.mockClear();
+    projectRepository.commit.mockClear();
     await coordinator.createFallbackProfiles();
     expect(stateEvents()).toHaveLength(1);
     expect(stateEvents()[0].data.reason).toBe("fallback-profiles-created");
-    expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(projectRepository.commit).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -372,20 +398,26 @@ describe("DataCoordinator complete state snapshots", () => {
         version: "1.0.0",
         lastModified: "2026-07-16T03:00:00.000Z",
       };
-      fixture.storage.getAllData.mockReturnValue(durableBefore);
+      durableRoot = structuredClone(durableBefore);
+      projectRepository.load.mockReturnValue({
+        status: "current",
+        value: structuredClone(durableRoot),
+      });
       await initialize();
       clearEvents();
-      fixture.storage.saveAllData.mockClear();
-      fixture.storage.saveProfile.mockClear();
+      projectRepository.commit.mockClear();
 
       const ownerBefore = structuredClone(coordinator.state);
       const revisionBefore = coordinator.getCurrentState().revision;
-      fixture.storage.saveAllData.mockReturnValueOnce(false);
+      projectRepository.commit.mockReturnValueOnce({
+        status: "write_failed",
+        error: "storage_write_failed",
+      });
 
       await expect(perform()).rejects.toThrow("failed_to_save_profile");
 
-      expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
-      expect(fixture.storage.saveAllData).toHaveBeenCalledWith(
+      expect(projectRepository.commit).toHaveBeenCalledTimes(1);
+      expect(projectRepository.commit).toHaveBeenCalledWith(
         expect.objectContaining({
           currentProfile: expectedCurrentProfile,
           profiles: expect.objectContaining(
@@ -396,9 +428,9 @@ describe("DataCoordinator complete state snapshots", () => {
           settings: { theme: "dark" },
           version: "1.0.0",
         }),
+        { verification: "not_requested" },
       );
-      expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
-      expect(fixture.storage.getAllData()).toEqual(durableBefore);
+      expect(durableRoot).toEqual(durableBefore);
       expect(coordinator.state).toEqual(ownerBefore);
       expect(coordinator.getCurrentState().revision).toBe(revisionBefore);
       expect(stateEvents()).toHaveLength(0);
@@ -441,8 +473,7 @@ describe("DataCoordinator complete state snapshots", () => {
   it("keeps owner state and revision unchanged when reload normalization cannot persist", async () => {
     await initialize();
     clearEvents();
-    fixture.storage.saveAllData.mockClear();
-    fixture.storage.saveProfile.mockClear();
+    projectRepository.commit.mockClear();
 
     const importedRoot = {
       currentProfile: "legacy",
@@ -452,29 +483,35 @@ describe("DataCoordinator complete state snapshots", () => {
       lastModified: "2026-07-16T04:00:00.000Z",
     };
     delete importedRoot.profiles.legacy.migrationVersion;
-    fixture.storage.getAllData.mockReturnValue(importedRoot);
-    fixture.storage.saveAllData.mockReturnValueOnce(false);
+    durableRoot = structuredClone(importedRoot);
+    projectRepository.load.mockReturnValue({
+      status: "current",
+      value: structuredClone(durableRoot),
+    });
+    projectRepository.commit.mockReturnValueOnce({
+      status: "write_failed",
+      error: "storage_write_failed",
+    });
     const ownerBefore = structuredClone(coordinator.state);
     const revisionBefore = coordinator.getCurrentState().revision;
 
     await expect(coordinator.reloadState()).resolves.toMatchObject({
       success: false,
-      error: "failed_to_save_profile",
+      error: "storage_write_failed",
     });
 
-    expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
-    expect(fixture.storage.saveAllData.mock.calls[0][1]).toEqual({
-      preserveBackup: true,
+    expect(projectRepository.commit).toHaveBeenCalledTimes(1);
+    expect(projectRepository.commit.mock.calls[0][1]).toEqual({
+      verification: "required",
     });
-    expect(fixture.storage.saveAllData.mock.calls[0][0]).toMatchObject({
+    expect(projectRepository.commit.mock.calls[0][0]).toMatchObject({
       currentProfile: "legacy",
       profiles: { legacy: { migrationVersion: "2.1.1" } },
       settings: { theme: "imported" },
       version: "2.0.0",
       lastModified: "2026-07-16T04:00:00.000Z",
     });
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
-    expect(fixture.storage.getAllData()).toEqual(importedRoot);
+    expect(durableRoot).toEqual(importedRoot);
     expect(coordinator.state).toEqual(ownerBefore);
     expect(coordinator.getCurrentState().revision).toBe(revisionBefore);
     expect(stateEvents()).toHaveLength(0);

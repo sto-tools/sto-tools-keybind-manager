@@ -1,4 +1,3 @@
-import persist from "./storageWrites.js";
 import { createVirtualProfile } from "./dataState.js";
 import {
   createClonedProfileDraft,
@@ -10,6 +9,13 @@ import {
   validatePlannedProfileRoot,
   validatePlannedProjectRoot,
 } from "./dataCoordinatorMutationBoundary.js";
+import {
+  adoptCoordinatorProjectRoot,
+  cloneCoordinatorProjectRoot,
+  commitCoordinatorProjectRoot,
+  coordinatorProjectVersion,
+} from "./dataCoordinatorProjectPersistence.js";
+import { publishCommittedCoordinatorProject } from "./dataCoordinatorPublication.js";
 
 /** @param {unknown} error */
 const errMsg = (error) =>
@@ -53,18 +59,15 @@ export async function executeProfileSwitch(owner, profileId) {
   const operation = owner._captureOperationGeneration();
 
   // Persist current profile change
-  validatePlannedProjectRoot(
-    { ...owner.storage.getAllData(), currentProfile: profileId },
-    { version: owner.storage.version },
-  );
-  await persist.currentProfile(owner.storage, profileId, owner.i18n);
+  const candidate = cloneCoordinatorProjectRoot(owner);
+  candidate.currentProfile = profileId;
+  validatePlannedProjectRoot(candidate, {
+    version: coordinatorProjectVersion(owner),
+  });
   owner._assertCurrentOperation(operation);
-
-  owner.state.currentProfile = profileId;
-  owner.state.currentEnvironment = profile.currentEnvironment || "space";
-
-  // Update metadata
-  owner.state.metadata.lastModified = new Date().toISOString();
+  const accepted = commitCoordinatorProjectRoot(owner, candidate);
+  adoptCoordinatorProjectRoot(owner, accepted, operation);
+  publishCommittedCoordinatorProject(owner, accepted);
 
   // Build virtual profile for response
   const virtualProfile = createVirtualProfile(
@@ -128,20 +131,16 @@ export async function executeProfileCreate(owner, name, description, mode) {
 
   try {
     // Save to storage
-    validatePlannedProfileRoot(profileId, profile, owner.storage.getAllData(), {
-      version: owner.storage.version,
+    const candidate = cloneCoordinatorProjectRoot(owner);
+    validatePlannedProfileRoot(profileId, profile, candidate, {
+      version: coordinatorProjectVersion(owner),
     });
-    const persistedProfile = await persist.profile(
-      owner.storage,
-      profileId,
-      profile,
-      owner.i18n,
-    );
+    candidate.profiles[profileId] = structuredClone(profile);
     owner._assertCurrentOperation(operation);
-
-    // Update cache
-    owner.state.profiles[profileId] = persistedProfile;
-    owner.state.metadata.lastModified = new Date().toISOString();
+    const accepted = commitCoordinatorProjectRoot(owner, candidate);
+    adoptCoordinatorProjectRoot(owner, accepted, operation);
+    publishCommittedCoordinatorProject(owner, accepted);
+    const persistedProfile = owner.state.profiles[profileId];
 
     owner._publishState("profile-created");
 
@@ -193,20 +192,16 @@ export async function executeProfileClone(owner, sourceId, newName) {
     validatePlannedProfileRoot(
       profileId,
       clonedProfile,
-      owner.storage.getAllData(),
-      { version: owner.storage.version },
+      cloneCoordinatorProjectRoot(owner),
+      { version: coordinatorProjectVersion(owner) },
     );
-    const persistedProfile = await persist.profile(
-      owner.storage,
-      profileId,
-      clonedProfile,
-      owner.i18n,
-    );
+    const candidate = cloneCoordinatorProjectRoot(owner);
+    candidate.profiles[profileId] = structuredClone(clonedProfile);
     owner._assertCurrentOperation(operation);
-
-    // Update cache
-    owner.state.profiles[profileId] = persistedProfile;
-    owner.state.metadata.lastModified = new Date().toISOString();
+    const accepted = commitCoordinatorProjectRoot(owner, candidate);
+    adoptCoordinatorProjectRoot(owner, accepted, operation);
+    publishCommittedCoordinatorProject(owner, accepted);
+    const persistedProfile = owner.state.profiles[profileId];
 
     owner._publishState("profile-cloned");
 
@@ -260,20 +255,16 @@ export async function executeProfileRename(
     validatePlannedProfileRoot(
       profileId,
       updatedProfile,
-      owner.storage.getAllData(),
-      { version: owner.storage.version },
+      cloneCoordinatorProjectRoot(owner),
+      { version: coordinatorProjectVersion(owner) },
     );
-    const persistedProfile = await persist.profile(
-      owner.storage,
-      profileId,
-      updatedProfile,
-      owner.i18n,
-    );
+    const candidate = cloneCoordinatorProjectRoot(owner);
+    candidate.profiles[profileId] = structuredClone(updatedProfile);
     owner._assertCurrentOperation(operation);
-
-    // Update cache
-    owner.state.profiles[profileId] = persistedProfile;
-    owner.state.metadata.lastModified = new Date().toISOString();
+    const accepted = commitCoordinatorProjectRoot(owner, candidate);
+    adoptCoordinatorProjectRoot(owner, accepted, operation);
+    publishCommittedCoordinatorProject(owner, accepted);
+    const persistedProfile = owner.state.profiles[profileId];
 
     owner._publishState("profile-renamed");
 
@@ -350,26 +341,17 @@ export async function executeProfileDelete(owner, profileId) {
     // Deletion and replacement-profile selection are one logical durable
     // commit. A single root write prevents either half from becoming visible
     // on its own.
-    const nextRoot = structuredClone(owner.storage.getAllData());
+    const nextRoot = cloneCoordinatorProjectRoot(owner);
     nextRoot.profiles = structuredClone(nextProfiles);
     nextRoot.currentProfile = nextCurrentProfile;
     const operation = owner._captureOperationGeneration();
-    validatePlannedProjectRoot(nextRoot, { version: owner.storage.version });
-    await persist.all(owner.storage, nextRoot, owner.i18n);
+    validatePlannedProjectRoot(nextRoot, {
+      version: coordinatorProjectVersion(owner),
+    });
     owner._assertCurrentOperation(operation);
-
-    const durableRoot = owner.storage.getAllData();
-    owner.state.profiles = nextProfiles;
-    owner.state.currentProfile = nextCurrentProfile;
-    owner.state.currentEnvironment = nextCurrentEnvironment;
-    owner.state.metadata = {
-      lastModified:
-        durableRoot.lastModified ??
-        nextRoot.lastModified ??
-        new Date().toISOString(),
-      version:
-        durableRoot.version || nextRoot.version || owner.state.metadata.version,
-    };
+    const durableRoot = commitCoordinatorProjectRoot(owner, nextRoot);
+    adoptCoordinatorProjectRoot(owner, durableRoot, operation);
+    publishCommittedCoordinatorProject(owner, durableRoot);
 
     owner._publishState("profile-deleted");
 

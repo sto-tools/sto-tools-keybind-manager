@@ -25,19 +25,22 @@ describe("DataCoordinator durable state ownership", () => {
   beforeEach(() => {
     localStorage.setItem("sto_keybind_manager_visited", "true");
     fixture = createServiceFixture();
-    fixture.storage.getAllData.mockReturnValue({
-      currentProfile: "alpha",
-      profiles: {
-        alpha: profile("Alpha"),
-        beta: profile("Beta", "ground"),
+    fixture.projectRepository.load.mockReturnValue({
+      status: "current",
+      value: {
+        currentProfile: "alpha",
+        profiles: {
+          alpha: profile("Alpha"),
+          beta: profile("Beta", "ground"),
+        },
+        settings: { theme: "dark" },
+        version: "1.0.0",
+        lastModified: "2026-07-16T00:00:00.000Z",
       },
-      settings: { theme: "dark" },
-      version: "1.0.0",
-      lastModified: "2026-07-16T00:00:00.000Z",
     });
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
   });
@@ -78,18 +81,19 @@ describe("DataCoordinator durable state ownership", () => {
       lastModified: "2026-07-16T05:00:00.000Z",
     };
     delete durableRoot.profiles.legacy.migrationVersion;
-    fixture.storage.getAllData.mockImplementation(() =>
-      structuredClone(durableRoot),
-    );
-    fixture.storage.saveAllData.mockImplementation((nextRoot) => {
+    fixture.projectRepository.load.mockImplementation(() => ({
+      status: "current",
+      value: structuredClone(durableRoot),
+    }));
+    fixture.projectRepository.commit.mockImplementation((nextRoot) => {
       durableRoot = {
         ...structuredClone(nextRoot),
         version: "3.0.0",
         lastModified: "2026-07-16T05:30:00.000Z",
       };
-      return true;
+      return { status: "committed", value: structuredClone(durableRoot) };
     });
-    fixture.storage.saveAllData.mockClear();
+    fixture.projectRepository.commit.mockClear();
 
     await expect(coordinator.reloadState()).resolves.toMatchObject({
       success: true,
@@ -97,9 +101,9 @@ describe("DataCoordinator durable state ownership", () => {
       environment: "ground",
     });
 
-    expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
-    expect(fixture.storage.saveAllData.mock.calls[0][1]).toEqual({
-      preserveBackup: true,
+    expect(fixture.projectRepository.commit).toHaveBeenCalledTimes(1);
+    expect(fixture.projectRepository.commit.mock.calls[0][1]).toEqual({
+      verification: "required",
     });
     expect(durableRoot.profiles.legacy.migrationVersion).toBe("2.1.1");
     expect(coordinator.state.metadata).toEqual({
@@ -116,36 +120,35 @@ describe("DataCoordinator durable state ownership", () => {
     await initialize();
     clearEvents();
 
-    let durableRoot = structuredClone(fixture.storage.getAllData());
-    fixture.storage.getAllData.mockImplementation(() =>
-      structuredClone(durableRoot),
-    );
-    fixture.storage.saveAllData.mockImplementation((nextRoot) => {
+    let durableRoot = structuredClone(coordinator._projectRoot);
+    fixture.projectRepository.load.mockImplementation(() => ({
+      status: "current",
+      value: structuredClone(durableRoot),
+    }));
+    fixture.projectRepository.commit.mockImplementation((nextRoot) => {
       durableRoot = {
         ...structuredClone(nextRoot),
         version: "1.0.0",
         lastModified: "2026-07-16T06:00:00.000Z",
       };
-      return true;
+      return { status: "committed", value: structuredClone(durableRoot) };
     });
-    fixture.storage.saveAllData.mockClear();
-    fixture.storage.deleteProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
 
     const durableWhenPublished = [];
     fixture.eventBus.on("data:state-changed", () => {
-      durableWhenPublished.push(fixture.storage.getAllData());
+      durableWhenPublished.push(structuredClone(durableRoot));
     });
 
     const result = await coordinator.deleteProfile("alpha");
 
-    expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
-    expect(fixture.storage.deleteProfile).not.toHaveBeenCalled();
-    expect(fixture.storage.saveAllData.mock.calls[0][0]).toMatchObject({
+    expect(fixture.projectRepository.commit).toHaveBeenCalledTimes(1);
+    expect(fixture.projectRepository.commit.mock.calls[0][0]).toMatchObject({
       currentProfile: "beta",
       profiles: { beta: { name: "Beta" } },
     });
     expect(
-      fixture.storage.saveAllData.mock.calls[0][0].profiles,
+      fixture.projectRepository.commit.mock.calls[0][0].profiles,
     ).not.toHaveProperty("alpha");
     expect(durableWhenPublished).toEqual([
       expect.objectContaining({
@@ -185,6 +188,10 @@ describe("DataCoordinator durable state ownership", () => {
   it("detaches nested profile inputs and legacy event payloads from owner state", async () => {
     await initialize();
     clearEvents();
+    fixture.projectRepository.commit.mockImplementation((candidate) => ({
+      status: "committed",
+      value: structuredClone(candidate),
+    }));
 
     const updates = {
       add: {

@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import SelectionService from "../../src/js/components/services/SelectionService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import { request } from "../../src/js/core/requestResponse.js";
 import { createRealEventBusFixture } from "../fixtures/core/eventBus.js";
 import { createLocalStorageFixture } from "../fixtures/core/storage.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 const profile = {
   name: "Captain",
@@ -20,7 +20,7 @@ const profile = {
 };
 
 describe("SelectionService reentrant owner publication", () => {
-  let bus, local, storage, owner, service;
+  let bus, local, projectRepository, owner, service;
 
   beforeEach(async () => {
     bus = await createRealEventBusFixture();
@@ -40,14 +40,10 @@ describe("SelectionService reentrant owner publication", () => {
         lastModified: "2026-01-01T00:00:00.000Z",
       }),
     );
-    storage = new StorageService({
-      eventBus: bus.eventBus,
-      version: "1.0.0",
-    });
-    storage.init();
+    projectRepository = createProjectRepository();
     owner = new DataCoordinator({
       eventBus: bus.eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
     });
     owner.init();
@@ -61,7 +57,6 @@ describe("SelectionService reentrant owner publication", () => {
     if (!service.destroyed) service.destroy();
     await service.selectionPersistenceSettled;
     owner.destroy();
-    storage.destroy();
     bus.destroy();
     local.destroy();
     vi.restoreAllMocks();
@@ -69,7 +64,7 @@ describe("SelectionService reentrant owner publication", () => {
 
   it("admits a second selection awaited by the first write publication", async () => {
     const initialRevision = owner.getCurrentState().revision;
-    const writes = vi.spyOn(storage, "saveProfile");
+    const writes = vi.spyOn(projectRepository, "commit");
     const completions = [];
     const selectionStates = [];
     let second = null;
@@ -109,10 +104,9 @@ describe("SelectionService reentrant owner publication", () => {
     await expect(first).resolves.toBe("S2");
     await expect(second).resolves.toBe("S2");
 
-    expect(writes.mock.calls.map(([, value]) => value.selections)).toEqual([
-      { space: "S1" },
-      { space: "S2" },
-    ]);
+    expect(
+      writes.mock.calls.map(([root]) => root.profiles.captain.selections),
+    ).toEqual([{ space: "S1" }, { space: "S2" }]);
     expect(completions).toEqual([
       "write-1-listener",
       "write-2-reply",
@@ -120,7 +114,9 @@ describe("SelectionService reentrant owner publication", () => {
       "write-1-reply",
     ]);
     expect(owner.getCurrentState().revision).toBe(initialRevision + 2);
-    expect(storage.getProfile("captain").selections).toEqual({ space: "S2" });
+    expect(projectRepository.load().value.profiles.captain.selections).toEqual({
+      space: "S2",
+    });
     expect(service.cache.selectedKey).toBe("S2");
     const firstS2 = selectionStates.findIndex(
       ({ selectedKey }) => selectedKey === "S2",
@@ -133,7 +129,7 @@ describe("SelectionService reentrant owner publication", () => {
 
   it("reinitializes inside the first publication without waiting for its reply", async () => {
     const initialRevision = owner.getCurrentState().revision;
-    const writes = vi.spyOn(storage, "saveProfile");
+    const writes = vi.spyOn(projectRepository, "commit");
     const oldController = service.selectionPersistence;
     let fresh = null;
     bus.eventBus.on("data:state-changed", async ({ state }) => {
@@ -163,12 +159,13 @@ describe("SelectionService reentrant owner publication", () => {
     );
     await expect(old).resolves.toBe("S2");
     await expect(fresh).resolves.toBe("S2");
-    expect(writes.mock.calls.map(([, value]) => value.selections)).toEqual([
-      { space: "S1" },
-      { space: "S2" },
-    ]);
+    expect(
+      writes.mock.calls.map(([root]) => root.profiles.captain.selections),
+    ).toEqual([{ space: "S1" }, { space: "S2" }]);
     expect(owner.getCurrentState().revision).toBe(initialRevision + 2);
-    expect(storage.getProfile("captain").selections).toEqual({ space: "S2" });
+    expect(projectRepository.load().value.profiles.captain.selections).toEqual({
+      space: "S2",
+    });
     expect(service.cache.selectedKey).toBe("S2");
   });
 });

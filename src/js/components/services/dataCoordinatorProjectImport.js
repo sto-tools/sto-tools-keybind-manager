@@ -3,22 +3,68 @@ import {
   requireProfileIdentifier,
   validatePlannedProjectRoot,
 } from "./dataCoordinatorMutationBoundary.js";
-import { publishReloadedCoordinatorState } from "./dataCoordinatorPublication.js";
+import {
+  publishCommittedCoordinatorProject,
+  publishReloadedCoordinatorState,
+} from "./dataCoordinatorPublication.js";
 import {
   enqueueDataCoordinatorMutation,
   recordDataCoordinatorPublication,
 } from "./dataCoordinatorMutationQueue.js";
 import { isDataRecord } from "./jsonDataBoundary.js";
-import { materializeMutationValue } from "./mutationRequestBoundary.js";
+import {
+  materializeMutationRequest,
+  materializeMutationValue,
+} from "./mutationRequestBoundary.js";
 import { materializeCanonicalPreferences } from "./preferencesRepositoryBoundary.js";
 import { decodeProjectSettings } from "./settingsDataBoundary.js";
 import {
   durableStage,
   fingerprintWorkflowValue,
 } from "./storageWorkflowReceipt.js";
+import {
+  adoptCoordinatorProjectRoot,
+  cloneCoordinatorProjectRoot,
+  commitCoordinatorProjectRoot,
+  coordinatorProjectVersion,
+  loadCoordinatorProjectRoot,
+} from "./dataCoordinatorProjectPersistence.js";
 
 const skipped = () => durableStage("skipped", false);
 const pending = () => durableStage("pending", false);
+
+/**
+ * Capture a function capability without invoking caller-owned accessors.
+ * @param {unknown} input
+ */
+function materializeProjectImportOptions(input) {
+  if (input === undefined) return {};
+  try {
+    if (!isDataRecord(input)) throw new TypeError();
+    const descriptors = Object.getOwnPropertyDescriptors(input);
+    const keys = Reflect.ownKeys(descriptors);
+    if (
+      keys.some((key) => {
+        if (typeof key !== "string") return true;
+        const descriptor = descriptors[key];
+        return (
+          key !== "persistImportedSettings" ||
+          !descriptor.enumerable ||
+          !("value" in descriptor)
+        );
+      })
+    ) {
+      throw new TypeError();
+    }
+    const capability = descriptors.persistImportedSettings?.value;
+    if (capability !== undefined && typeof capability !== "function") {
+      throw new TypeError();
+    }
+    return { persistImportedSettings: capability };
+  } catch {
+    throw new TypeError("invalid_mutation_request");
+  }
+}
 
 /** @param {unknown} value */
 function materializeImportedProjectData(value) {
@@ -69,11 +115,8 @@ function initialReceipt(fingerprint) {
  * @param {import('../../types/storage-contracts.js').ImportedProjectOwnerActionOptions} [options]
  * @returns {Promise<import('../../types/storage-contracts.js').ImportedProjectOwnerResult>}
  */
-export async function replaceProjectFromImport(
-  owner,
-  projectData,
-  { persistImportedSettings } = {},
-) {
+export async function replaceProjectFromImport(owner, projectData, options) {
+  const { persistImportedSettings } = materializeProjectImportOptions(options);
   const imported = materializeImportedProjectData(projectData);
   const validationFingerprint = fingerprintWorkflowValue(imported);
   await owner._initialStateCommitted;
@@ -83,7 +126,7 @@ export async function replaceProjectFromImport(
       const operation = owner._captureOperationGeneration();
       const receipt = initialReceipt(validationFingerprint);
       owner._assertCurrentOperation(operation);
-      const destination = structuredClone(owner.storage.getAllData());
+      const destination = cloneCoordinatorProjectRoot(owner);
       const importedProfiles = imported.profiles ?? {};
       const profiles = {
         ...(destination.profiles || {}),
@@ -139,7 +182,7 @@ export async function replaceProjectFromImport(
       };
       try {
         validatePlannedProjectRoot(nextRoot, {
-          version: owner.storage.version,
+          version: coordinatorProjectVersion(owner),
         });
       } catch {
         receipt.project = durableStage("failed", false, {
@@ -154,10 +197,13 @@ export async function replaceProjectFromImport(
           receipt: cloneReceipt(receipt),
         };
       }
-      const projectProjection = {
-        profiles: structuredClone(profiles),
-        currentProfile: nextRoot.currentProfile,
-      };
+      const projectProjection =
+        /** @type {import('../../types/data-contracts.js').ArtifactProjectProjection} */ (
+          /** @type {unknown} */ ({
+            profiles: structuredClone(profiles),
+            currentProfile: nextRoot.currentProfile,
+          })
+        );
       const projectFingerprint = fingerprintWorkflowValue(projectProjection);
 
       /** @type {import('../../types/data-contracts.js').CanonicalSettings | undefined} */
@@ -249,13 +295,15 @@ export async function replaceProjectFromImport(
         }
       }
 
-      let persisted = false;
+      /** @type {import('./dataCoordinatorProjectPersistence.js').CoordinatorProjectRoot | null} */
+      let durableRoot = null;
       try {
-        persisted = (await owner.storage.saveAllData(nextRoot)) !== false;
+        owner._assertCurrentOperation(operation);
+        durableRoot = commitCoordinatorProjectRoot(owner, nextRoot);
       } catch {
-        persisted = false;
+        durableRoot = null;
       }
-      if (!persisted) {
+      if (!durableRoot) {
         receipt.project = durableStage("failed", "indeterminate", {
           fingerprint: projectFingerprint,
           error: "storage_write_failed",
@@ -283,19 +331,8 @@ export async function replaceProjectFromImport(
 
       try {
         owner._assertCurrentOperation(operation);
-        const durableRoot = owner.storage.getAllData();
-        owner.state.profiles = structuredClone(durableRoot.profiles || {});
-        owner.state.currentProfile = durableRoot.currentProfile || null;
-        owner.state.currentEnvironment =
-          owner.state.currentProfile &&
-          owner.state.profiles[owner.state.currentProfile]
-            ? owner.state.profiles[owner.state.currentProfile]
-                .currentEnvironment || "space"
-            : "space";
-        owner.state.metadata = {
-          lastModified: durableRoot.lastModified,
-          version: durableRoot.version || owner.storage.version || "1.0.0",
-        };
+        adoptCoordinatorProjectRoot(owner, durableRoot, operation);
+        publishCommittedCoordinatorProject(owner, durableRoot);
         const publications = publishReloadedCoordinatorState(owner, operation);
         recordDataCoordinatorPublication(owner, publications);
         owner._assertCurrentOperation(operation);
@@ -361,13 +398,14 @@ export async function replaceProjectFromImport(
  * @param {{fingerprint: string}} options
  * @returns {Promise<import('../../types/storage-contracts.js').ImportedProjectActivationResult>}
  */
-export async function activateImportedProject(
-  owner,
-  project,
-  { fingerprint } = /** @type {any} */ ({}),
-) {
+export async function activateImportedProject(owner, project, options) {
   let projection;
+  let fingerprint;
   try {
+    const safeOptions = materializeMutationRequest(options ?? {}, [
+      "fingerprint",
+    ]);
+    fingerprint = safeOptions.fingerprint;
     const detached = materializeMutationValue(project);
     if (!isDataRecord(detached)) throw new TypeError();
     const profiles = materializeProfileMap(detached.profiles);
@@ -395,7 +433,24 @@ export async function activateImportedProject(
     return await enqueueDataCoordinatorMutation(owner, () => {
       const operation = owner._captureOperationGeneration();
       owner._assertCurrentOperation(operation);
-      const durableRoot = owner.storage.getAllData(true);
+      let loaded;
+      try {
+        loaded = loadCoordinatorProjectRoot(owner);
+      } catch {
+        loaded = null;
+      }
+      if (!loaded || loaded.repairRequired) {
+        return {
+          success: /** @type {const} */ (false),
+          error: /** @type {const} */ ("invalid_project_activation"),
+          retryable: /** @type {const} */ (true),
+          receipt: durableStage("failed", false, {
+            fingerprint,
+            error: "verification_failed",
+          }),
+        };
+      }
+      const durableRoot = loaded.root;
       const durableProjection = {
         profiles: durableRoot.profiles || {},
         currentProfile: durableRoot.currentProfile || null,
@@ -414,18 +469,7 @@ export async function activateImportedProject(
           }),
         };
       }
-      owner.state.profiles = structuredClone(durableProjection.profiles);
-      owner.state.currentProfile = durableProjection.currentProfile;
-      owner.state.currentEnvironment =
-        durableProjection.currentProfile &&
-        durableProjection.profiles[durableProjection.currentProfile]
-          ? durableProjection.profiles[durableProjection.currentProfile]
-              .currentEnvironment || "space"
-          : "space";
-      owner.state.metadata = {
-        lastModified: durableRoot.lastModified,
-        version: durableRoot.version || owner.storage.version || "1.0.0",
-      };
+      adoptCoordinatorProjectRoot(owner, durableRoot, operation);
       const publications = publishReloadedCoordinatorState(owner, operation);
       recordDataCoordinatorPublication(owner, publications);
       owner._assertCurrentOperation(operation);

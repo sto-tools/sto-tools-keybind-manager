@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import LocalStorageProjectRepository from "../../src/js/components/storage/LocalStorageProjectRepository.js";
 import LocalStorageSettingsRepository from "../../src/js/components/storage/LocalStorageSettingsRepository.js";
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
+import { createDefaultPreferencesSettings } from "../../src/js/components/services/preferencesDefaults.js";
 import { decodeStoredSettingsJson } from "../../src/js/components/services/settingsDataBoundary.js";
 import { createEventBusFixture } from "../fixtures/core/eventBus.js";
 
@@ -54,23 +54,17 @@ describe("project repository parity and settings owner cutover characterization"
     vi.restoreAllMocks();
   });
 
-  function legacy(initial) {
+  function seedBrowserStorage(initial) {
     for (const [key, value] of Object.entries(initial))
       localStorage.setItem(key, value);
-    const service = new StorageService({
-      eventBus: bus.eventBus,
-      version: VERSION,
-    });
-    services.push(service);
-    return service;
   }
 
-  function project(storage, service) {
+  function project(storage) {
     return new LocalStorageProjectRepository({
       storage,
       version: VERSION,
       now: () => TIME,
-      settingsDefaults: service.getDefaultSettings(),
+      settingsDefaults: createDefaultPreferencesSettings(),
     });
   }
 
@@ -89,19 +83,26 @@ describe("project repository parity and settings owner cutover characterization"
       [SETTINGS]: fixture("complete-current-settings.json"),
       unrelated: "untouched",
     };
-    const service = legacy(initial);
-    service.init();
+    seedBrowserStorage(initial);
+    const browserRepository = project(localStorage);
     const events = bus.getEventsOfType("storage:data-changed").length;
     const storage = memoryStorage(initial);
-    const repository = project(storage, service);
+    const repository = project(storage);
 
     const loaded = repository.load();
+    const browserLoaded = browserRepository.load();
     expect(loaded.status).not.toBe("read_failed");
+    expect(browserLoaded.status).toBe(loaded.status);
     expect(storage.setItem).not.toHaveBeenCalled();
     expect(storage.removeItem).not.toHaveBeenCalled();
-    expect(
-      repository.commit(loaded.value, { verification: "required" }).status,
-    ).toBe("committed");
+    const receipt = repository.commit(loaded.value, {
+      verification: "required",
+    });
+    const browserReceipt = browserRepository.commit(browserLoaded.value, {
+      verification: "required",
+    });
+    expect(receipt.status).toBe("committed");
+    expect(browserReceipt.status).toBe(receipt.status);
 
     for (const key of [ROOT, BACKUP, SETTINGS, SENTINEL, "unrelated"]) {
       expect(storage.getItem(key), key).toBe(localStorage.getItem(key));
@@ -118,12 +119,14 @@ describe("project repository parity and settings owner cutover characterization"
         [BACKUP]: "keep existing backup",
       };
       if (marker !== null) initial[SENTINEL] = marker;
-      const service = legacy(initial);
-      service.init();
+      seedBrowserStorage(initial);
+      const browserRepository = project(localStorage);
       const storage = memoryStorage(initial);
-      const repository = project(storage, service);
+      const repository = project(storage);
       const loaded = repository.load();
+      const browserLoaded = browserRepository.load();
       expect(loaded.status).toBe("repair_required");
+      expect(browserLoaded.status).toBe(loaded.status);
       expect(storage.getItem(SENTINEL)).toBe(marker);
       expect(storage.setItem).not.toHaveBeenCalled();
       expect(storage.removeItem).not.toHaveBeenCalled();
@@ -131,7 +134,18 @@ describe("project repository parity and settings owner cutover characterization"
       if (loaded.resetSentinel.status === "pending_consumption") {
         options.consumeResetSentinel = loaded.resetSentinel.expectedValue;
       }
-      expect(repository.commit(loaded.value, options).status).toBe("committed");
+      const receipt = repository.commit(loaded.value, options);
+      const browserOptions = { verification: "required" };
+      if (browserLoaded.resetSentinel.status === "pending_consumption") {
+        browserOptions.consumeResetSentinel =
+          browserLoaded.resetSentinel.expectedValue;
+      }
+      const browserReceipt = browserRepository.commit(
+        browserLoaded.value,
+        browserOptions,
+      );
+      expect(receipt.status).toBe("committed");
+      expect(browserReceipt.status).toBe(receipt.status);
       for (const key of [ROOT, BACKUP, SETTINGS, SENTINEL]) {
         expect(storage.getItem(key), key).toBe(localStorage.getItem(key));
       }
@@ -149,18 +163,16 @@ describe("project repository parity and settings owner cutover characterization"
     fixture("complete-current-settings.json"),
   ])("matches forgiving standalone settings reads (%s)", (raw) => {
     const initial = raw === null ? {} : { [SETTINGS]: raw };
-    const service = legacy(initial);
+    const defaults = createDefaultPreferencesSettings();
     const storage = memoryStorage(initial);
     const repository = new LocalStorageSettingsRepository({
       storage,
-      defaults: service.getDefaultSettings(),
+      defaults,
     });
     // Retain the frozen legacy decoder contract while standalone persistence
     // now belongs exclusively to the Preferences owner/repository chain.
     expect(repository.load().value).toEqual(
-      raw
-        ? decodeStoredSettingsJson(raw, service.getDefaultSettings()).value
-        : service.getDefaultSettings(),
+      raw ? decodeStoredSettingsJson(raw, defaults).value : defaults,
     );
     expect(storage.setItem).not.toHaveBeenCalled();
     expect(storage.removeItem).not.toHaveBeenCalled();
@@ -173,15 +185,16 @@ describe("project repository parity and settings owner cutover characterization"
       [BACKUP]: "keep backup",
       [SENTINEL]: "true",
     };
-    const service = legacy(initial);
+    seedBrowserStorage(initial);
+    const defaults = createDefaultPreferencesSettings();
     const replacement = JSON.parse(fixture("complete-current-settings.json"));
     const owner = new PreferencesService({
       eventBus: bus.eventBus,
       settingsRepository: new LocalStorageSettingsRepository({
         storage: localStorage,
-        defaults: service.getDefaultSettings(),
+        defaults,
       }),
-      defaults: service.getDefaultSettings(),
+      defaults,
     });
     services.push(owner);
     owner.init();
@@ -190,7 +203,7 @@ describe("project repository parity and settings owner cutover characterization"
     const storage = memoryStorage(initial);
     const repository = new LocalStorageSettingsRepository({
       storage,
-      defaults: service.getDefaultSettings(),
+      defaults,
     });
     expect(repository.replace(replacement).status).toBe("committed");
     expect(storage.getItem(SETTINGS)).toBe(localStorage.getItem(SETTINGS));
@@ -199,16 +212,15 @@ describe("project repository parity and settings owner cutover characterization"
   });
 
   it("intentionally fails closed on unavailable storage rather than adopting legacy fallback defaults", () => {
-    const service = legacy({});
     const storage = memoryStorage({});
     storage.getItem.mockImplementation(() => {
       throw new DOMException("blocked", "SecurityError");
     });
     const repositories = [
-      project(storage, service),
+      project(storage),
       new LocalStorageSettingsRepository({
         storage,
-        defaults: service.getDefaultSettings(),
+        defaults: createDefaultPreferencesSettings(),
       }),
     ];
     for (const repository of repositories) {

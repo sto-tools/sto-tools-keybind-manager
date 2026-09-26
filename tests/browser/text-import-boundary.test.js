@@ -3,20 +3,21 @@ import { describe, expect, it, vi } from "vitest";
 
 import { MAX_STO_TEXT_IMPORT_BYTES } from "../../src/js/components/services/textImportBoundary.js";
 import { request } from "../../src/js/core/requestResponse.js";
+import {
+  PROJECT_ROOT_KEY,
+  readProjectProfile,
+} from "../fixtures/ui/projectStorage.js";
 
 describe("STO text import browser boundary", () => {
   it("commits a valid keybind through the checked-bundle owner chain", async () => {
     const bus = runtime().eventBus;
-    const storage = runtime().storageService;
     const coordinator = runtime().dataCoordinator;
     const consumer = runtime().commandChainUI;
     const beforeState = coordinator?.getCurrentState?.();
     expect(bus).toBeTruthy();
-    expect(storage).toBeTruthy();
     expect(beforeState?.ready).toBe(true);
     expect(consumer?.cache.dataState).toBe(beforeState);
-    if (!bus || !storage || !coordinator || !beforeState?.ready || !consumer)
-      return;
+    if (!bus || !coordinator || !beforeState?.ready || !consumer) return;
 
     const profileId = beforeState.currentProfile;
     const environment = ["space", "ground"].includes(
@@ -25,7 +26,7 @@ describe("STO text import browser boundary", () => {
       ? beforeState.currentEnvironment
       : "space";
     const probeKey = "CTRL+SHIFT+F24";
-    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
     const beforeProfile = structuredClone(beforeState.profiles[profileId]);
     const ownershipEvents = [];
     let detachState = () => {};
@@ -93,23 +94,20 @@ describe("STO text import browser boundary", () => {
       await vi.waitFor(() => {
         expect(consumer.cache.dataState).toBe(committedState);
       });
-      expect(storage.getProfile(profileId)).toEqual(
+      expect(readProjectProfile(profileId)).toEqual(
         committedState.profiles[profileId],
       );
       expect(
-        JSON.parse(localStorage.getItem(storage.storageKey)).profiles[
-          profileId
-        ],
+        JSON.parse(localStorage.getItem(PROJECT_ROOT_KEY)).profiles[profileId],
       ).toEqual(committedState.profiles[profileId]);
     } finally {
       detachState();
       detachLegacy();
       if (beforeRoot === null) {
-        localStorage.removeItem(storage.storageKey);
+        localStorage.removeItem(PROJECT_ROOT_KEY);
       } else {
-        localStorage.setItem(storage.storageKey, beforeRoot);
+        localStorage.setItem(PROJECT_ROOT_KEY, beforeRoot);
       }
-      storage.getAllData(true);
       await request(bus, "data:reload-state");
       await vi.waitFor(() => {
         expect(coordinator.getCurrentState().profiles[profileId]).toEqual(
@@ -121,16 +119,13 @@ describe("STO text import browser boundary", () => {
 
   it("merges aliases with exact accounting through the checked-bundle owner chain", async () => {
     const bus = runtime().eventBus;
-    const storage = runtime().storageService;
     const coordinator = runtime().dataCoordinator;
     const consumer = runtime().commandChainUI;
     const beforeState = coordinator?.getCurrentState?.();
     expect(bus).toBeTruthy();
-    expect(storage).toBeTruthy();
     expect(beforeState?.ready).toBe(true);
     expect(consumer?.cache.dataState).toBe(beforeState);
-    if (!bus || !storage || !coordinator || !beforeState?.ready || !consumer)
-      return;
+    if (!bus || !coordinator || !beforeState?.ready || !consumer) return;
 
     const profileId = beforeState.currentProfile;
     const existingAlias = "CodexTextImportExisting";
@@ -139,7 +134,7 @@ describe("STO text import browser boundary", () => {
       commands: ["Target_Enemy_Near"],
       description: "seeded",
     };
-    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
     const beforeProfile = structuredClone(beforeState.profiles[profileId]);
     const ownershipEvents = [];
     let durableAtStorageEvent;
@@ -162,7 +157,7 @@ describe("STO text import browser boundary", () => {
 
       detachStorage = bus.on("storage:data-changed", () => {
         durableAtStorageEvent = JSON.parse(
-          localStorage.getItem(storage.storageKey),
+          localStorage.getItem(PROJECT_ROOT_KEY),
         );
         ownershipEvents.push({ event: "storage:data-changed" });
       });
@@ -217,22 +212,19 @@ describe("STO text import browser boundary", () => {
       await vi.waitFor(() => {
         expect(consumer.cache.dataState).toBe(committedState);
       });
-      expect(storage.getProfile(profileId)).toEqual(committedProfile);
+      expect(readProjectProfile(profileId)).toEqual(committedProfile);
       expect(
-        JSON.parse(localStorage.getItem(storage.storageKey)).profiles[
-          profileId
-        ],
+        JSON.parse(localStorage.getItem(PROJECT_ROOT_KEY)).profiles[profileId],
       ).toEqual(committedProfile);
     } finally {
       detachStorage();
       detachState();
       detachLegacy();
       if (beforeRoot === null) {
-        localStorage.removeItem(storage.storageKey);
+        localStorage.removeItem(PROJECT_ROOT_KEY);
       } else {
-        localStorage.setItem(storage.storageKey, beforeRoot);
+        localStorage.setItem(PROJECT_ROOT_KEY, beforeRoot);
       }
-      storage.getAllData(true);
       await request(bus, "data:reload-state");
       await vi.waitFor(() => {
         expect(coordinator.getCurrentState().profiles[profileId]).toEqual(
@@ -249,18 +241,15 @@ describe("STO text import browser boundary", () => {
     "rejects oversized content through checked-bundle RPC %s before persistence",
     async (topic, error, needsEnvironment) => {
       const bus = runtime().eventBus;
-      const storage = runtime().storageService;
       const coordinator = runtime().dataCoordinator;
       const consumer = runtime().commandChainUI;
       const state = coordinator?.getCurrentState?.();
       expect(bus).toBeTruthy();
-      expect(storage).toBeTruthy();
       expect(state?.ready).toBe(true);
       expect(consumer?.cache.dataState).toBe(state);
-      if (!bus || !storage || !coordinator || !consumer || !state?.ready)
-        return;
+      if (!bus || !coordinator || !consumer || !state?.ready) return;
 
-      const beforeRoot = localStorage.getItem(storage.storageKey);
+      const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
       const beforeCacheState = consumer.cache.dataState;
       const content = "x".repeat(MAX_STO_TEXT_IMPORT_BYTES + 1);
       const payload = {
@@ -277,7 +266,7 @@ describe("STO text import browser boundary", () => {
           limit: MAX_STO_TEXT_IMPORT_BYTES,
         },
       });
-      expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+      expect(localStorage.getItem(PROJECT_ROOT_KEY)).toBe(beforeRoot);
       expect(coordinator.getCurrentState()).toBe(state);
       expect(consumer.cache.dataState).toBe(beforeCacheState);
     },
@@ -285,17 +274,15 @@ describe("STO text import browser boundary", () => {
 
   it("rejects an unterminated bracket alias in bounded time without owner effects", async () => {
     const bus = runtime().eventBus;
-    const storage = runtime().storageService;
     const coordinator = runtime().dataCoordinator;
     const consumer = runtime().commandChainUI;
     const state = coordinator?.getCurrentState?.();
     expect(bus).toBeTruthy();
-    expect(storage).toBeTruthy();
     expect(state?.ready).toBe(true);
     expect(consumer?.cache.dataState).toBe(state);
-    if (!bus || !storage || !coordinator || !consumer || !state?.ready) return;
+    if (!bus || !coordinator || !consumer || !state?.ready) return;
 
-    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
     const content = `alias Slow <& ${" ".repeat(10_000)}X`;
 
     await expect(
@@ -307,7 +294,7 @@ describe("STO text import browser boundary", () => {
       success: false,
       error: "no_aliases_found_in_file",
     });
-    expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+    expect(localStorage.getItem(PROJECT_ROOT_KEY)).toBe(beforeRoot);
     expect(coordinator.getCurrentState()).toBe(state);
     expect(consumer.cache.dataState).toBe(state);
   });

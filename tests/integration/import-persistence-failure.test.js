@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import ImportService from "../../src/js/components/services/ImportService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import { respond } from "../../src/js/core/requestResponse.js";
 import {
   createEventBusFixture,
   createLocalStorageFixture,
 } from "../fixtures/core/index.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 const root = {
   version: "1.0.0",
@@ -33,7 +33,7 @@ const root = {
 describe("ImportService quota failure integration", () => {
   let eventBusFixture;
   let localStorageFixture;
-  let storage;
+  let projectRepository;
   let coordinator;
   let service;
 
@@ -43,21 +43,16 @@ describe("ImportService quota failure integration", () => {
       initialData: { sto_keybind_manager: root },
       quotaError: true,
     });
-    storage = new StorageService({
-      eventBus: eventBusFixture.eventBus,
-      version: "1.0.0",
-    });
+    projectRepository = createProjectRepository();
     coordinator = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
     });
     service = new ImportService({
       eventBus: eventBusFixture.eventBus,
-      storage,
     });
 
-    storage.init();
     coordinator.init();
     await vi.waitFor(() => {
       expect(coordinator.getCurrentState().ready).toBe(true);
@@ -76,7 +71,6 @@ describe("ImportService quota failure integration", () => {
   afterEach(() => {
     service?.destroy();
     coordinator?.destroy();
-    storage?.destroy();
     eventBusFixture?.destroy();
     localStorageFixture?.destroy();
     vi.restoreAllMocks();
@@ -87,9 +81,8 @@ describe("ImportService quota failure integration", () => {
     const stateChanged = vi.fn();
     eventBusFixture.eventBus.on("profile:updated", profileUpdated);
     eventBusFixture.eventBus.on("data:state-changed", stateChanged);
-    const beforeMemory = structuredClone(storage.getProfile("captain"));
     const beforeState = structuredClone(coordinator.getCurrentState());
-    const beforeDisk = localStorage.getItem("sto_keybind_manager");
+    const beforeDisk = projectRepository.load().value;
 
     const result = await service.importKeybindFile(
       'F1 "FireAll"',
@@ -102,9 +95,8 @@ describe("ImportService quota failure integration", () => {
       error: "import_failed",
       params: { reason: "storage_write_failed" },
     });
-    expect(storage.getProfile("captain")).toEqual(beforeMemory);
     expect(coordinator.getCurrentState()).toEqual(beforeState);
-    expect(localStorage.getItem("sto_keybind_manager")).toBe(beforeDisk);
+    expect(projectRepository.load().value).toEqual(beforeDisk);
     expect(profileUpdated).not.toHaveBeenCalled();
     expect(stateChanged).not.toHaveBeenCalled();
   });

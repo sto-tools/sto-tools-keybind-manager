@@ -82,7 +82,7 @@ describe("project artifact producer parity", () => {
     });
     const dataOwner = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n,
     });
     services.push(preferencesOwner, dataOwner);

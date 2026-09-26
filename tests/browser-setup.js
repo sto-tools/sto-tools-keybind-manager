@@ -84,7 +84,7 @@ function getApplicationReadiness() {
 
   return {
     eventBus: Boolean(applicationRuntime?.eventBus),
-    storageService: Boolean(applicationRuntime?.storageService),
+    dataCoordinator: Boolean(applicationRuntime?.dataCoordinator),
     applicationServices: Boolean(applicationRuntime?.keyBrowserService),
     keyService: Boolean(
       applicationRuntime?.eventBus?.hasListeners("rpc:key:add"),

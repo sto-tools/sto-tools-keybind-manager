@@ -3,12 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AliasService from "../../src/js/components/services/AliasService.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import SelectionService from "../../src/js/components/services/SelectionService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import { request } from "../../src/js/core/requestResponse.js";
 import {
   createEventBusFixture,
   createLocalStorageFixture,
 } from "../fixtures/core/index.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 const profileId = "captain";
 const root = {
@@ -33,7 +33,7 @@ const root = {
 describe("Alias creation persistence boundary", () => {
   let eventBusFixture;
   let localStorageFixture;
-  let storage;
+  let projectRepository;
   let owner;
   let selection;
   let aliases;
@@ -43,19 +43,17 @@ describe("Alias creation persistence boundary", () => {
     localStorageFixture = createLocalStorageFixture({
       initialData: { sto_keybind_manager: root },
     });
-    storage = new StorageService({
-      eventBus: eventBusFixture.eventBus,
+    projectRepository = createProjectRepository({
       version: "1.0.0",
     });
     owner = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
     });
     selection = new SelectionService({ eventBus: eventBusFixture.eventBus });
     aliases = new AliasService({ eventBus: eventBusFixture.eventBus });
 
-    storage.init();
     owner.init();
     selection.init();
     aliases.init();
@@ -71,7 +69,6 @@ describe("Alias creation persistence boundary", () => {
     aliases?.destroy();
     selection?.destroy();
     owner?.destroy();
-    storage?.destroy();
     eventBusFixture?.destroy();
     localStorageFixture?.destroy();
     vi.restoreAllMocks();
@@ -79,11 +76,16 @@ describe("Alias creation persistence boundary", () => {
 
   it("leaves selection and every owner surface unchanged when alias persistence is rejected", async () => {
     const stateBefore = owner.getCurrentState();
-    const profileBefore = structuredClone(storage.getProfile(profileId));
+    const profileBefore = structuredClone(
+      projectRepository.load().value.profiles[profileId],
+    );
     const selectionBefore = selection.getCurrentState();
     const rootBefore = localStorage.getItem("sto_keybind_manager");
     const backupBefore = localStorage.getItem("sto_keybind_manager_backup");
-    vi.spyOn(storage, "saveProfile").mockReturnValueOnce(false);
+    vi.spyOn(projectRepository, "commit").mockReturnValueOnce({
+      status: "write_failed",
+      error: "storage_write_failed",
+    });
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     await expect(
@@ -98,7 +100,9 @@ describe("Alias creation persistence boundary", () => {
 
     expect(owner.getCurrentState()).toBe(stateBefore);
     expect(owner.getCurrentState().revision).toBe(stateBefore.revision);
-    expect(storage.getProfile(profileId)).toEqual(profileBefore);
+    expect(projectRepository.load().value.profiles[profileId]).toEqual(
+      profileBefore,
+    );
     expect(selection.getCurrentState()).toEqual(selectionBefore);
     expect(localStorage.getItem("sto_keybind_manager")).toBe(rootBefore);
     expect(localStorage.getItem("sto_keybind_manager_backup")).toBe(
@@ -133,7 +137,9 @@ describe("Alias creation persistence boundary", () => {
     });
 
     expect(owner.getCurrentState().revision).toBe(revisionBefore + 1);
-    expect(storage.getProfile(profileId).aliases.AcceptedAlias).toEqual({
+    expect(
+      projectRepository.load().value.profiles[profileId].aliases.AcceptedAlias,
+    ).toEqual({
       description: "durable first",
       commands: [],
       type: "alias",
@@ -169,7 +175,9 @@ describe("Alias creation persistence boundary", () => {
     });
 
     expect(owner.getCurrentState().revision).toBe(revisionBefore + 1);
-    expect(storage.getProfile(profileId).aliases.DurableAlias).toMatchObject({
+    expect(
+      projectRepository.load().value.profiles[profileId].aliases.DurableAlias,
+    ).toMatchObject({
       commands: [],
       type: "alias",
     });

@@ -2,20 +2,22 @@ import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import {
+  PROJECT_ROOT_KEY,
+  readProjectRoot,
+} from "../fixtures/ui/projectStorage.js";
 
 describe("Project restore checked-bundle boundary", () => {
-  it("reports a durable reload failure without stale owner success and converges on retry", async () => {
+  it("adopts the exact durable repository result without a post-write reload", async () => {
     const bus = runtime().eventBus;
     const coordinator = runtime().dataCoordinator;
-    const storage = runtime().storageService;
 
     expect(bus?.hasListeners("rpc:project:restore-from-content")).toBe(true);
     expect(bus?.hasListeners("rpc:project:retry-restore-activation")).toBe(
       true,
     );
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
-    expect(storage).toBeTruthy();
-    if (!bus || !coordinator || !storage) return;
+    if (!bus || !coordinator) return;
 
     const savedStorage = Array.from(
       { length: localStorage.length },
@@ -25,7 +27,7 @@ describe("Project restore checked-bundle boundary", () => {
       },
     ).filter(Boolean);
     const beforeOwner = coordinator.getCurrentState();
-    const profileId = "__browser-project-reload-failure__";
+    const profileId = "__browser-project-exact-adoption__";
     const content = JSON.stringify({
       version: "1.0.0",
       exported: "2026-07-21T00:00:00.000Z",
@@ -34,8 +36,8 @@ describe("Project restore checked-bundle boundary", () => {
         profiles: {
           [profileId]: {
             id: profileId,
-            name: "Browser reload failure probe",
-            description: "Durable import before owner reload",
+            name: "Browser exact adoption probe",
+            description: "Durable import adopted from the commit result",
             currentEnvironment: "ground",
             migrationVersion: "2.1.1",
             builds: {
@@ -63,18 +65,23 @@ describe("Project restore checked-bundle boundary", () => {
       bus.on("environment:changed", (event) => environmentEvents.push(event)),
       bus.on("toast:show", (event) => toastEvents.push(event)),
     ];
-    const saveAllData = vi.spyOn(storage, "saveAllData");
-    const originalGetAllData = storage.getAllData.bind(storage);
+    const originalGetItem = Storage.prototype.getItem;
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
     let rejectImportedAdoption = true;
-    const getAllData = vi
-      .spyOn(storage, "getAllData")
-      .mockImplementation((...args) => {
-        const root = originalGetAllData(...args);
-        if (rejectImportedAdoption && root.currentProfile === profileId) {
+    const getItem = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation((key) => {
+        const raw = originalGetItem.call(localStorage, key);
+        if (
+          key === PROJECT_ROOT_KEY &&
+          rejectImportedAdoption &&
+          raw &&
+          JSON.parse(raw).currentProfile === profileId
+        ) {
           rejectImportedAdoption = false;
           throw new Error("browser reload blocked");
         }
-        return root;
+        return raw;
       });
 
     try {
@@ -84,31 +91,15 @@ describe("Project restore checked-bundle boundary", () => {
           fileName: "browser-project.json",
         }),
       ).resolves.toEqual({
-        success: false,
-        error: "project_restore_reload_failed",
-        params: { reason: "Failed to load profile data" },
-        durable: true,
-        currentProfile: profileId,
-        imported: { profiles: 1, settings: false },
-        activation: { data: "pending", preferences: "not-required" },
-      });
-      expect(coordinator.getCurrentState()).toBe(beforeOwner);
-      expect(stateEvents).toEqual([]);
-      expect(profileEvents).toEqual([]);
-      expect(environmentEvents).toEqual([]);
-      expect(storage.getAllData()).toMatchObject({
-        currentProfile: profileId,
-        profiles: { [profileId]: { name: "Browser reload failure probe" } },
-      });
-      expect(toastEvents).toEqual([]);
-      expect(saveAllData).toHaveBeenCalledOnce();
-
-      await expect(
-        request(bus, "project:retry-restore-activation"),
-      ).resolves.toEqual({
         success: true,
         currentProfile: profileId,
         imported: { profiles: 1, settings: false },
+      });
+      expect(rejectImportedAdoption).toBe(true);
+      getItem.mockRestore();
+      expect(readProjectRoot()).toMatchObject({
+        currentProfile: profileId,
+        profiles: { [profileId]: { name: "Browser exact adoption probe" } },
       });
       await vi.waitFor(() => {
         expect(coordinator.getCurrentState()).toMatchObject({
@@ -133,17 +124,18 @@ describe("Project restore checked-bundle boundary", () => {
         environment: "ground",
       });
       expect(toastEvents).toEqual([]);
-      expect(saveAllData).toHaveBeenCalledOnce();
+      expect(
+        setItem.mock.calls.filter(([key]) => key === PROJECT_ROOT_KEY),
+      ).toHaveLength(1);
     } finally {
       for (const detach of detachers) detach();
-      getAllData.mockRestore();
-      saveAllData.mockRestore();
+      getItem.mockRestore();
+      setItem.mockRestore();
       localStorage.clear();
       for (const entry of savedStorage) {
         const [key, value] = entry;
         if (value !== null) localStorage.setItem(key, value);
       }
-      storage.getAllData(true);
       await request(bus, "data:reload-state");
       await vi.waitFor(() => {
         expect(coordinator.getCurrentState()).toMatchObject({

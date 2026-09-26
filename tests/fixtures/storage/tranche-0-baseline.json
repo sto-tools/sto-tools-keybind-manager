@@ -144,7 +144,18 @@
     }
   },
   "testDisposition": {
-    "retired": [],
-    "rule": "Tranche 0 retires no behavior test or legacy fixture"
+    "retired": [
+      {
+        "path": "tests/integration/profile-management.test.js",
+        "tranche": 4,
+        "removedRequirement": "The fixture-only StorageService save/load facade and fake profile:switch/query RPC contracts are not production protocols; query RPC state access is prohibited.",
+        "equivalentCoverage": [
+          "tests/unit/storage/LocalStorageProjectRepository.test.js",
+          "tests/unit/services/dataCoordinatorRepositoryCutover.test.js",
+          "tests/integration/project-repository-owner-chain.test.js"
+        ]
+      }
+    ],
+    "rule": "A frozen baseline test may retire only with its removed requirement and named equivalent coverage."
   }
 }

@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
 import { readPreferencesState } from "../fixtures/ui/preferencesState.js";
+import {
+  PROJECT_BACKUP_KEY,
+  PROJECT_ROOT_KEY,
+} from "../fixtures/ui/projectStorage.js";
 
 function createSyncDirectoryHandle(name) {
   return {
@@ -18,29 +22,24 @@ function createSyncDirectoryHandle(name) {
 }
 
 describe("Persisted storage browser boundary", () => {
-  it("uses the sole settings owner and keeps legacy project writes separate in production composition", async () => {
-    const {
-      storageService: storage,
-      dataCoordinator: coordinator,
-      eventBus: bus,
-    } = runtime();
+  it("uses the sole settings owner and the sole project adapter in production composition", async () => {
+    const app = runtime();
+    const { dataCoordinator: coordinator, eventBus: bus } = app;
+    expect(app).not.toHaveProperty("storageService");
+    expect(app).not.toHaveProperty("projectRepository");
     expect(coordinator.getCurrentState().ready).toBe(true);
     const beforePreferences = await readPreferencesState(bus);
     const beforeProfileId = coordinator.getCurrentState().currentProfile;
     expect(beforeProfileId).toBeTruthy();
-    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
     const beforeSettings = localStorage.getItem("sto_keybind_settings");
-    const beforeBackup = localStorage.getItem(storage.backupKey);
+    const beforeBackup = localStorage.getItem(PROJECT_BACKUP_KEY);
     const keys = [
-      storage.storageKey,
+      PROJECT_ROOT_KEY,
       "sto_keybind_settings",
-      storage.backupKey,
+      PROJECT_BACKUP_KEY,
       "sto_app_reset",
     ];
-    expect(storage).not.toHaveProperty("saveSettings");
-    expect(storage).not.toHaveProperty("getSettings");
-    expect(storage).not.toHaveProperty("clearSettings");
-    const saveAllData = vi.spyOn(storage, "saveAllData");
     const setItem = vi.spyOn(Storage.prototype, "setItem");
     const removeItem = vi.spyOn(Storage.prototype, "removeItem");
     const clear = vi.spyOn(Storage.prototype, "clear");
@@ -58,13 +57,11 @@ describe("Persisted storage browser boundary", () => {
           value: nextTheme,
         }),
       ).resolves.toBe(true);
-      expect(saveAllData).not.toHaveBeenCalled();
       expect(canonicalWrites()).toEqual(["sto_keybind_settings"]);
       expect(removeItem).not.toHaveBeenCalled();
       expect(clear).not.toHaveBeenCalled();
       expect((await readPreferencesState(bus)).settings.theme).toBe(nextTheme);
 
-      saveAllData.mockClear();
       setItem.mockClear();
       removeItem.mockClear();
       clear.mockClear();
@@ -73,18 +70,13 @@ describe("Persisted storage browser boundary", () => {
         profileId: beforeProfileId,
         properties: { description: "Tranche 2 checked-bundle writer probe" },
       });
-      expect(saveAllData).toHaveBeenCalledTimes(1);
-      expect(canonicalWrites()).toEqual([
-        storage.backupKey,
-        storage.storageKey,
-      ]);
+      expect(canonicalWrites()).toEqual([PROJECT_BACKUP_KEY, PROJECT_ROOT_KEY]);
       expect(removeItem).not.toHaveBeenCalled();
       expect(clear).not.toHaveBeenCalled();
       expect(
         coordinator.getCurrentState().profiles[beforeProfileId].description,
       ).toBe("Tranche 2 checked-bundle writer probe");
     } finally {
-      saveAllData.mockRestore();
       setItem.mockRestore();
       removeItem.mockRestore();
       clear.mockRestore();
@@ -93,25 +85,22 @@ describe("Persisted storage browser boundary", () => {
         value: beforePreferences.settings.theme,
       });
       for (const [key, value] of [
-        [storage.storageKey, beforeRoot],
+        [PROJECT_ROOT_KEY, beforeRoot],
         ["sto_keybind_settings", beforeSettings],
       ]) {
         if (value === null) localStorage.removeItem(key);
         else localStorage.setItem(key, value);
       }
-      storage.getAllData(true);
       await request(bus, "data:reload-state");
-      if (beforeBackup === null) localStorage.removeItem(storage.backupKey);
-      else localStorage.setItem(storage.backupKey, beforeBackup);
+      if (beforeBackup === null) localStorage.removeItem(PROJECT_BACKUP_KEY);
+      else localStorage.setItem(PROJECT_BACKUP_KEY, beforeBackup);
     }
   });
 
   it("keeps the preference owner unchanged when the checked bundle cannot persist", async () => {
-    const storage = runtime().storageService;
     const bus = runtime().eventBus;
-    expect(storage).toBeTruthy();
     expect(bus?.hasListeners("rpc:preferences:set-setting")).toBe(true);
-    if (!storage || !bus) return;
+    if (!bus) return;
 
     const beforeRaw = localStorage.getItem("sto_keybind_settings");
     const beforeState = await readPreferencesState(bus);
@@ -160,11 +149,11 @@ describe("Persisted storage browser boundary", () => {
   });
 
   it("keeps accepted preferences unchanged after an acknowledged write fails readback", async () => {
-    const { storageService: storage, eventBus: bus } = runtime();
+    const { eventBus: bus } = runtime();
     const beforeState = await readPreferencesState(bus);
     const beforeRaw = localStorage.getItem("sto_keybind_settings");
-    const beforeRoot = localStorage.getItem(storage.storageKey);
-    const beforeBackup = localStorage.getItem(storage.backupKey);
+    const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
+    const beforeBackup = localStorage.getItem(PROJECT_BACKUP_KEY);
     const success = vi.fn();
     const detach = ["saved", "changed", "state-changed"].map((event) =>
       bus.on(`preferences:${event}`, success),
@@ -199,8 +188,8 @@ describe("Persisted storage browser boundary", () => {
       });
       expect(await readPreferencesState(bus)).toEqual(beforeState);
       expect(success).not.toHaveBeenCalled();
-      expect(read(storage.storageKey)).toBe(beforeRoot);
-      expect(read(storage.backupKey)).toBe(beforeBackup);
+      expect(read(PROJECT_ROOT_KEY)).toBe(beforeRoot);
+      expect(read(PROJECT_BACKUP_KEY)).toBe(beforeBackup);
     } finally {
       getItem.mockRestore();
       setItem.mockRestore();
@@ -212,14 +201,12 @@ describe("Persisted storage browser boundary", () => {
   });
 
   it("does not publish sync-folder success when the checked bundle cannot persist its settings", async () => {
-    const storage = runtime().storageService;
     const bus = runtime().eventBus;
-    expect(storage).toBeTruthy();
     expect(bus?.hasListeners("rpc:sync:select-folder")).toBe(true);
     expect(
       bus?.hasListeners("rpc:preferences:persist-sync-folder-settings"),
     ).toBe(true);
-    if (!storage || !bus) return;
+    if (!bus) return;
 
     const beforeRaw = localStorage.getItem("sto_keybind_settings");
     const beforeState = await readPreferencesState(bus);
@@ -351,17 +338,15 @@ describe("Persisted storage browser boundary", () => {
   });
 
   it("validates and durably adopts roots and settings through the checked-in owner chain", async () => {
-    const storage = runtime().storageService;
     const coordinator = runtime().dataCoordinator;
     const bus = runtime().eventBus;
-    expect(storage).toBeTruthy();
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
     expect(bus?.hasListeners("rpc:data:reload-state")).toBe(true);
-    if (!storage || !coordinator || !bus) return;
+    if (!coordinator || !bus) return;
 
-    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
     const beforeSettings = localStorage.getItem("sto_keybind_settings");
-    const beforeBackup = localStorage.getItem(storage.backupKey);
+    const beforeBackup = localStorage.getItem(PROJECT_BACKUP_KEY);
     try {
       const legacyRoot = {
         version: "0.7.0",
@@ -398,18 +383,19 @@ describe("Persisted storage browser boundary", () => {
         globalAliases: {},
         settings: { language: "fr" },
       };
-      localStorage.setItem(storage.storageKey, JSON.stringify(legacyRoot));
+      localStorage.setItem(PROJECT_ROOT_KEY, JSON.stringify(legacyRoot));
 
-      const migrated = storage.getAllData(true);
+      await request(bus, "data:reload-state");
+      const migrated = JSON.parse(localStorage.getItem(PROJECT_ROOT_KEY));
       expect(migrated).toMatchObject({
         currentProfile: "legacy-browser",
         profiles: {
           "legacy-browser": {
             builds: {
-              ground: { keys: { G: ["TrayExecByTray 1 1 2"] } },
+              ground: { keys: { G: ["+TrayExecByTray 1 2"] } },
             },
             aliases: {
-              LegacyTray: { commands: ["TrayExecByTray 1 1 2"] },
+              LegacyTray: { commands: ["+TrayExecByTray 1 2"] },
             },
             bindsets: {
               Alternate: {
@@ -428,14 +414,12 @@ describe("Persisted storage browser boundary", () => {
           },
         },
       });
-      expect(storage.saveAllData(migrated)).toBe(true);
       const migrationBackup = JSON.parse(
-        localStorage.getItem(storage.backupKey),
+        localStorage.getItem(PROJECT_BACKUP_KEY),
       );
       expect(migrationBackup).toMatchObject({
         data: JSON.stringify(legacyRoot),
       });
-      await request(bus, "data:reload-state");
       await vi.waitFor(() => {
         expect(coordinator.getCurrentState()).toMatchObject({
           ready: true,
@@ -460,8 +444,8 @@ describe("Persisted storage browser boundary", () => {
           },
         });
       });
-      const backup = JSON.parse(localStorage.getItem(storage.backupKey));
-      const durable = JSON.parse(localStorage.getItem(storage.storageKey));
+      const backup = JSON.parse(localStorage.getItem(PROJECT_BACKUP_KEY));
+      const durable = JSON.parse(localStorage.getItem(PROJECT_ROOT_KEY));
       expect(durable.lastBackup).toBe(backup.timestamp);
       expect(durable.profiles["legacy-browser"]).toEqual(
         coordinator.getCurrentState().profiles["legacy-browser"],
@@ -479,18 +463,6 @@ describe("Persisted storage browser boundary", () => {
       expect(durable.profiles["current-browser"]).toEqual(
         coordinator.getCurrentState().profiles["current-browser"],
       );
-
-      const unsafeRoot = JSON.parse(
-        '{"version":"1.0.0","currentProfile":null,"profiles":{},"globalAliases":{},"settings":{},"extension":{"constructor":{"polluted":true}}}',
-      );
-      const unsafeRaw = JSON.stringify(unsafeRoot);
-      localStorage.setItem(storage.storageKey, unsafeRaw);
-      expect(storage.getAllData(true)).toMatchObject({
-        currentProfile: null,
-        profiles: {},
-      });
-      expect(localStorage.getItem(storage.storageKey)).toBe(unsafeRaw);
-      expect({}.polluted).toBeUndefined();
 
       const unsafeSettingsRaw =
         '{"theme":42,"language":"de","plugin:layout":{"density":"compact"},"plugin:unsafe":{"prototype":true}}';
@@ -510,16 +482,15 @@ describe("Persisted storage browser boundary", () => {
       // Startup repair is exercised through the real repository/owner chain in
       // settings-repository-owner-chain.test.js, not a removed storage getter.
     } finally {
-      if (beforeRoot === null) localStorage.removeItem(storage.storageKey);
-      else localStorage.setItem(storage.storageKey, beforeRoot);
+      if (beforeRoot === null) localStorage.removeItem(PROJECT_ROOT_KEY);
+      else localStorage.setItem(PROJECT_ROOT_KEY, beforeRoot);
       if (beforeSettings === null) {
         localStorage.removeItem("sto_keybind_settings");
       } else {
         localStorage.setItem("sto_keybind_settings", beforeSettings);
       }
-      if (beforeBackup === null) localStorage.removeItem(storage.backupKey);
-      else localStorage.setItem(storage.backupKey, beforeBackup);
-      storage.getAllData(true);
+      if (beforeBackup === null) localStorage.removeItem(PROJECT_BACKUP_KEY);
+      else localStorage.setItem(PROJECT_BACKUP_KEY, beforeBackup);
       await request(bus, "data:reload-state");
     }
   });

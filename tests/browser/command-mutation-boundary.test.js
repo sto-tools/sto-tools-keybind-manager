@@ -2,6 +2,10 @@ import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import {
+  PROJECT_ROOT_KEY,
+  readProjectProfile,
+} from "../fixtures/ui/projectStorage.js";
 
 const probeKey = "__command_mutation_boundary_probe__";
 const probeBindset = "__command_mutation_bindset_probe__";
@@ -10,14 +14,12 @@ describe("Command mutation checked-bundle boundary", () => {
   it("keeps failure silent and serializes non-destructive owner mutations", async () => {
     const bus = runtime().eventBus;
     const coordinator = runtime().dataCoordinator;
-    const storage = runtime().storageService;
     const chainUi = runtime().commandChainUI;
 
     expect(bus).toBeTruthy();
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
-    expect(storage).toBeTruthy();
     expect(chainUi?.isInitialized?.()).toBe(true);
-    if (!bus || !coordinator || !storage || !chainUi) return;
+    if (!bus || !coordinator || !chainUi) return;
 
     const startingState = coordinator.getCurrentState();
     const profileId = startingState.currentProfile;
@@ -65,7 +67,7 @@ describe("Command mutation checked-bundle boundary", () => {
     const detachEdited = bus.on("command-edited", commandEdited);
     const detachMoved = bus.on("command-moved", commandMoved);
     const detachDeleted = bus.on("command-deleted", commandDeleted);
-    let saveProfileSpy;
+    let setItemSpy;
 
     const expectConvergence = async (expectedCommands) => {
       await vi.waitFor(() => {
@@ -79,7 +81,7 @@ describe("Command mutation checked-bundle boundary", () => {
           ],
         ).toEqual(expectedCommands);
         expect(
-          storage.getProfile(profileId).builds[environment].keys[probeKey],
+          readProjectProfile(profileId).builds[environment].keys[probeKey],
         ).toEqual(expectedCommands);
       });
     };
@@ -114,9 +116,15 @@ describe("Command mutation checked-bundle boundary", () => {
       const ownerBeforeFailure = coordinator.getCurrentState();
       const cacheBeforeFailure = chainUi.cache.dataState;
       const durableBeforeFailure = structuredClone(
-        storage.getProfile(profileId),
+        readProjectProfile(profileId),
       );
-      saveProfileSpy = vi.spyOn(storage, "saveProfile").mockReturnValue(false);
+      const originalSetItem = Storage.prototype.setItem;
+      setItemSpy = vi
+        .spyOn(Storage.prototype, "setItem")
+        .mockImplementation((key, value) => {
+          if (key === PROJECT_ROOT_KEY) throw new Error("quota exceeded");
+          return originalSetItem.call(localStorage, key, value);
+        });
 
       await bus.emit(
         "command:add",
@@ -124,15 +132,18 @@ describe("Command mutation checked-bundle boundary", () => {
         { synchronous: true },
       );
 
-      expect(saveProfileSpy).toHaveBeenCalledTimes(1);
+      expect(setItemSpy).toHaveBeenCalledWith(
+        PROJECT_ROOT_KEY,
+        expect.any(String),
+      );
       expect(coordinator.getCurrentState()).toBe(ownerBeforeFailure);
       expect(chainUi.cache.dataState).toBe(cacheBeforeFailure);
-      expect(storage.getProfile(profileId)).toEqual(durableBeforeFailure);
+      expect(readProjectProfile(profileId)).toEqual(durableBeforeFailure);
       expect(order).toEqual([]);
       expect(commandAdded).not.toHaveBeenCalled();
 
-      saveProfileSpy.mockRestore();
-      saveProfileSpy = vi.spyOn(storage, "saveProfile");
+      setItemSpy.mockRestore();
+      setItemSpy = undefined;
 
       await bus.emit(
         "command:add",
@@ -199,22 +210,7 @@ describe("Command mutation checked-bundle boundary", () => {
       });
       expectAcceptedPublicationOrder("command-deleted");
 
-      saveProfileSpy.mockRestore();
-      const originalSaveProfile = storage.saveProfile.bind(storage);
-      let saveCallCount = 0;
-      /** @type {(() => void) | null} */
-      let releaseFirstSave = null;
-      saveProfileSpy = vi
-        .spyOn(storage, "saveProfile")
-        .mockImplementation((id, profile) => {
-          saveCallCount += 1;
-          if (saveCallCount !== 1) {
-            return originalSaveProfile(id, profile);
-          }
-          return new Promise((resolve) => {
-            releaseFirstSave = () => resolve(originalSaveProfile(id, profile));
-          });
-        });
+      setItemSpy = vi.spyOn(Storage.prototype, "setItem");
       commandAdded.mockClear();
       order.length = 0;
 
@@ -223,20 +219,16 @@ describe("Command mutation checked-bundle boundary", () => {
         { key: probeKey, command: "Target_Enemy_Near" },
         { synchronous: true },
       );
-      await vi.waitFor(() => expect(saveCallCount).toBe(1));
       const secondAdd = bus.emit(
         "command:add",
         { key: probeKey, command: "Target_Enemy_Next" },
         { synchronous: true },
       );
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      const callsBeforeFirstWriteCompleted = saveCallCount;
-
-      releaseFirstSave?.();
       await Promise.all([firstAdd, secondAdd]);
 
-      expect(callsBeforeFirstWriteCompleted).toBe(1);
-      expect(saveProfileSpy).toHaveBeenCalledTimes(2);
+      expect(
+        setItemSpy.mock.calls.filter(([key]) => key === PROJECT_ROOT_KEY),
+      ).toHaveLength(2);
       await expectConvergence([
         "FireTorpedoes",
         "Target_Enemy_Near",
@@ -244,8 +236,8 @@ describe("Command mutation checked-bundle boundary", () => {
       ]);
       expect(commandAdded).toHaveBeenCalledTimes(2);
 
-      saveProfileSpy.mockRestore();
-      saveProfileSpy = undefined;
+      setItemSpy.mockRestore();
+      setItemSpy = undefined;
       if (hadOriginalBindset) {
         await request(bus, "data:update-profile", {
           profileId,
@@ -288,7 +280,7 @@ describe("Command mutation checked-bundle boundary", () => {
         expect(
           chainUi.cache.dataState.profiles[profileId].bindsets[probeBindset],
         ).toEqual(expectedBindset);
-        expect(storage.getProfile(profileId).bindsets[probeBindset]).toEqual(
+        expect(readProjectProfile(profileId).bindsets[probeBindset]).toEqual(
           expectedBindset,
         );
       });
@@ -297,7 +289,7 @@ describe("Command mutation checked-bundle boundary", () => {
         command: "FireAll",
       });
     } finally {
-      saveProfileSpy?.mockRestore();
+      setItemSpy?.mockRestore();
       detachState();
       detachProfile();
       detachAdded();

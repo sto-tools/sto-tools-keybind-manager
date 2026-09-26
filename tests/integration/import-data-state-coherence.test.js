@@ -4,12 +4,12 @@ import { join } from "node:path";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import ImportService from "../../src/js/components/services/ImportService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import { respond } from "../../src/js/core/requestResponse.js";
 import {
   createEventBusFixture,
   createLocalStorageFixture,
 } from "../fixtures/core/index.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 const profileId = "captain";
 const initialProfile = {
@@ -45,7 +45,7 @@ const createUnsafeKeyKBF = () => {
 describe("ImportService DataCoordinator coherence", () => {
   let eventBusFixture;
   let localStorageFixture;
-  let storage;
+  let projectRepository;
   let coordinator;
   let service;
 
@@ -64,16 +64,12 @@ describe("ImportService DataCoordinator coherence", () => {
         },
       },
     });
-    storage = new StorageService({
-      eventBus: eventBusFixture.eventBus,
-      version: "1.0.0",
-    });
+    projectRepository = createProjectRepository();
     coordinator = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
     });
-    storage.init();
     coordinator.init();
     await vi.waitFor(() => {
       expect(coordinator.getCurrentState().ready).toBe(true);
@@ -81,7 +77,6 @@ describe("ImportService DataCoordinator coherence", () => {
 
     service = new ImportService({
       eventBus: eventBusFixture.eventBus,
-      storage,
     });
     service.init();
     service.cache.preferences.bindsetsEnabled = true;
@@ -101,7 +96,6 @@ describe("ImportService DataCoordinator coherence", () => {
   afterEach(() => {
     service?.destroy();
     coordinator?.destroy();
-    storage?.destroy();
     eventBusFixture?.destroy();
     localStorageFixture?.destroy();
     vi.restoreAllMocks();
@@ -149,29 +143,16 @@ describe("ImportService DataCoordinator coherence", () => {
     }
 
     const ownerProfile = state.profiles[targetProfileId];
-    const cachedProfile = storage.getProfile(targetProfileId);
-    const durableProfile = JSON.parse(
-      localStorage.getItem("sto_keybind_manager"),
-    ).profiles[targetProfileId];
+    const durableProfile =
+      projectRepository.load().value.profiles[targetProfileId];
     assertProfile(ownerProfile);
-    expect(cachedProfile).toEqual(ownerProfile);
     expect(durableProfile).toEqual(ownerProfile);
     expect(ownerProfile.lastModified).toBeTruthy();
   }
 
   function expectRestartReadable(targetProfileId, assertProfile) {
-    const restartedBus = createEventBusFixture();
-    const restartedStorage = new StorageService({
-      eventBus: restartedBus.eventBus,
-      version: "1.0.0",
-    });
-    try {
-      restartedStorage.init();
-      assertProfile(restartedStorage.getProfile(targetProfileId));
-    } finally {
-      restartedStorage.destroy();
-      restartedBus.destroy();
-    }
+    const restartedRepository = createProjectRepository();
+    assertProfile(restartedRepository.load().value.profiles[targetProfileId]);
   }
 
   it("commits a keybind import as one authoritative revision", async () => {
@@ -283,7 +264,7 @@ describe("ImportService DataCoordinator coherence", () => {
     async (_, getContent, configuration) => {
       const beforeState = structuredClone(coordinator.getCurrentState());
       const beforeCache = structuredClone(service.cache.dataState);
-      const beforeDurable = localStorage.getItem("sto_keybind_manager");
+      const beforeDurable = projectRepository.load().value;
       eventBusFixture.clearEventHistory();
 
       const result = await service.importKBFFile(
@@ -301,7 +282,7 @@ describe("ImportService DataCoordinator coherence", () => {
       ]).toContain(result.error);
       expect(coordinator.getCurrentState()).toEqual(beforeState);
       expect(service.cache.dataState).toEqual(beforeCache);
-      expect(localStorage.getItem("sto_keybind_manager")).toBe(beforeDurable);
+      expect(projectRepository.load().value).toEqual(beforeDurable);
       expect(
         eventBusFixture
           .getEventHistory()

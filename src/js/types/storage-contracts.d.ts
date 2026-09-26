@@ -252,7 +252,8 @@ export type RepairReason =
   | "invalid_json"
   | "invalid_data"
   | "legacy"
-  | "repaired";
+  | "repaired"
+  | "reset_pending";
 
 export type ResetRecovery =
   | { status: "not_applicable" }

@@ -113,7 +113,7 @@ describe("CommandChainService clear-chain owner atomicity", () => {
     });
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     service = new CommandChainService({
@@ -131,7 +131,7 @@ describe("CommandChainService clear-chain owner atomicity", () => {
     });
 
     fixture.eventBusFixture.clearEventHistory();
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
   });
 
   afterEach(() => {
@@ -157,16 +157,19 @@ describe("CommandChainService clear-chain owner atomicity", () => {
         aliases: service.cache.aliases,
       });
       const durableBefore = structuredClone(
-        fixture.storage.getProfile("captain"),
+        fixture.readProjectRoot().profiles.captain,
       );
       const revisionBefore = ownerBefore.revision;
-      fixture.storage.saveProfile.mockReturnValue(false);
+      fixture.projectRepository.commit.mockReturnValue({
+        status: "write_failed",
+        error: "storage_write_failed",
+      });
 
       await expect(
         service.clearCommandChain(target.key, target.bindset),
       ).resolves.toBe(false);
 
-      expect(fixture.storage.saveProfile).toHaveBeenCalledTimes(1);
+      expect(fixture.projectRepository.commit).toHaveBeenCalledTimes(1);
       expect(coordinator.getCurrentState()).toEqual(ownerBefore);
       expect(coordinator.getCurrentState().revision).toBe(revisionBefore);
       expect(service.cache.dataState).toEqual(cacheBefore);
@@ -176,7 +179,7 @@ describe("CommandChainService clear-chain owner atomicity", () => {
         keys: service.cache.keys,
         aliases: service.cache.aliases,
       }).toEqual(compatibilityCacheBefore);
-      expect(fixture.storage.getProfile("captain")).toEqual(durableBefore);
+      expect(fixture.readProjectRoot().profiles.captain).toEqual(durableBefore);
       expect(
         fixture
           .getEventHistory()
@@ -243,8 +246,8 @@ describe("CommandChainService clear-chain owner atomicity", () => {
       }
 
       const ownerAfter = coordinator.getCurrentState();
-      const durableAfter = fixture.storage.getProfile("captain");
-      expect(fixture.storage.saveProfile).toHaveBeenCalledTimes(1);
+      const durableAfter = fixture.readProjectRoot().profiles.captain;
+      expect(fixture.projectRepository.commit).toHaveBeenCalledTimes(1);
       expect(ownerAfter.revision).toBe(revisionBefore + 1);
       expect(getTargetCommands(ownerAfter.profiles.captain, target)).toEqual(
         [],

@@ -5,12 +5,14 @@ import DataCoordinator from "../../src/js/components/services/DataCoordinator.js
 import ImportService from "../../src/js/components/services/ImportService.js";
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
 import ProjectManagementService from "../../src/js/components/services/ProjectManagementService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import {
   createEventBusFixture,
   createLocalStorageFixture,
 } from "../fixtures/core/index.js";
 import { destinationRoot } from "../fixtures/services/projectImportOwnerChain.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
+
+const projectRootKey = "sto_keybind_manager";
 
 const embeddedSettings = {
   theme: "dark",
@@ -37,7 +39,7 @@ const settingsOnlyProject = {
 describe("settings-only project restore owner chain", () => {
   let eventBusFixture;
   let localStorageFixture;
-  let storage;
+  let projectRepository;
   let settingsRepository;
   let coordinator;
   let importer;
@@ -86,13 +88,10 @@ describe("settings-only project restore owner chain", () => {
         sto_keybind_manager_visited: "true",
       },
     });
-    storage = new StorageService({
-      eventBus: eventBusFixture.eventBus,
-      version: "1.0.0",
-    });
+    projectRepository = createProjectRepository();
     coordinator = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles: {},
     });
@@ -131,7 +130,6 @@ describe("settings-only project restore owner chain", () => {
 
     preferences.init();
     await preferences.initialStateReady;
-    storage.init();
     coordinator.init();
     await coordinator.initialStateReady;
     await preferences.initialStateReady;
@@ -144,7 +142,6 @@ describe("settings-only project restore owner chain", () => {
     importer?.destroy();
     preferences?.destroy();
     coordinator?.destroy();
-    storage?.destroy();
     eventBusFixture?.destroy();
     localStorageFixture?.destroy();
     document.documentElement.removeAttribute("data-theme");
@@ -153,7 +150,9 @@ describe("settings-only project restore owner chain", () => {
   });
 
   it("activates standalone settings without replacing embedded compatibility data", async () => {
-    const embeddedBefore = JSON.stringify(storage.getAllData().settings);
+    const embeddedBefore = JSON.stringify(
+      projectRepository.load().value.settings,
+    );
     const dataRevision = coordinator.getCurrentState().revision;
     const preferencesRevision = preferences.getCurrentState().revision;
     eventBusFixture.clearEventHistory();
@@ -188,8 +187,10 @@ describe("settings-only project restore owner chain", () => {
       },
     });
     expect(preferencesI18n.language).toBe("de");
-    expect(JSON.stringify(storage.getAllData().settings)).toBe(embeddedBefore);
-    expect(storage.getAllData().settings).toEqual(embeddedSettings);
+    expect(JSON.stringify(projectRepository.load().value.settings)).toBe(
+      embeddedBefore,
+    );
+    expect(projectRepository.load().value.settings).toEqual(embeddedSettings);
 
     const preferenceStates = eventBusFixture.getEventsOfType(
       "preferences:state-changed",
@@ -270,10 +271,10 @@ describe("settings-only project restore owner chain", () => {
   it.each(["write-indeterminate", "verification-failed"])(
     "reports a real SettingsRepository %s boundary and converges on owner restart",
     async (mode) => {
-      const beforeRoot = localStorage.getItem(storage.storageKey);
+      const beforeRoot = localStorage.getItem(projectRootKey);
       const beforeData = coordinator.getCurrentState();
       const beforePreferences = preferences.getCurrentState();
-      const rootWrites = vi.spyOn(storage, "saveAllData");
+      const rootWrites = vi.spyOn(projectRepository, "commit");
       const originalSetItem = localStorage.setItem;
       const originalGetItem = localStorage.getItem;
       const previousSettings = originalGetItem.call(
@@ -319,7 +320,7 @@ describe("settings-only project restore owner chain", () => {
         committed: { profiles: [], settings: false, project: false },
       });
       expect(rootWrites).not.toHaveBeenCalled();
-      expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+      expect(localStorage.getItem(projectRootKey)).toBe(beforeRoot);
       expect(coordinator.getCurrentState()).toBe(beforeData);
       expect(preferences.getCurrentState()).toBe(beforePreferences);
       expect(settingsRepository.load().value).toMatchObject({
@@ -332,7 +333,7 @@ describe("settings-only project restore owner chain", () => {
         ready: true,
         settings: { theme: "light", language: "de" },
       });
-      expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+      expect(localStorage.getItem(projectRootKey)).toBe(beforeRoot);
     },
   );
 
@@ -348,7 +349,7 @@ describe("settings-only project restore owner chain", () => {
         return prepareTransition(...args);
       },
     );
-    const rootWrites = vi.spyOn(storage, "saveAllData");
+    const rootWrites = vi.spyOn(projectRepository, "commit");
     const settingsWrites = vi.spyOn(settingsRepository, "replace");
 
     await expect(
@@ -381,7 +382,7 @@ describe("settings-only project restore owner chain", () => {
   });
 
   it("preserves the settings receipt when Data lifecycle cancellation precedes the root write", async () => {
-    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeRoot = localStorage.getItem(projectRootKey);
     const beforePreferences = preferences.getCurrentState();
     const replaceSettings = settingsRepository.replace.bind(settingsRepository);
     const settingsWrites = vi
@@ -391,7 +392,7 @@ describe("settings-only project restore owner chain", () => {
         coordinator.destroy();
         return result;
       });
-    const rootWrites = vi.spyOn(storage, "saveAllData");
+    const rootWrites = vi.spyOn(projectRepository, "commit");
 
     await expect(
       projectManager.restoreFromProjectContent(
@@ -407,7 +408,7 @@ describe("settings-only project restore owner chain", () => {
     });
     expect(settingsWrites).toHaveBeenCalledOnce();
     expect(rootWrites).not.toHaveBeenCalled();
-    expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+    expect(localStorage.getItem(projectRootKey)).toBe(beforeRoot);
     expect(preferences.getCurrentState()).toBe(beforePreferences);
     expect(coordinator.getCurrentState()).toMatchObject({
       ready: false,
@@ -433,7 +434,7 @@ describe("settings-only project restore owner chain", () => {
         return prepareTransition(...args);
       },
     );
-    const rootWrites = vi.spyOn(storage, "saveAllData");
+    const rootWrites = vi.spyOn(projectRepository, "commit");
     const settingsWrites = vi.spyOn(settingsRepository, "replace");
 
     await expect(

@@ -97,7 +97,7 @@ describe("CommandChainService edit planning lifecycle", () => {
     });
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     service = new CommandChainService({
@@ -311,7 +311,7 @@ describe("CommandChainService edit planning lifecycle", () => {
     coordinator.destroy();
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     coordinator.init();

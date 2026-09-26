@@ -46,14 +46,6 @@ const retiredTopics = [
   "data:load-default-data",
 ];
 
-function deferred() {
-  let resolve;
-  const promise = new Promise((resolvePromise) => {
-    resolve = resolvePromise;
-  });
-  return { promise, resolve };
-}
-
 describe("DataCoordinator lifecycle generation", () => {
   let fixture;
   let coordinator;
@@ -72,15 +64,17 @@ describe("DataCoordinator lifecycle generation", () => {
       version: "1.0.0",
       lastModified: "2026-07-16T00:00:00.000Z",
     };
-    fixture.storage.getAllData.mockImplementation(() =>
-      structuredClone(durableRoot),
-    );
-    fixture.storage.getProfile.mockImplementation((profileId) =>
-      structuredClone(durableRoot.profiles[profileId] || null),
-    );
+    fixture.projectRepository.load.mockImplementation(() => ({
+      status: "current",
+      value: structuredClone(durableRoot),
+    }));
+    fixture.projectRepository.commit.mockImplementation((candidate) => {
+      durableRoot = structuredClone(candidate);
+      return { status: "committed", value: structuredClone(durableRoot) };
+    });
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     coordinator.init();
@@ -88,8 +82,7 @@ describe("DataCoordinator lifecycle generation", () => {
       expect(coordinator.getCurrentState().ready).toBe(true);
     });
     fixture.eventBusFixture.clearEventHistory();
-    fixture.storage.saveAllData.mockClear();
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
   });
 
   afterEach(() => {
@@ -105,25 +98,19 @@ describe("DataCoordinator lifecycle generation", () => {
       .filter(({ event }) => mutationEvents.has(event));
   }
 
-  function holdWrite(method) {
-    const pending = deferred();
-    fixture.storage[method].mockImplementationOnce(() => pending.promise);
-    return pending;
-  }
-
-  async function expectDestroyToCancel(method, perform) {
+  async function expectDestroyToCancel(perform) {
     const stateBefore = structuredClone(coordinator.state);
     const snapshotBefore = coordinator.getCurrentState();
-    const pending = holdWrite(method);
+    fixture.projectRepository.commit.mockImplementationOnce((candidate) => {
+      durableRoot = structuredClone(candidate);
+      coordinator.destroy();
+      return { status: "committed", value: structuredClone(durableRoot) };
+    });
 
     const result = perform();
-    await vi.waitFor(() => {
-      expect(fixture.storage[method]).toHaveBeenCalledTimes(1);
-    });
-    coordinator.destroy();
-    pending.resolve(true);
 
     await expect(result).rejects.toThrow();
+    expect(fixture.projectRepository.commit).toHaveBeenCalledTimes(1);
     expect(coordinator.state).toEqual(stateBefore);
     expect(coordinator.getCurrentState()).toEqual({
       ...snapshotBefore,
@@ -134,7 +121,7 @@ describe("DataCoordinator lifecycle generation", () => {
   }
 
   it("does not adopt or publish an in-flight structural profile update after destroy", async () => {
-    await expectDestroyToCancel("saveProfile", () =>
+    await expectDestroyToCancel(() =>
       coordinator.updateProfile("alpha", {
         add: { aliases: { engage: { commands: ["FireAll"] } } },
       }),
@@ -184,55 +171,39 @@ describe("DataCoordinator lifecycle generation", () => {
   });
 
   it.each([
-    ["profile switch", "saveAllData", (owner) => owner.switchProfile("beta")],
-    ["profile create", "saveProfile", (owner) => owner.createProfile("Gamma")],
-    [
-      "profile clone",
-      "saveProfile",
-      (owner) => owner.cloneProfile("alpha", "Alpha Copy"),
-    ],
-    [
-      "profile rename",
-      "saveProfile",
-      (owner) => owner.renameProfile("alpha", "Renamed"),
-    ],
-    ["profile delete", "saveAllData", (owner) => owner.deleteProfile("beta")],
+    ["profile switch", (owner) => owner.switchProfile("beta")],
+    ["profile create", (owner) => owner.createProfile("Gamma")],
+    ["profile clone", (owner) => owner.cloneProfile("alpha", "Alpha Copy")],
+    ["profile rename", (owner) => owner.renameProfile("alpha", "Renamed")],
+    ["profile delete", (owner) => owner.deleteProfile("beta")],
     [
       "default profile batch",
-      "saveAllData",
       (owner) =>
         owner.createDefaultProfilesFromData({
           default_space: profile("Default"),
         }),
     ],
-    [
-      "fallback profile batch",
-      "saveAllData",
-      (owner) => owner.createFallbackProfiles(),
-    ],
-  ])(
-    "cancels an in-flight %s after teardown",
-    async (_label, method, perform) => {
-      await expectDestroyToCancel(method, () => perform(coordinator));
-    },
-  );
+    ["fallback profile batch", (owner) => owner.createFallbackProfiles()],
+  ])("cancels an in-flight %s after teardown", async (_label, perform) => {
+    await expectDestroyToCancel(() => perform(coordinator));
+  });
 
   it("does not complete an explicit default-profile load after teardown", async () => {
     const stateBefore = structuredClone(coordinator.state);
-    const pendingWrite = holdWrite("saveAllData");
+    fixture.projectRepository.commit.mockImplementationOnce((candidate) => {
+      durableRoot = structuredClone(candidate);
+      coordinator.destroy();
+      return { status: "committed", value: structuredClone(durableRoot) };
+    });
 
     const result = coordinator.loadDefaultData();
-    await vi.waitFor(() => {
-      expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
-    });
-    coordinator.destroy();
-    pendingWrite.resolve(true);
 
     await expect(result).resolves.toEqual({
       success: false,
       error: "operation_cancelled",
     });
     expect(coordinator.state).toEqual(stateBefore);
+    expect(fixture.projectRepository.commit).toHaveBeenCalledTimes(1);
     expect(emittedMutations()).toEqual([]);
   });
 
@@ -244,25 +215,23 @@ describe("DataCoordinator lifecycle generation", () => {
     const profilesBefore = structuredClone(staleProfiles);
     const stateBefore = structuredClone(coordinator.state);
     const snapshotBefore = coordinator.getCurrentState();
-    const pendingWrite = holdWrite("saveAllData");
+    coordinator._projectRoot = {
+      ...structuredClone(durableRoot),
+      currentProfile: "legacy",
+      profiles: structuredClone(staleProfiles),
+    };
+    fixture.projectRepository.commit.mockImplementationOnce((candidate) => {
+      durableRoot = structuredClone(candidate);
+      coordinator.destroy();
+      return { status: "committed", value: structuredClone(durableRoot) };
+    });
 
-    const result = coordinator.normalizeAllProfiles(staleProfiles, {
-      rootData: {
-        ...structuredClone(durableRoot),
-        currentProfile: "legacy",
-        profiles: structuredClone(staleProfiles),
-      },
+    const result = coordinator.normalizeAllProfiles(staleProfiles);
+    await expect(result).rejects.toThrow("failed_to_save_profile");
+    expect(fixture.projectRepository.commit).toHaveBeenCalledTimes(1);
+    expect(fixture.projectRepository.commit.mock.calls[0][1]).toEqual({
+      verification: "not_requested",
     });
-    await vi.waitFor(() => {
-      expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
-    });
-    expect(fixture.storage.saveAllData.mock.calls[0][1]).toEqual({
-      preserveBackup: true,
-    });
-    coordinator.destroy();
-    pendingWrite.resolve(true);
-
-    await expect(result).rejects.toThrow("operation_cancelled");
     expect(staleProfiles).toEqual(profilesBefore);
     expect(coordinator.state).toEqual(stateBefore);
     expect(coordinator.getCurrentState()).toEqual({
@@ -275,12 +244,13 @@ describe("DataCoordinator lifecycle generation", () => {
 
   it("adopts and returns the exact detached profile persisted by storage", async () => {
     const durableTimestamp = "2099-01-01T00:00:00.000Z";
-    fixture.storage.saveProfile.mockImplementation((profileId, draft) => {
-      durableRoot.profiles[profileId] = {
-        ...structuredClone(draft),
+    fixture.projectRepository.commit.mockImplementation((candidate) => {
+      durableRoot = structuredClone(candidate);
+      durableRoot.profiles.alpha = {
+        ...durableRoot.profiles.alpha,
         lastModified: durableTimestamp,
       };
-      return true;
+      return { status: "committed", value: structuredClone(durableRoot) };
     });
     const updates = {
       add: { aliases: { engage: { commands: ["FireAll"] } } },
@@ -295,9 +265,10 @@ describe("DataCoordinator lifecycle generation", () => {
     expect(coordinator.getCurrentState().profiles.alpha.lastModified).toBe(
       durableTimestamp,
     );
-    expect(fixture.storage.saveProfile.mock.calls[0][1].lastModified).not.toBe(
-      durableTimestamp,
-    );
+    expect(
+      fixture.projectRepository.commit.mock.calls[0][0].profiles.alpha
+        .lastModified,
+    ).not.toBe(durableTimestamp);
     expect(updates).toEqual({
       add: { aliases: { engage: { commands: ["FireAll"] } } },
     });

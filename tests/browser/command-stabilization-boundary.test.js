@@ -2,6 +2,10 @@ import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import {
+  PROJECT_ROOT_KEY,
+  readProjectProfile,
+} from "../fixtures/ui/projectStorage.js";
 
 const probeKey = "__command_stabilization_probe__";
 const toolbarProbeKey = "__command_stabilization_toolbar_probe__";
@@ -10,14 +14,12 @@ describe("Command stabilization checked-bundle boundary", () => {
   it("keeps failed writes silent and preserves ordered compatibility publication after success", async () => {
     const bus = runtime().eventBus;
     const coordinator = runtime().dataCoordinator;
-    const storage = runtime().storageService;
     const chainUi = runtime().commandChainUI;
 
     expect(bus).toBeTruthy();
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
-    expect(storage).toBeTruthy();
     expect(chainUi?.isInitialized?.()).toBe(true);
-    if (!bus || !coordinator || !storage || !chainUi) return;
+    if (!bus || !coordinator || !chainUi) return;
 
     const startingState = coordinator.getCurrentState();
     const profileId = startingState.currentProfile;
@@ -68,15 +70,21 @@ describe("Command stabilization checked-bundle boundary", () => {
       order.push("chain-data-changed"),
     );
     const emitSpy = vi.spyOn(bus, "emit");
-    let saveProfileSpy;
+    let setItemSpy;
 
     try {
       const ownerBeforeFailure = coordinator.getCurrentState();
       const consumerBeforeFailure = chainUi.cache.dataState;
       const durableBeforeFailure = structuredClone(
-        storage.getProfile(profileId),
+        readProjectProfile(profileId),
       );
-      saveProfileSpy = vi.spyOn(storage, "saveProfile").mockReturnValue(false);
+      const originalSetItem = Storage.prototype.setItem;
+      setItemSpy = vi
+        .spyOn(Storage.prototype, "setItem")
+        .mockImplementation((key, value) => {
+          if (key === PROJECT_ROOT_KEY) throw new Error("quota exceeded");
+          return originalSetItem.call(localStorage, key, value);
+        });
 
       await expect(
         request(bus, "command:set-stabilize", {
@@ -86,17 +94,20 @@ describe("Command stabilization checked-bundle boundary", () => {
         }),
       ).resolves.toMatchObject({ success: false });
 
-      expect(saveProfileSpy).toHaveBeenCalledTimes(1);
+      expect(setItemSpy).toHaveBeenCalledWith(
+        PROJECT_ROOT_KEY,
+        expect.any(String),
+      );
       expect(coordinator.getCurrentState()).toBe(ownerBeforeFailure);
       expect(chainUi.cache.dataState).toBe(consumerBeforeFailure);
-      expect(storage.getProfile(profileId)).toEqual(durableBeforeFailure);
+      expect(readProjectProfile(profileId)).toEqual(durableBeforeFailure);
       expect(order).toEqual([]);
       expect(
         emitSpy.mock.calls.filter(([event]) => event === "stabilize-changed"),
       ).toEqual([]);
 
-      saveProfileSpy.mockRestore();
-      saveProfileSpy = vi.spyOn(storage, "saveProfile");
+      setItemSpy.mockRestore();
+      setItemSpy = vi.spyOn(Storage.prototype, "setItem");
       emitSpy.mockClear();
 
       await expect(
@@ -120,9 +131,11 @@ describe("Command stabilization checked-bundle boundary", () => {
         ).toBe(false);
       });
       expect(
-        storage.getProfile(profileId).keybindMetadata[environment][probeKey],
+        readProjectProfile(profileId).keybindMetadata[environment][probeKey],
       ).toEqual({ stabilizeExecutionOrder: false, ...siblingMetadata });
-      expect(saveProfileSpy).toHaveBeenCalledTimes(1);
+      expect(
+        setItemSpy.mock.calls.filter(([key]) => key === PROJECT_ROOT_KEY),
+      ).toHaveLength(1);
       expect(order).toEqual(["data:state-changed", "profile:updated"]);
       expect(
         emitSpy.mock.calls.filter(([event]) => event === "stabilize-changed"),
@@ -142,7 +155,9 @@ describe("Command stabilization checked-bundle boundary", () => {
         }),
       ).resolves.toEqual({ success: true });
 
-      expect(saveProfileSpy).toHaveBeenCalledTimes(2);
+      expect(
+        setItemSpy.mock.calls.filter(([key]) => key === PROJECT_ROOT_KEY),
+      ).toHaveLength(2);
       expect(coordinator.getCurrentState().revision).toBe(
         revisionBeforeNoOp + 1,
       );
@@ -169,7 +184,9 @@ describe("Command stabilization checked-bundle boundary", () => {
         }),
       ).resolves.toMatchObject({ success: false });
 
-      expect(saveProfileSpy).toHaveBeenCalledTimes(2);
+      expect(
+        setItemSpy.mock.calls.filter(([key]) => key === PROJECT_ROOT_KEY),
+      ).toHaveLength(2);
       expect(order).toEqual([]);
       expect(
         emitSpy.mock.calls.filter(([event]) => event === "stabilize-changed"),
@@ -178,7 +195,7 @@ describe("Command stabilization checked-bundle boundary", () => {
         emitSpy.mock.calls.filter(([event]) => event === "chain-data-changed"),
       ).toEqual([]);
     } finally {
-      saveProfileSpy?.mockRestore();
+      setItemSpy?.mockRestore();
       detachState();
       detachProfile();
       detachChain();
@@ -210,7 +227,6 @@ describe("Command stabilization checked-bundle boundary", () => {
   it("toggles metadata through the real toolbar without rewriting a mixed canonical chain", async () => {
     const bus = runtime().eventBus;
     const coordinator = runtime().dataCoordinator;
-    const storage = runtime().storageService;
     const chainUi = runtime().commandChainUI;
     const stabilizeButton = document.getElementById(
       "stabilizeExecutionOrderBtn",
@@ -218,13 +234,11 @@ describe("Command stabilization checked-bundle boundary", () => {
 
     expect(bus).toBeTruthy();
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
-    expect(storage).toBeTruthy();
     expect(chainUi?.isInitialized?.()).toBe(true);
     expect(stabilizeButton).toBeInstanceOf(HTMLButtonElement);
     if (
       !bus ||
       !coordinator ||
-      !storage ||
       !chainUi ||
       !(stabilizeButton instanceof HTMLButtonElement)
     ) {
@@ -261,7 +275,7 @@ describe("Command stabilization checked-bundle boundary", () => {
       "TrayExecByTray 1 0",
     ];
     const siblingMetadata = { note: { nested: "preserve" } };
-    let saveProfileSpy;
+    let setItemSpy;
 
     try {
       await request(bus, "data:update-profile", {
@@ -300,7 +314,7 @@ describe("Command stabilization checked-bundle boundary", () => {
       });
 
       const revisionBefore = coordinator.getCurrentState().revision;
-      saveProfileSpy = vi.spyOn(storage, "saveProfile");
+      setItemSpy = vi.spyOn(Storage.prototype, "setItem");
       stabilizeButton.click();
 
       await vi.waitFor(() => {
@@ -319,8 +333,10 @@ describe("Command stabilization checked-bundle boundary", () => {
 
       const ownerAfter = coordinator.getCurrentState();
       const consumerAfter = chainUi.cache.dataState;
-      const durableAfter = storage.getProfile(profileId);
-      expect(saveProfileSpy).toHaveBeenCalledOnce();
+      const durableAfter = readProjectProfile(profileId);
+      expect(
+        setItemSpy.mock.calls.filter(([key]) => key === PROJECT_ROOT_KEY),
+      ).toHaveLength(1);
       expect(
         ownerAfter.profiles[profileId].builds[environment].keys[
           toolbarProbeKey
@@ -343,7 +359,7 @@ describe("Command stabilization checked-bundle boundary", () => {
         durableAfter.keybindMetadata[environment][toolbarProbeKey],
       ).toEqual({ stabilizeExecutionOrder: false, ...siblingMetadata });
     } finally {
-      saveProfileSpy?.mockRestore();
+      setItemSpy?.mockRestore();
       await request(bus, "bindset-selector:set-active-bindset", {
         bindset: originalBindset,
       });

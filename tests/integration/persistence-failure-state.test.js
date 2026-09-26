@@ -3,9 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import eventBus from "../../src/js/core/eventBus.js";
 import { createLocalStorageFixture } from "../fixtures/core/index.js";
+import { createProjectRepository } from "./helpers/projectRepository.js";
 
 const root = {
   version: "1.0.0",
@@ -40,7 +40,7 @@ const root = {
 
 describe("Persistence failure state integration", () => {
   let localStorageFixture;
-  let storage;
+  let projectRepository;
   let coordinator;
   let preferences;
 
@@ -48,10 +48,10 @@ describe("Persistence failure state integration", () => {
     localStorageFixture = createLocalStorageFixture({
       initialData: { sto_keybind_manager: root },
     });
-    storage = new StorageService({ eventBus, version: "1.0.0" });
+    projectRepository = createProjectRepository({ version: "1.0.0" });
     coordinator = new DataCoordinator({
       eventBus,
-      storage,
+      projectRepository,
       i18n: { t: (key) => key },
     });
 
@@ -61,8 +61,8 @@ describe("Persistence failure state integration", () => {
     });
     preferences.init();
     await preferences.initialStateReady;
-    storage.init();
-    await coordinator.init();
+    coordinator.init();
+    await coordinator.initialStateReady;
     vi.spyOn(localStorage, "setItem").mockImplementation(() => {
       throw new DOMException("quota exceeded", "QuotaExceededError");
     });
@@ -71,7 +71,6 @@ describe("Persistence failure state integration", () => {
   afterEach(() => {
     preferences?.destroy();
     coordinator?.destroy();
-    storage?.destroy();
     eventBus.clear();
     localStorageFixture?.destroy();
     vi.restoreAllMocks();
@@ -109,12 +108,12 @@ describe("Persistence failure state integration", () => {
 
     expect(preferences.getCurrentState()).toEqual(before);
     expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeDisk);
-    expect(storage.getAllData().settings).toEqual(root.settings);
+    expect(projectRepository.load().value.settings).toEqual(root.settings);
     expect(saved).not.toHaveBeenCalled();
     expect(changed).not.toHaveBeenCalled();
   });
 
-  it("keeps profile state and the storage cache intact after delete failure", async () => {
+  it("keeps profile state and the durable project intact after delete failure", async () => {
     const stateChanged = vi.fn();
     eventBus.on("data:state-changed", stateChanged);
 
@@ -126,7 +125,7 @@ describe("Persistence failure state integration", () => {
       "captain",
       "first_officer",
     ]);
-    expect(Object.keys(storage.getAllData().profiles)).toEqual([
+    expect(Object.keys(projectRepository.load().value.profiles)).toEqual([
       "captain",
       "first_officer",
     ]);

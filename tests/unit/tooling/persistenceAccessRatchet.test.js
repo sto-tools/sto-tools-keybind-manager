@@ -59,7 +59,7 @@ describe("persistence access architecture ratchet", () => {
         (total, count) => total + count,
         0,
       ),
-    ).toBe(32);
+    ).toBe(38);
   });
 
   it("freezes the exact physical scalar writers and their owner-bound modules", () => {
@@ -79,7 +79,7 @@ describe("persistence access architecture ratchet", () => {
       Object.entries(actualWrites)
         .filter(([key]) => !key.startsWith("components/storage/"))
         .reduce((total, [, count]) => total + count, 0),
-    ).toBe(12);
+    ).toBe(9);
   });
 
   it("freezes all IndexedDB boundary blocks inside FileSystemService", () => {
@@ -121,12 +121,7 @@ describe("persistence access architecture ratchet", () => {
         (dispositionTotals[disposition] || 0) + count;
       expect(targetTranche, key).toMatch(/^\d+(?:-\d+)?$/);
     }
-    expect(dispositionTotals).toEqual({
-      owner: 20,
-      workflow: 2,
-      compatibility: 11,
-      dead: 1,
-    });
+    expect(dispositionTotals).toEqual({});
   });
 
   it("freezes every named StorageService caller and its disposition", () => {
@@ -148,10 +143,10 @@ describe("persistence access architecture ratchet", () => {
     }
 
     expect(storageTotals).toEqual(expectedStorageServiceCallsByMethod);
-    expect(classTotals).toEqual({ external: 21, helper: 6, internal: 8 });
+    expect(classTotals).toEqual({ external: 0, helper: 0, internal: 0 });
     expect(
       Object.values(storageTotals).reduce((sum, count) => sum + count, 0),
-    ).toBe(35);
+    ).toBe(0);
   });
 
   it("keeps the closed read cohort off storage and repository access", () => {
@@ -186,7 +181,7 @@ describe("persistence access architecture ratchet", () => {
     }
   });
 
-  it("activates settings persistence and only the project reset adapter in bootstrap", () => {
+  it("activates exactly one project adapter and no legacy project writer", () => {
     const storageDirectory = join(sourceRoot, "components/storage");
     expect(existsSync(storageDirectory)).toBe(true);
     expect(readdirSync(storageDirectory).sort()).toEqual([
@@ -240,22 +235,37 @@ describe("persistence access architecture ratchet", () => {
       "main.js",
     ]);
 
-    expect(
-      constructorCallsites(entries, [
-        "StorageService",
-        ...repositoryCandidateNames,
-      ]),
-    ).toEqual({
-      "main.js|StorageService|{ eventBus, i18n: i18next }": 1,
+    expect(constructorCallsites(entries, ["StorageService"])).toEqual({});
+    expect(constructorCallsites(entries, repositoryCandidateNames)).toEqual({
       "main.js|LocalStorageSettingsRepository|{ storage: settingsStorage, defaults, }": 1,
-      "main.js|LocalStorageProjectRepository|{ storage: settingsStorage, version: storageService.version, now: () => new Date().toISOString(), settingsDefaults: defaults, }": 1,
+      "main.js|LocalStorageProjectRepository|{ storage: settingsStorage, version: stoData.settings.version, now: () => new Date().toISOString(), settingsDefaults: defaults, }": 1,
     });
+
+    const dataCoordinatorSource = readFileSync(
+      join(sourceRoot, "components/services/DataCoordinator.js"),
+      "utf8",
+    );
+    expect(dataCoordinatorSource).not.toMatch(
+      /constructor\s*\(\s*\{[^}]*\bstorage\b/s,
+    );
+    expect(dataCoordinatorSource).not.toContain("this.storage");
+    expect(
+      existsSync(join(sourceRoot, "components/services/storageWrites.js")),
+    ).toBe(false);
+
+    const storageServiceSource = readFileSync(
+      join(sourceRoot, "components/services/StorageService.js"),
+      "utf8",
+    );
+    expect(storageServiceSource).not.toMatch(
+      /\b(?:getAllData|saveAllData|getProfile|saveProfile|deleteProfile|createBackup|invalidateCache)\s*\(/,
+    );
 
     expect(
       Object.keys(expectedScalarWrites).map((row) => row.split("|")[0]),
     ).toEqual([
-      "components/services/StorageService.js",
-      "components/services/StorageService.js",
+      "components/storage/LocalStorageProjectRepository.js",
+      "components/storage/LocalStorageProjectRepository.js",
       "components/storage/LocalStorageSettingsRepository.js",
       "components/storage/LocalStorageSettingsRepository.js",
       "components/services/commandPresentationState.js",
@@ -278,12 +288,9 @@ describe("persistence access architecture ratchet", () => {
 
   it("freezes exact storage namespace, key, prefix, and value definitions", () => {
     const snippetsByFile = {
-      "components/services/StorageService.js": [
-        'storageKey = "sto_keybind_manager"',
-        'backupKey = "sto_keybind_manager_backup"',
-        'localStorage.getItem("sto_app_reset")',
-      ],
       "components/storage/LocalStorageProjectRepository.js": [
+        'const ROOT_KEY = "sto_keybind_manager"',
+        'const BACKUP_KEY = "sto_keybind_manager_backup"',
         'const RESET_KEY = "sto_app_reset"',
         'this.#storage.setItem(RESET_KEY, "true")',
       ],

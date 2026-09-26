@@ -51,12 +51,16 @@ describe("DataCoordinator initial publication settlement", () => {
   });
 
   it("keeps loaded initial state unready until its state publication settles", async () => {
-    storageFixture.storageService.getAllData.mockReturnValue({
-      currentProfile: "alpha",
-      profiles: { alpha: profile("Alpha") },
-      settings: { theme: "dark" },
-      version: "1.0.0",
-      lastModified: "2026-07-21T00:00:00.000Z",
+    storageFixture.projectRepository.load.mockReturnValue({
+      status: "current",
+      value: {
+        currentProfile: "alpha",
+        profiles: { alpha: profile("Alpha") },
+        globalAliases: {},
+        settings: { theme: "dark" },
+        version: "1.0.0",
+        lastModified: "2026-07-21T00:00:00.000Z",
+      },
     });
     const stateGate = deferred();
     const settled = [];
@@ -70,7 +74,7 @@ describe("DataCoordinator initial publication settlement", () => {
 
     coordinator = new DataCoordinator({
       eventBus,
-      storage: storageFixture.storageService,
+      projectRepository: storageFixture.projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles: {},
     });
@@ -99,19 +103,24 @@ describe("DataCoordinator initial publication settlement", () => {
     let durableRoot = {
       currentProfile: null,
       profiles: {},
+      globalAliases: {},
       settings: {},
       version: "1.0.0",
       lastModified: "2026-07-21T00:00:00.000Z",
     };
-    storageFixture.storageService.getAllData.mockImplementation(() =>
-      structuredClone(durableRoot),
-    );
+    storageFixture.projectRepository.load.mockImplementation(() => ({
+      status: "current",
+      value: structuredClone(durableRoot),
+    }));
 
     const invoked = [];
-    storageFixture.storageService.saveAllData.mockImplementation((draft) => {
+    storageFixture.projectRepository.commit.mockImplementation((draft) => {
       invoked.push("persist-defaults");
-      durableRoot = structuredClone(draft);
-      return true;
+      durableRoot = {
+        ...structuredClone(draft),
+        lastModified: "2026-07-21T00:00:01.000Z",
+      };
+      return { status: "committed", value: structuredClone(durableRoot) };
     });
     const initialStateGate = deferred();
     const defaultStateGate = deferred();
@@ -141,7 +150,7 @@ describe("DataCoordinator initial publication settlement", () => {
 
     coordinator = new DataCoordinator({
       eventBus,
-      storage: storageFixture.storageService,
+      projectRepository: storageFixture.projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles: { default_space: profile("Default Space") },
     });
@@ -162,7 +171,7 @@ describe("DataCoordinator initial publication settlement", () => {
     });
     await tick();
     expect(readySettled).toBe(false);
-    expect(storageFixture.storageService.saveAllData).toHaveBeenCalledTimes(1);
+    expect(storageFixture.projectRepository.commit).toHaveBeenCalledTimes(1);
     expect(readySettled).toBe(false);
     expect(eventBus.hasListeners("rpc:data:create-profile")).toBe(false);
 
@@ -190,11 +199,16 @@ describe("DataCoordinator initial publication settlement", () => {
   });
 
   it("allows an initial-publication listener to await reload without a readiness cycle", async () => {
-    storageFixture.storageService.getAllData.mockReturnValue({
-      currentProfile: "alpha",
-      profiles: { alpha: profile("Alpha") },
-      settings: {},
-      version: "1.0.0",
+    storageFixture.projectRepository.load.mockReturnValue({
+      status: "current",
+      value: {
+        currentProfile: "alpha",
+        profiles: { alpha: profile("Alpha") },
+        globalAliases: {},
+        settings: {},
+        version: "1.0.0",
+        lastModified: "2026-07-21T00:00:00.000Z",
+      },
     });
     const reasons = [];
     const reloadResults = [];
@@ -206,7 +220,7 @@ describe("DataCoordinator initial publication settlement", () => {
     });
     coordinator = new DataCoordinator({
       eventBus,
-      storage: storageFixture.storageService,
+      projectRepository: storageFixture.projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles: {},
     });

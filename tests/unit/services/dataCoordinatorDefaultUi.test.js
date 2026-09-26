@@ -41,7 +41,7 @@ describe("DataCoordinator default-data UI boundary", () => {
     fixture = createServiceFixture();
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
     });
     toastEvents = [];
