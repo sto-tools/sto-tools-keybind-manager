@@ -135,9 +135,6 @@ describe("settings-only project restore owner chain", () => {
     coordinator.init();
     await coordinator.initialStateReady;
     await preferences.initialStateReady;
-    storage.setPreferencesTransitionRunner((source, operation) =>
-      preferences.runExternalActivationTransition(source, operation),
-    );
     importer.init();
     projectManager.init();
   });

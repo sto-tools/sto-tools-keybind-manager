@@ -8,11 +8,11 @@ export const storageServiceMethodNames = Object.freeze([
   "saveSettings",
   "clearSettings",
   "createBackup",
-  "clearAllData",
+  "invalidateCache",
 ]);
 
 export const expectedCallsByFile = Object.freeze({
-  "components/services/StorageService.js": 9,
+  "components/services/StorageService.js": 6,
   "components/storage/LocalStorageSettingsRepository.js": 5,
   "components/services/commandPresentationState.js": 6,
   "components/services/dataCoordinatorInitialState.js": 1,
@@ -22,8 +22,8 @@ export const expectedCallsByFile = Object.freeze({
 });
 
 export const expectedScalarWrites = Object.freeze({
-  "components/services/StorageService.js|removeItem": 3,
-  "components/services/StorageService.js|setItem": 3,
+  "components/services/StorageService.js|removeItem": 1,
+  "components/services/StorageService.js|setItem": 2,
   "components/storage/LocalStorageSettingsRepository.js|removeItem": 1,
   "components/storage/LocalStorageSettingsRepository.js|setItem": 1,
   "components/services/commandPresentationState.js|removeItem": 1,
@@ -33,8 +33,8 @@ export const expectedScalarWrites = Object.freeze({
   "core/welcomeMessage.js|setItem": 2,
 });
 
-// The project adapter remains uncomposed. Tranche 2 activates only the settings
-// adapter, whose physical surface is in the active inventory.
+// Tranche 8 composes the project adapter's reset boundary only. Its remaining
+// commit/load surface stays dormant until the legacy writer cutover.
 export const unusedRepositoryScalarCallsites = Object.freeze({
   "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|RESET_KEY": 2,
   "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|ROOT_KEY": 4,
@@ -61,7 +61,6 @@ export const expectedNamedMethodCalls = Object.freeze({
   "components/services/dataCoordinatorProfileActions.js|owner.storage|getAllData": 6,
   "components/services/PreferencesService.js|this|getSettings": 1,
   "components/services/PreferencesService.js|this|saveSettings": 1,
-  "components/services/StorageService.js|this|clearAllData": 1,
   "components/services/StorageService.js|this|createBackup": 1,
   "components/services/StorageService.js|this|getAllData": 4,
   "components/services/StorageService.js|this|saveAllData": 3,
@@ -70,6 +69,8 @@ export const expectedNamedMethodCalls = Object.freeze({
   "components/services/dataCoordinatorProjectImport.js|owner.storage|getAllData": 3,
   "components/services/dataCoordinatorProjectImport.js|owner.storage|saveAllData": 1,
   "components/services/dataCoordinatorResponders.js|coordinator|deleteProfile": 1,
+  "components/services/dataCoordinatorApplicationReset.js|owner.storage|invalidateCache": 1,
+  "components/services/preferencesApplicationReset.js|owner|getSettings": 2,
   "components/services/preferencesOwnerMutationOperations.js|owner|getSettings": 11,
   "components/services/storageWrites.js|storage|deleteProfile": 1,
   "components/services/storageWrites.js|storage|getAllData": 1,
@@ -83,7 +84,6 @@ export const storageServiceCallClass = Object.freeze({
   "components/services/DataCoordinator.js|this.storage|getAllData": "external",
   "components/services/dataCoordinatorProfileActions.js|owner.storage|getAllData":
     "external",
-  "components/services/StorageService.js|this|clearAllData": "internal",
   "components/services/StorageService.js|this|createBackup": "internal",
   "components/services/StorageService.js|this|getAllData": "internal",
   "components/services/StorageService.js|this|saveAllData": "internal",
@@ -94,6 +94,8 @@ export const storageServiceCallClass = Object.freeze({
   "components/services/dataCoordinatorProjectImport.js|owner.storage|getAllData":
     "external",
   "components/services/dataCoordinatorProjectImport.js|owner.storage|saveAllData":
+    "external",
+  "components/services/dataCoordinatorApplicationReset.js|owner.storage|invalidateCache":
     "external",
   "components/services/storageWrites.js|storage|deleteProfile": "helper",
   "components/services/storageWrites.js|storage|getAllData": "helper",
@@ -112,7 +114,7 @@ export const expectedStorageServiceCallsByMethod = Object.freeze({
   saveSettings: 0,
   clearSettings: 0,
   createBackup: 1,
-  clearAllData: 1,
+  invalidateCache: 1,
 });
 
 // These production workflow cohorts have no storage or repository capability.
@@ -209,6 +211,7 @@ export const rpcActionTopics = Object.freeze([
   "alias:delete",
   "alias:duplicate-with-name",
   "alias:select",
+  "application:reset",
   "bindset-selector:add-key-to-bindset",
   "bindset-selector:remove-key-from-bindset",
   "bindset-selector:set-active-bindset",
@@ -267,9 +270,6 @@ export const expectedScalarCallsites = Object.freeze({
   'components/services/StorageService.js|localStorage|removeItem|"sto_app_reset"': 1,
   "components/services/StorageService.js|localStorage|setItem|this.storageKey|JSON.stringify(dataWithMeta)": 1,
   "components/services/StorageService.js|localStorage|setItem|this.backupKey|JSON.stringify(backup)": 1,
-  "components/services/StorageService.js|localStorage|removeItem|this.storageKey": 1,
-  "components/services/StorageService.js|localStorage|removeItem|this.backupKey": 1,
-  'components/services/StorageService.js|localStorage|setItem|"sto_app_reset"|"true"': 1,
   "components/services/commandPresentationState.js|storage|key|index": 1,
   "components/services/commandPresentationState.js|storage|getItem|key": 2,
   "components/services/commandPresentationState.js|storage|setItem|`${commandCategoryPrefix}${categoryId}${collapsedSuffix}`|String(isCollapsed)": 1,
@@ -368,11 +368,6 @@ export const storageCallsiteDispositions = Object.freeze({
     1,
     "workflow",
     "4",
-  ],
-  "components/services/StorageService.js|handleAppReset|this|clearAllData": [
-    1,
-    "workflow",
-    "8",
   ],
   "components/services/StorageService.js|saveAllData|this|createBackup|savedAt":
     [1, "compatibility", "4"],

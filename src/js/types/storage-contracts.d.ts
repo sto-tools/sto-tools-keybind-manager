@@ -35,6 +35,7 @@ export type StorageWorkflowErrorCode =
   | "invalid_data"
   | "storage_write_failed"
   | "verification_failed"
+  | "preferences_activation_failed"
   | "operation_cancelled";
 
 export interface DurableStageReceipt {
@@ -42,7 +43,113 @@ export interface DurableStageReceipt {
   committed: boolean | "indeterminate";
   fingerprint?: string;
   error?: StorageWorkflowErrorCode;
+  /** Owner-specific repository evidence retained behind the typed stage core. */
+  [detail: string]: unknown;
 }
+
+export interface ApplicationProjectResetPersistenceReceipt {
+  rootClear: DurableStageReceipt;
+  backupClear: DurableStageReceipt;
+  resetSentinel: DurableStageReceipt;
+}
+
+export interface ApplicationDataResetAdoptionReceipt {
+  dataOwnerAdoption: DurableStageReceipt;
+}
+
+export type ApplicationProjectResetReceipt =
+  ApplicationProjectResetPersistenceReceipt &
+    ApplicationDataResetAdoptionReceipt;
+
+export interface ApplicationPreferencesResetReceipt {
+  settingsClear: DurableStageReceipt;
+  settingsDefaults: DurableStageReceipt;
+  preferencesOwnerAdoption: DurableStageReceipt;
+}
+
+export type ApplicationProjectResetPersistenceResult =
+  | {
+      success: true;
+      receipt: ApplicationProjectResetPersistenceReceipt;
+    }
+  | {
+      success: false;
+      error: "storage_write_failed" | "operation_cancelled";
+      stage: "rootClear" | "backupClear" | "resetSentinel";
+      durable: false | "indeterminate" | true;
+      params: { reason: string };
+      receipt: ApplicationProjectResetPersistenceReceipt;
+    };
+
+export type ApplicationDataResetAdoptionResult =
+  | {
+      success: true;
+      currentProfile: null;
+      receipt: ApplicationDataResetAdoptionReceipt;
+    }
+  | {
+      success: false;
+      error: "operation_cancelled";
+      stage: "dataOwnerAdoption";
+      durable: true;
+      params: { reason: string };
+      receipt: ApplicationDataResetAdoptionReceipt;
+    };
+
+export type ApplicationPreferencesResetResult =
+  | {
+      success: true;
+      changed: boolean;
+      revision: number;
+      effects: "applied" | "degraded";
+      receipt: ApplicationPreferencesResetReceipt;
+    }
+  | {
+      success: false;
+      error:
+        | "storage_write_failed"
+        | "verification_failed"
+        | "preferences_activation_failed"
+        | "operation_cancelled";
+      stage: "settingsClear" | "settingsDefaults" | "preferencesOwnerAdoption";
+      durable: false | "indeterminate" | true;
+      params: { reason: string };
+      receipt: ApplicationPreferencesResetReceipt;
+    };
+
+export interface OwnerActionCompletion<Result> {
+  result: Result;
+  settlement: Promise<void>;
+}
+
+export type ApplicationProjectResetPersistenceAction =
+  () => Promise<ApplicationProjectResetPersistenceResult>;
+
+export type ApplicationDataResetAdoptionAction =
+  () => Promise<ApplicationDataResetAdoptionResult>;
+
+export type ApplicationPreferencesResetAction = () => Promise<
+  OwnerActionCompletion<ApplicationPreferencesResetResult>
+>;
+
+export interface ApplicationDataResetCapabilities {
+  resetProjectPersistence: ApplicationProjectResetPersistenceAction;
+  adoptEmptyProject: ApplicationDataResetAdoptionAction;
+  assertActive: () => void;
+}
+
+export type ApplicationDataResetTransitionRunner = <Result>(
+  operation: (
+    capabilities: ApplicationDataResetCapabilities,
+  ) => Result | Promise<Result>,
+) => Promise<OwnerActionCompletion<Result>>;
+
+export type ApplicationPreferencesResetTransitionRunner = <Result>(
+  operation: (capabilities: {
+    resetPreferences: ApplicationPreferencesResetAction;
+    assertActive: () => void;
+  }) => Result | Promise<Result>,
+) => Promise<Result>;
 
 export interface ProjectRestoreReceipt {
   validation: DurableStageReceipt;

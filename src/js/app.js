@@ -2,7 +2,10 @@
 // Coordinates all modules and handles global application state
 import store from "./core/store.js";
 import eventBus from "./core/eventBus.js";
-import { AutoSync } from "./components/services/index.js";
+import {
+  ApplicationResetService,
+  AutoSync,
+} from "./components/services/index.js";
 import ProfileUI from "./components/ui/ProfileUI.js";
 
 import ParameterCommandUI from "./components/ui/ParameterCommandUI.js";
@@ -61,6 +64,7 @@ export default class STOToolsKeybindManager {
    *   i18n?: any,
    *   storageService?: any,
    *   preferencesService?: import('./components/services/PreferencesService.js').default,
+   *   applicationDataResetTransitionRunner?: import('./types/storage-contracts.js').ApplicationDataResetTransitionRunner,
    *   importedProjectOwnerAction?: import('./types/storage-contracts.js').ImportedProjectOwnerAction,
    *   importedProjectActivationAction?: import('./types/storage-contracts.js').ImportedProjectActivationAction,
    *   importedSettingsActivationAction?: import('./components/services/PreferencesService.js').default['activateImportedSettings'],
@@ -74,6 +78,7 @@ export default class STOToolsKeybindManager {
     i18n,
     storageService,
     preferencesService,
+    applicationDataResetTransitionRunner,
     importedProjectOwnerAction,
     importedProjectActivationAction,
     importedSettingsActivationAction,
@@ -85,6 +90,8 @@ export default class STOToolsKeybindManager {
     this.i18n = i18n;
     this.storageService = storageService;
     this.preferencesService = preferencesService;
+    this.applicationDataResetTransitionRunner =
+      applicationDataResetTransitionRunner;
     this.importedProjectOwnerAction = importedProjectOwnerAction;
     this.importedProjectActivationAction = importedProjectActivationAction;
     this.importedSettingsActivationAction = importedSettingsActivationAction;
@@ -95,7 +102,6 @@ export default class STOToolsKeybindManager {
     this.store = store;
     this.autoSyncManager = null; // created later when dependencies available
     this.ownedComponents = new OwnedComponentStack(this);
-    this.detachStoragePreferencesTransition = null;
 
     this.profileUI = null;
     this.aliasService = null;
@@ -185,7 +191,8 @@ export default class STOToolsKeybindManager {
         !storageService ||
         !stoUI ||
         !this.syncService ||
-        !this.preferencesService
+        !this.preferencesService ||
+        !this.applicationDataResetTransitionRunner
       ) {
         throw new Error("Required dependencies not loaded");
       }
@@ -197,10 +204,16 @@ export default class STOToolsKeybindManager {
       /** @type {import('./components/services/PreferencesService.js').default['runExternalActivationTransition']} */
       const runPreferencesTransition = (source, operation) =>
         preferencesService.runExternalActivationTransition(source, operation);
-      this.detachStoragePreferencesTransition =
-        storageService.setPreferencesTransitionRunner?.(
-          runPreferencesTransition,
-        ) ?? null;
+      /** @type {import('./types/storage-contracts.js').ApplicationPreferencesResetTransitionRunner} */
+      const runPreferencesResetTransition = (operation) =>
+        preferencesService.runApplicationResetTransition(operation);
+
+      this.applicationResetService = create(ApplicationResetService, {
+        eventBus,
+        runPreferencesResetTransition,
+        runDataResetTransition: this.applicationDataResetTransitionRunner,
+      });
+      this.applicationResetService.init();
 
       this.modalManagerService = create(ModalManagerService, {
         eventBus,
@@ -538,8 +551,6 @@ export default class STOToolsKeybindManager {
 
       this.initialized = false;
 
-      this.detachStoragePreferencesTransition?.();
-      this.detachStoragePreferencesTransition = null;
       await this.ownedComponents.destroyAll();
 
       if (stoUI?.showToast) {

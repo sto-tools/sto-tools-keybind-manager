@@ -5,7 +5,6 @@ import {
   createDefaultPreferencesSettings,
   detectPreferencesLanguage,
 } from "./preferencesDefaults.js";
-import { classifyPreferencesActivationResult } from "./preferencesActivationResult.js";
 
 /*
  * StorageService
@@ -15,7 +14,6 @@ import { classifyPreferencesActivationResult } from "./preferencesActivationResu
  * This service is responsible for:
  * - Storing and retrieving data from localStorage
  * - Creating automatic backups
- * - Clearing all data
  * - Migrating data from old formats to new formats
  * - Ensuring storage structure is valid
  * - Detecting browser language
@@ -23,7 +21,7 @@ import { classifyPreferencesActivationResult } from "./preferencesActivationResu
  * Note: Advanced import/export functionality is handled by ProjectManagementService
  */
 export default class StorageService extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, storageKey?: string, backupKey?: string, version?: string, dataService?: unknown, data?: Record<string, unknown>, i18n?: import('./serviceTypes.js').I18n | null, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null }} [options] */
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, storageKey?: string, backupKey?: string, version?: string, dataService?: unknown, data?: Record<string, unknown>, i18n?: import('./serviceTypes.js').I18n | null }} [options] */
   constructor({
     eventBus: bus = eventBus,
     storageKey = "sto_keybind_manager",
@@ -32,7 +30,6 @@ export default class StorageService extends ComponentBase {
     dataService = null,
     data = {},
     i18n = null,
-    runPreferencesTransition = null,
   } = {}) {
     super(bus);
     this.componentName = "StorageService";
@@ -42,12 +39,9 @@ export default class StorageService extends ComponentBase {
     this.dataService = dataService;
     this.data = data || {};
     this.i18n = i18n;
-    this.runPreferencesTransition = runPreferencesTransition;
-    this._resetLifecycleGeneration = 0;
   }
 
   onInit() {
-    this._resetLifecycleGeneration += 1;
     // Decode, migrate, and repair the complete external root before anything
     // else can observe it. One write keeps the automatic backup pinned to the
     // exact pre-recovery string instead of overwriting it with an intermediate
@@ -70,119 +64,6 @@ export default class StorageService extends ComponentBase {
     if (migrated && persisted) {
       console.log("Data migration completed");
     }
-
-    // Set up event listeners
-    this.setupEventListeners();
-  }
-
-  setupEventListeners() {
-    // Listen for app reset confirmation
-    this.addEventListener("app:reset-confirmed", () => this.handleAppReset());
-  }
-
-  /**
-   * Bind the Preferences owner transition after the circular storage/owner
-   * composition has completed. The returned detach capability only removes
-   * the runner it installed.
-   *
-   * @param {import('./PreferencesService.js').default['runExternalActivationTransition']} runner
-   * @returns {() => void}
-   */
-  setPreferencesTransitionRunner(runner) {
-    if (typeof runner !== "function") {
-      throw new TypeError("invalid_preferences_transition_runner");
-    }
-    this.runPreferencesTransition = runner;
-    return () => {
-      if (this.runPreferencesTransition === runner) {
-        this.runPreferencesTransition = null;
-      }
-    };
-  }
-
-  // Handle application reset
-  async handleAppReset() {
-    console.log("[StorageService] Handling application reset");
-
-    if (!this.runPreferencesTransition) {
-      console.error(
-        "[StorageService] Application reset requires Preferences coordination",
-      );
-      return false;
-    }
-
-    const lifecycleGeneration = this._resetLifecycleGeneration;
-    try {
-      return await this.runPreferencesTransition(
-        "application-reset",
-        async (activatePersistedSettings, assertPreferencesTransition) => {
-          const assertResetActive = () => {
-            assertPreferencesTransition?.();
-            if (
-              lifecycleGeneration !== this._resetLifecycleGeneration ||
-              !this.initialized ||
-              this.destroyed
-            ) {
-              throw new Error("operation_cancelled");
-            }
-          };
-          assertResetActive();
-
-          // The complete reset workflow owns the same exclusive Preferences
-          // transition as project restore. Neither durable workflow can resume
-          // inside the other's data/settings transition.
-          const success = this.clearAllData();
-          if (!success) {
-            console.error("[StorageService] Application reset failed");
-            return false;
-          }
-
-          assertResetActive();
-          console.log(
-            "[StorageService] Application reset successful - data cleared",
-          );
-
-          // Reset internal cache to empty structure
-          const resetData = this.getEmptyData();
-          this.data = resetData;
-          this._cachedData = resetData;
-
-          // Emit events to notify other components about the reset
-          await this.emit(
-            "storage:data-reset",
-            { data: resetData },
-            { synchronous: true },
-          );
-          assertResetActive();
-
-          const activation = await activatePersistedSettings();
-          const activationResult =
-            classifyPreferencesActivationResult(activation);
-          if (activationResult.kind !== "success") {
-            console.error(
-              "[StorageService] Application reset settings activation failed",
-              activationResult,
-            );
-            return false;
-          }
-          assertResetActive();
-
-          const message =
-            this.i18n?.t("application_reset_successfully") ??
-            "application_reset_successfully";
-          this.emit("toast:show", { message, type: "success" });
-          return true;
-        },
-      );
-    } catch (error) {
-      console.error("[StorageService] Error during application reset:", error);
-      return false;
-    }
-  }
-
-  onDestroy() {
-    this._resetLifecycleGeneration += 1;
-    this.runPreferencesTransition = null;
   }
 
   // Get all data from storage
@@ -337,27 +218,10 @@ export default class StorageService extends ComponentBase {
     }
   }
 
-  // Clear project data only. Preferences owns the standalone settings reset.
-  clearAllData() {
-    try {
-      localStorage.removeItem(this.storageKey);
-      localStorage.removeItem(this.backupKey);
-
-      // Set reset flag to prevent loading default data on next startup
-      localStorage.setItem("sto_app_reset", "true");
-
-      // The persisted authority is now empty. Do not allow a pre-reset cache
-      // to outlive the successful clear and resurrect removed profiles.
-      this._cachedData = null;
-
-      return true;
-    } catch (error) {
-      // A storage mutation may have partially succeeded before the exception;
-      // force the next read to reconcile with the actual persisted state.
-      this._cachedData = null;
-      console.error("Error clearing data:", error);
-      return false;
-    }
+  // General coherence hook for owner-internal persistence paths that bypass the
+  // legacy writer. It performs no storage mutation and exposes no reset facade.
+  invalidateCache() {
+    this._cachedData = null;
   }
 
   // Private methods

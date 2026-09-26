@@ -5,7 +5,10 @@ import DataCoordinator from "../../src/js/components/services/DataCoordinator.js
 import ImportService from "../../src/js/components/services/ImportService.js";
 import ProjectManagementService from "../../src/js/components/services/ProjectManagementService.js";
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
+import ApplicationResetService from "../../src/js/components/services/ApplicationResetService.js";
 import StorageService from "../../src/js/components/services/StorageService.js";
+import LocalStorageProjectRepository from "../../src/js/components/storage/LocalStorageProjectRepository.js";
+import { request } from "../../src/js/core/requestResponse.js";
 import { MAX_PROJECT_JSON_BYTES } from "../../src/js/components/services/jsonDataBoundary.js";
 import HeaderMenuUI from "../../src/js/components/ui/HeaderMenuUI.js";
 import {
@@ -29,6 +32,8 @@ describe("project import authoritative owner chain", () => {
   let importer;
   let projectManager;
   let preferences;
+  let projectRepository;
+  let resetService;
 
   beforeEach(async () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
@@ -52,9 +57,16 @@ describe("project import authoritative owner chain", () => {
       eventBus: eventBusFixture.eventBus,
       version: "1.0.0",
     });
+    projectRepository = new LocalStorageProjectRepository({
+      storage: localStorage,
+      version: storage.version,
+      now: () => new Date().toISOString(),
+      settingsDefaults: storage.getDefaultSettings(),
+    });
     coordinator = new DataCoordinator({
       eventBus: eventBusFixture.eventBus,
       storage,
+      projectRepository,
       i18n: { t: (key) => key },
       defaultProfiles: {},
     });
@@ -102,15 +114,21 @@ describe("project import authoritative owner chain", () => {
       expect(coordinator.getCurrentState().ready).toBe(true);
     });
     await preferences.initialStateReady;
-    storage.setPreferencesTransitionRunner((source, operation) =>
-      preferences.runExternalActivationTransition(source, operation),
-    );
+    resetService = new ApplicationResetService({
+      eventBus: eventBusFixture.eventBus,
+      runPreferencesResetTransition: (operation) =>
+        preferences.runApplicationResetTransition(operation),
+      runDataResetTransition: (operation) =>
+        coordinator.runApplicationResetTransition(operation),
+    });
+    resetService.init();
     importer.init();
     projectManager.init();
   });
 
   afterEach(() => {
     projectManager?.destroy();
+    resetService?.destroy();
     importer?.destroy();
     preferences?.destroy();
     coordinator?.destroy();
@@ -222,7 +240,7 @@ describe("project import authoritative owner chain", () => {
         return saveAllData(...args);
       });
     const profileWrites = vi.spyOn(storage, "saveProfile");
-    const clearAllData = vi.spyOn(storage, "clearAllData");
+    const resetProject = vi.spyOn(projectRepository, "reset");
 
     const restore = projectManager.restoreFromProjectContent(
       JSON.stringify(importedProject),
@@ -230,9 +248,9 @@ describe("project import authoritative owner chain", () => {
     );
     await rootWriteStarted;
 
-    const reset = storage.handleAppReset();
+    const reset = request(eventBusFixture.eventBus, "application:reset", {}, 0);
     await Promise.resolve();
-    expect(clearAllData).not.toHaveBeenCalled();
+    expect(resetProject).not.toHaveBeenCalled();
 
     releaseRootWrite();
     await expect(restore).resolves.toEqual({
@@ -240,11 +258,11 @@ describe("project import authoritative owner chain", () => {
       currentProfile: "imported",
       imported: { profiles: 1, settings: true },
     });
-    await expect(reset).resolves.toBe(true);
+    await expect(reset).resolves.toMatchObject({ success: true });
 
     expect(rootWrites).toHaveBeenCalledOnce();
     expect(profileWrites).not.toHaveBeenCalled();
-    expect(clearAllData).toHaveBeenCalledOnce();
+    expect(resetProject).toHaveBeenCalledOnce();
     expect(localStorage.getItem(storage.storageKey)).toBeNull();
     expect(localStorage.getItem(storage.backupKey)).toBeNull();
     expect(coordinator.getCurrentState()).toMatchObject({

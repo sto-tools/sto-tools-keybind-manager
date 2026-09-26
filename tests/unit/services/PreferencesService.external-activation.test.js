@@ -159,39 +159,6 @@ describe("PreferencesService persisted settings activation", () => {
     ]);
   });
 
-  it("clears and adopts reset defaults inside the owner queue", async () => {
-    const defaults = structuredClone(service.defaultSettings);
-
-    await expect(activate({ source: "application-reset" })).resolves.toEqual({
-      success: true,
-      changed: true,
-      revision: 2,
-      effects: "applied",
-    });
-
-    expect(fixture.settingsRepository.clear).toHaveBeenCalledOnce();
-    expect(fixture.settingsRepository.load).not.toHaveBeenCalled();
-    expect(fixture.settingsRepository.replace).toHaveBeenCalledWith(defaults);
-    expect(service.getCurrentState()).toMatchObject({
-      ready: true,
-      revision: 2,
-      settings: defaults,
-    });
-    expect(
-      fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
-    ).toEqual([
-      expect.objectContaining({
-        data: expect.objectContaining({ reason: "settings-reset" }),
-      }),
-    ]);
-    expect(
-      fixture.eventBusFixture.getEventsOfType("preferences:saved"),
-    ).toHaveLength(0);
-    expect(
-      fixture.eventBusFixture.getEventsOfType("preferences:loaded"),
-    ).toHaveLength(0);
-  });
-
   it("publishes a fresh revision but no diff for unchanged durable settings", async () => {
     fixture.settingsRepository.load.mockReturnValueOnce({
       status: "current",
@@ -271,6 +238,7 @@ describe("PreferencesService persisted settings activation", () => {
     [],
     {},
     { source: "restore" },
+    { source: "application-reset" },
     { source: "project-restore", extra: true },
     Object.create({ source: "project-restore" }),
   ])(
@@ -340,29 +308,6 @@ describe("PreferencesService persisted settings activation", () => {
     expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
-    ).toHaveLength(0);
-  });
-
-  it("returns a retryable reset-clear failure without reading or publishing", async () => {
-    const before = service.getCurrentState();
-    fixture.settingsRepository.clear.mockReturnValueOnce(false);
-
-    await expect(activate({ source: "application-reset" })).resolves.toEqual({
-      success: false,
-      error: "preferences_activation_failed",
-      params: { reason: "preferences_settings_clear_failed" },
-      retryable: true,
-    });
-
-    expect(fixture.settingsRepository.clear).toHaveBeenCalledOnce();
-    expect(fixture.settingsRepository.load).not.toHaveBeenCalled();
-    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
-    expect(service.getCurrentState()).toBe(before);
-    expect(
-      fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
-    ).toHaveLength(0);
-    expect(
-      fixture.eventBusFixture.getEventsOfType("preferences:changed"),
     ).toHaveLength(0);
   });
 
@@ -450,40 +395,6 @@ describe("PreferencesService persisted settings activation", () => {
       revision: 3,
       settings: { language: "fr" },
     });
-  });
-
-  it("returns operation_cancelled and publishes nothing after destruction", async () => {
-    let releaseLanguage = () => {};
-    const languagePending = new Promise((resolve) => {
-      releaseLanguage = resolve;
-    });
-    i18n.changeLanguage.mockImplementationOnce(async (language) => {
-      await languagePending;
-      i18n.language = language;
-    });
-    service.defaultSettings.language = "de";
-
-    const activation = activate({ source: "application-reset" });
-    await vi.waitFor(() => expect(i18n.changeLanguage).toHaveBeenCalledOnce());
-    service.destroy();
-    releaseLanguage();
-
-    await expect(activation).resolves.toEqual({
-      success: false,
-      error: "operation_cancelled",
-      params: { reason: "operation_cancelled" },
-      retryable: true,
-    });
-    expect(
-      fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
-    ).toHaveLength(0);
-    expect(
-      fixture.eventBusFixture.getEventsOfType("preferences:changed"),
-    ).toHaveLength(0);
-    expect(
-      fixture.eventBusFixture.getEventsOfType("language:changed"),
-    ).toHaveLength(0);
-    expect(fixture.settingsRepository.replace).toHaveBeenCalledOnce();
   });
 
   it("closes synchronous effect re-entry as a typed failure", async () => {

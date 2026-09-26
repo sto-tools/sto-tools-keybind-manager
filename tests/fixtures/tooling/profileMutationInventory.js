@@ -273,6 +273,7 @@ export const expectedProfileMutationDependencies = Object.freeze({
   "components/services/DataCoordinator.js|static|./profileOperations.js": 1,
   "components/services/DataCoordinator.js|static|./dataStateChange.js": 1,
   "components/services/DataCoordinator.js|static|./dataCoordinatorProjectImport.js": 1,
+  "components/services/DataCoordinator.js|static|./dataCoordinatorApplicationReset.js": 1,
   "components/services/DataCoordinator.js|static|./mutationRequestBoundary.js": 1,
   "components/services/DataCoordinator.js|static|./dataCoordinatorMutationBoundary.js": 1,
   "components/services/DataCoordinator.js|static|./dataCoordinatorMutationQueue.js": 1,

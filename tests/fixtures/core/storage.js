@@ -181,12 +181,7 @@ export function createStorageFixture(options = {}) {
       }
     }),
 
-    clearAllData: vi.fn(() => {
-      mockLocalStorage.removeItem("sto_keybind_manager");
-      mockLocalStorage.removeItem("sto_keybind_manager_backup");
-      mockLocalStorage.setItem("sto_app_reset", "true");
-      return true;
-    }),
+    invalidateCache: vi.fn(),
 
     // StorageService component methods
     init: vi.fn(() => Promise.resolve()),

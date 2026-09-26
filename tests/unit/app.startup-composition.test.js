@@ -307,6 +307,7 @@ describe("STOToolsKeybindManager startup composition", () => {
       i18n,
       storageService: {},
       preferencesService: new startupHarness.StubComponent(),
+      applicationDataResetTransitionRunner: vi.fn(),
       syncService,
       ui,
     });
@@ -394,6 +395,7 @@ describe("STOToolsKeybindManager startup composition", () => {
       i18n,
       storageService: {},
       preferencesService: new startupHarness.StubComponent(),
+      applicationDataResetTransitionRunner: vi.fn(),
       syncService: {},
       ui,
     });
@@ -463,6 +465,7 @@ describe("STOToolsKeybindManager startup composition", () => {
       i18n,
       storageService,
       preferencesService: new startupHarness.StubComponent(),
+      applicationDataResetTransitionRunner: vi.fn(),
       syncService: syncDependency,
       ui,
     });

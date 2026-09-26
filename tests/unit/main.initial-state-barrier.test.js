@@ -100,13 +100,10 @@ vi.mock("../../src/js/core/constants.js", () => ({
 
 vi.mock("../../src/js/components/services/index.js", () => {
   class StorageService extends bootstrap.ComponentStub {
+    version = "test-version";
+
     init() {
       bootstrap.operations.push("storage:init");
-    }
-
-    getSettings() {
-      bootstrap.operations.push("storage:get-settings");
-      return { language: "en" };
     }
 
     destroy() {
@@ -130,6 +127,8 @@ vi.mock("../../src/js/components/services/index.js", () => {
     replaceProjectFromImport() {}
 
     activateProjectFromImport() {}
+
+    runApplicationResetTransition() {}
 
     destroy() {
       bootstrap.operations.push("coordinator:destroy");
@@ -340,6 +339,7 @@ describe("main DataCoordinator startup barrier", () => {
     expect(bootstrap.appDependencies).toEqual(
       expect.objectContaining({
         applyTranslations: expect.any(Function),
+        applicationDataResetTransitionRunner: expect.any(Function),
         currentArtifactSerializer: bootstrap.currentArtifactSerializer,
       }),
     );

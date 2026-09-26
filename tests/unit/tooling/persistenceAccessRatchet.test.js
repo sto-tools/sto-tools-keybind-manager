@@ -59,7 +59,7 @@ describe("persistence access architecture ratchet", () => {
         (total, count) => total + count,
         0,
       ),
-    ).toBe(35);
+    ).toBe(32);
   });
 
   it("freezes the exact physical scalar writers and their owner-bound modules", () => {
@@ -79,7 +79,7 @@ describe("persistence access architecture ratchet", () => {
       Object.entries(actualWrites)
         .filter(([key]) => !key.startsWith("components/storage/"))
         .reduce((total, [, count]) => total + count, 0),
-    ).toBe(15);
+    ).toBe(12);
   });
 
   it("freezes all IndexedDB boundary blocks inside FileSystemService", () => {
@@ -123,7 +123,7 @@ describe("persistence access architecture ratchet", () => {
     }
     expect(dispositionTotals).toEqual({
       owner: 20,
-      workflow: 3,
+      workflow: 2,
       compatibility: 11,
       dead: 1,
     });
@@ -148,7 +148,7 @@ describe("persistence access architecture ratchet", () => {
     }
 
     expect(storageTotals).toEqual(expectedStorageServiceCallsByMethod);
-    expect(classTotals).toEqual({ external: 20, helper: 6, internal: 9 });
+    expect(classTotals).toEqual({ external: 21, helper: 6, internal: 8 });
     expect(
       Object.values(storageTotals).reduce((sum, count) => sum + count, 0),
     ).toBe(35);
@@ -186,7 +186,7 @@ describe("persistence access architecture ratchet", () => {
     }
   });
 
-  it("activates one settings adapter in bootstrap while the project adapter stays unused", () => {
+  it("activates settings persistence and only the project reset adapter in bootstrap", () => {
     const storageDirectory = join(sourceRoot, "components/storage");
     expect(existsSync(storageDirectory)).toBe(true);
     expect(readdirSync(storageDirectory).sort()).toEqual([
@@ -234,6 +234,7 @@ describe("persistence access architecture ratchet", () => {
         .sort(),
     ).toEqual([
       "components/services/PreferencesService.js",
+      "components/services/preferencesApplicationReset.js",
       "components/services/preferencesImportActivation.js",
       "components/services/preferencesOwnerMutationOperations.js",
       "main.js",
@@ -247,6 +248,7 @@ describe("persistence access architecture ratchet", () => {
     ).toEqual({
       "main.js|StorageService|{ eventBus, i18n: i18next }": 1,
       "main.js|LocalStorageSettingsRepository|{ storage: settingsStorage, defaults, }": 1,
+      "main.js|LocalStorageProjectRepository|{ storage: settingsStorage, version: storageService.version, now: () => new Date().toISOString(), settingsDefaults: defaults, }": 1,
     });
 
     expect(
@@ -280,7 +282,10 @@ describe("persistence access architecture ratchet", () => {
         'storageKey = "sto_keybind_manager"',
         'backupKey = "sto_keybind_manager_backup"',
         'localStorage.getItem("sto_app_reset")',
-        'localStorage.setItem("sto_app_reset", "true")',
+      ],
+      "components/storage/LocalStorageProjectRepository.js": [
+        'const RESET_KEY = "sto_app_reset"',
+        'this.#storage.setItem(RESET_KEY, "true")',
       ],
       "components/storage/LocalStorageSettingsRepository.js": [
         'const SETTINGS_KEY = "sto_keybind_settings"',

@@ -82,8 +82,10 @@ function decodeWriteOptions(input) {
 }
 
 /**
- * Unused Tranche 1 adapter: whole legacy-shaped roots, exact previous-root
- * backups, and reset sentinel only. No cache, owner effects, or global lookup.
+ * Whole legacy-shaped roots, exact previous-root backups, and reset sentinel
+ * only. Tranche 8 composes `reset()` behind DataCoordinator; the remaining
+ * legacy project writes stay on StorageService until the writer cutover. No
+ * cache, owner effects, or global lookup.
  * @implements {ProjectRepositoryPort}
  */
 export default class LocalStorageProjectRepository {

@@ -94,9 +94,7 @@ export type SyncFolderSettingsMutation = {
   autoSync: boolean;
 };
 
-export type PreferencesActivationSource =
-  | "project-restore"
-  | "application-reset";
+export type PreferencesActivationSource = "project-restore";
 
 export type PreferencesActivationSuccess = {
   success: true;

@@ -18,6 +18,7 @@ import {
   createCurrentProjectArtifactSerializer,
 } from "./components/services/projectArtifactCapture.js";
 import LocalStorageSettingsRepository from "./components/storage/LocalStorageSettingsRepository.js";
+import LocalStorageProjectRepository from "./components/storage/LocalStorageProjectRepository.js";
 import {
   createDefaultPreferencesSettings,
   detectPreferencesLanguage,
@@ -132,11 +133,18 @@ const dataService = new DataService({
   }
 
   const storageService = new StorageService({ eventBus, i18n: i18next });
+  const projectRepository = new LocalStorageProjectRepository({
+    storage: settingsStorage,
+    version: storageService.version,
+    now: () => new Date().toISOString(),
+    settingsDefaults: defaults,
+  });
 
   // DataCoordinator remains the separate profile-data authority.
   const dataCoordinator = new DataCoordinator({
     eventBus,
     storage: storageService,
+    projectRepository,
     i18n: i18next,
   });
   try {
@@ -264,6 +272,8 @@ const dataService = new DataService({
       i18n: i18next,
       storageService,
       preferencesService,
+      applicationDataResetTransitionRunner:
+        dataCoordinator.runApplicationResetTransition.bind(dataCoordinator),
       importedProjectOwnerAction:
         dataCoordinator.replaceProjectFromImport.bind(dataCoordinator),
       importedProjectActivationAction:

@@ -18,7 +18,8 @@ function createDomFixture() {
       <button data-lang="en">EN</button>
       <button data-lang="de">DE</button>
     </div>
-    <button id="fileExplorerBtn">Explorer</button>`;
+    <button id="fileExplorerBtn">Explorer</button>
+    <button id="resetAppBtn">Reset</button>`;
   document.body.appendChild(container);
   return {
     container,
@@ -173,5 +174,88 @@ describe("HeaderMenuUI", () => {
 
     explorerButton.click();
     eventBusFixture.expectEventCount("file-explorer:open", 3);
+  });
+
+  it("awaits the reset action without a timeout and shows success only after acknowledgement", async () => {
+    const confirmDialog = {
+      confirm: vi.fn().mockResolvedValue(true),
+    };
+    ui.destroy();
+    ui = new HeaderMenuUI({
+      eventBus: eventBusFixture.eventBus,
+      document,
+      confirmDialog,
+      i18n: { t: (key) => key },
+    });
+    ui.init();
+    const request = vi
+      .spyOn(ui, "request")
+      .mockResolvedValue({ success: true, receipt: {} });
+    const toast = vi.spyOn(ui, "showToast");
+
+    await ui.confirmResetApp();
+
+    expect(confirmDialog.confirm).toHaveBeenCalledWith(
+      "confirm_reset_application",
+      "confirm_reset_app",
+      "danger",
+      "resetApplication",
+    );
+    expect(request).toHaveBeenCalledWith("application:reset", {}, 0);
+    expect(toast).toHaveBeenCalledExactlyOnceWith(
+      "application_reset_successfully",
+      "success",
+    );
+    eventBusFixture.expectEventCount("app:reset-confirmed", 0);
+  });
+
+  it.each([
+    ["declined confirmation", false, { success: true }],
+    ["structured reset failure", true, { success: false }],
+  ])("shows no reset toast for %s", async (_label, confirmed, result) => {
+    const confirmDialog = {
+      confirm: vi.fn().mockResolvedValue(confirmed),
+    };
+    ui.destroy();
+    ui = new HeaderMenuUI({
+      eventBus: eventBusFixture.eventBus,
+      document,
+      confirmDialog,
+      i18n: { t: (key) => key },
+    });
+    ui.init();
+    const request = vi.spyOn(ui, "request").mockResolvedValue(result);
+    const toast = vi.spyOn(ui, "showToast");
+
+    await ui.confirmResetApp();
+
+    expect(request).toHaveBeenCalledTimes(confirmed ? 1 : 0);
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  it("does not request or toast when a pending confirmation outlives the UI", async () => {
+    let resolveConfirmation = () => {};
+    const confirmation = new Promise((resolve) => {
+      resolveConfirmation = resolve;
+    });
+    const confirmDialog = { confirm: vi.fn(() => confirmation) };
+    ui.destroy();
+    ui = new HeaderMenuUI({
+      eventBus: eventBusFixture.eventBus,
+      document,
+      confirmDialog,
+      i18n: { t: (key) => key },
+    });
+    ui.init();
+    const request = vi.spyOn(ui, "request");
+    const toast = vi.spyOn(ui, "showToast");
+
+    const pending = ui.confirmResetApp();
+    ui.destroy();
+    resolveConfirmation(true);
+    await pending;
+
+    expect(request).not.toHaveBeenCalled();
+    expect(toast).not.toHaveBeenCalled();
   });
 });

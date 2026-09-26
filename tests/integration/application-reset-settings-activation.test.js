@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AutoSync from "../../src/js/components/services/AutoSync.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
+import ApplicationResetService from "../../src/js/components/services/ApplicationResetService.js";
 import StorageService from "../../src/js/components/services/StorageService.js";
+import LocalStorageProjectRepository from "../../src/js/components/storage/LocalStorageProjectRepository.js";
+import { request } from "../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../fixtures/index.js";
 
 function createProfile() {
@@ -28,6 +31,7 @@ describe("application reset settings activation", () => {
   let settingsRepository;
   let coordinator;
   let preferences;
+  let resetService;
   let autoSync;
   let i18n;
 
@@ -71,6 +75,12 @@ describe("application reset settings activation", () => {
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
       storage,
+      projectRepository: new LocalStorageProjectRepository({
+        storage: localStorage,
+        version: storage.version,
+        now: () => new Date().toISOString(),
+        settingsDefaults: createPreferencesState().settings,
+      }),
       i18n,
       defaultProfiles: {},
     });
@@ -86,9 +96,14 @@ describe("application reset settings activation", () => {
     });
     preferences.init();
     await preferences.initialStateReady;
-    storage.setPreferencesTransitionRunner((source, operation) =>
-      preferences.runExternalActivationTransition(source, operation),
-    );
+    resetService = new ApplicationResetService({
+      eventBus: fixture.eventBus,
+      runPreferencesResetTransition: (operation) =>
+        preferences.runApplicationResetTransition(operation),
+      runDataResetTransition: (operation) =>
+        coordinator.runApplicationResetTransition(operation),
+    });
+    resetService.init();
 
     autoSync = new AutoSync({
       eventBus: fixture.eventBus,
@@ -100,6 +115,7 @@ describe("application reset settings activation", () => {
 
   afterEach(() => {
     autoSync?.destroy();
+    resetService?.destroy();
     preferences?.destroy();
     coordinator?.destroy();
     storage?.destroy();
@@ -124,7 +140,20 @@ describe("application reset settings activation", () => {
     const revision = preferences.getCurrentState().revision;
     fixture.eventBusFixture.clearEventHistory();
 
-    await expect(storage.handleAppReset()).resolves.toBe(true);
+    await expect(
+      request(fixture.eventBus, "application:reset", {}, 0),
+    ).resolves.toMatchObject({
+      success: true,
+      receipt: {
+        rootClear: { status: "complete", committed: true },
+        backupClear: { status: "complete", committed: true },
+        resetSentinel: { status: "complete", committed: true },
+        dataOwnerAdoption: { status: "complete", committed: true },
+        settingsClear: { status: "complete", committed: true },
+        settingsDefaults: { status: "complete", committed: true },
+        preferencesOwnerAdoption: { status: "complete", committed: true },
+      },
+    });
 
     expect(localStorage.getItem(storage.storageKey)).toBeNull();
     expect(localStorage.getItem(storage.backupKey)).toBeNull();
@@ -176,8 +205,8 @@ describe("application reset settings activation", () => {
     );
   });
 
-  it("keeps the reset durable and recovers stale Preferences state on owner restart", async () => {
-    const dataRevision = coordinator.getCurrentState().revision;
+  it("keeps live Data unchanged on settings failure and reconciles the cleared root on owner restart", async () => {
+    const dataBefore = coordinator.getCurrentState();
     const preferencesBefore = preferences.getCurrentState();
     vi.spyOn(settingsRepository, "replace").mockReturnValueOnce({
       status: "write_failed",
@@ -192,17 +221,31 @@ describe("application reset settings activation", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     fixture.eventBusFixture.clearEventHistory();
 
-    await expect(storage.handleAppReset()).resolves.toBe(false);
+    await expect(
+      request(fixture.eventBus, "application:reset", {}, 0),
+    ).resolves.toMatchObject({
+      success: false,
+      stage: "settingsDefaults",
+      durable: true,
+      receipt: {
+        rootClear: { status: "complete", committed: true },
+        settingsClear: { status: "complete", committed: true },
+        settingsDefaults: {
+          status: "failed",
+          committed: "indeterminate",
+        },
+      },
+    });
 
     expect(localStorage.getItem(storage.storageKey)).toBeNull();
     expect(localStorage.getItem(storage.backupKey)).toBeNull();
     expect(localStorage.getItem("sto_keybind_settings")).toBeNull();
     expect(localStorage.getItem("sto_app_reset")).toBe("true");
+    expect(coordinator.getCurrentState()).toBe(dataBefore);
     expect(coordinator.getCurrentState()).toMatchObject({
       ready: true,
-      revision: dataRevision + 1,
-      currentProfile: null,
-      profiles: {},
+      currentProfile: "captain",
+      profiles: { captain: expect.any(Object) },
     });
     expect(preferences.getCurrentState()).toBe(preferencesBefore);
     expect(autoSync.isEnabled).toBe(true);
@@ -211,10 +254,31 @@ describe("application reset settings activation", () => {
     expect(fixture.eventBusFixture.getEventsOfType("toast:show")).toHaveLength(
       0,
     );
+    expect(
+      fixture.eventBusFixture.getEventsOfType("data:state-changed"),
+    ).toHaveLength(0);
+    expect(
+      fixture.eventBusFixture.getEventsOfType("profile:updated"),
+    ).toHaveLength(0);
 
     const staleEpoch = preferencesBefore.authorityEpoch;
     preferences.destroy();
+    coordinator.destroy();
     fixture.eventBusFixture.clearEventHistory();
+    coordinator = new DataCoordinator({
+      eventBus: fixture.eventBus,
+      storage,
+      projectRepository: new LocalStorageProjectRepository({
+        storage: localStorage,
+        version: storage.version,
+        now: () => new Date().toISOString(),
+        settingsDefaults: createPreferencesState().settings,
+      }),
+      i18n,
+      defaultProfiles: {},
+    });
+    coordinator.init();
+    await coordinator.initialStateReady;
     preferences = new PreferencesService({
       eventBus: fixture.eventBus,
       settingsRepository,
@@ -224,6 +288,12 @@ describe("application reset settings activation", () => {
     });
     preferences.init();
     await preferences.initialStateReady;
+
+    expect(coordinator.getCurrentState()).toMatchObject({
+      ready: true,
+      currentProfile: null,
+      profiles: {},
+    });
 
     expect(preferences.getCurrentState()).toMatchObject({
       authorityEpoch: staleEpoch + 1,
@@ -268,12 +338,12 @@ describe("application reset settings activation", () => {
       expect(i18n.changeLanguage).toHaveBeenCalledWith("fr");
     });
     const queuedMutation = preferences.setSetting("theme", "default");
-    const reset = storage.handleAppReset();
+    const reset = request(fixture.eventBus, "application:reset", {}, 0);
 
     await Promise.resolve();
     expect(localStorage.getItem(storage.storageKey)).not.toBeNull();
     expect(
-      fixture.eventBusFixture.getEventsOfType("storage:data-reset"),
+      fixture.eventBusFixture.getEventsOfType("data:state-changed"),
     ).toHaveLength(0);
     expect(saveSettings).toHaveBeenCalledOnce();
     expect(
@@ -286,7 +356,7 @@ describe("application reset settings activation", () => {
     releaseLanguage();
     await expect(firstMutation).resolves.toBe(true);
     await expect(queuedMutation).resolves.toBe(true);
-    await expect(reset).resolves.toBe(true);
+    await expect(reset).resolves.toMatchObject({ success: true });
 
     expect(saveSettings).toHaveBeenCalledTimes(3);
     expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(

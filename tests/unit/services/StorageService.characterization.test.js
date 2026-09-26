@@ -413,106 +413,26 @@ describe("StorageService persisted-format characterization", () => {
     });
   });
 
-  it("writes and consumes the reset sentinel while preserving unrelated local state", () => {
-    const root = readFixtureJson("complete-current-root.json");
-    const settings = readFixtureJson("complete-current-settings.json");
-    const sentinel = readFixtureJson("reset-sentinel.json");
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(root));
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    localStorage.setItem("sto_keybind_manager_visited", "true");
-    localStorage.setItem("keyViewMode", "categorized");
+  it("invalidates cached reads without mutating persistent storage", () => {
+    const originalRoot = readFixtureJson("complete-current-root.json");
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(originalRoot));
 
-    const resettingService = startStorage();
-    expect(resettingService.clearAllData()).toBe(true);
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
-    expect(localStorage.getItem(BACKUP_KEY)).toBeNull();
-    // Standalone settings are now outside the project reset capability. The
-    // Preferences reset owner clears and verifies defaults in its own stage.
-    expect(readPersistedJson(SETTINGS_KEY)).toEqual(settings);
-    expect(localStorage.getItem(sentinel.key)).toBe(sentinel.value);
+    const service = startStorage();
+    const cachedRoot = service.getAllData();
+    const replacementRoot = {
+      ...originalRoot,
+      currentProfile: null,
+      profiles: {},
+      lastModified: "2026-07-15T13:00:00.000Z",
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(replacementRoot));
+    const persistedBeforeInvalidation = localStorage.getItem(STORAGE_KEY);
 
-    resettingService.destroy();
-    const restartedService = startStorage();
+    expect(service.getAllData()).toBe(cachedRoot);
 
-    expect(localStorage.getItem(sentinel.key)).toBeNull();
-    expect(readPersistedJson(STORAGE_KEY)).toEqual(
-      readFixtureJson("recovered-empty-root.json"),
-    );
-    expect(localStorage.getItem(BACKUP_KEY)).toBeNull();
-    expect(localStorage.getItem("sto_keybind_manager_visited")).toBe("true");
-    expect(localStorage.getItem("keyViewMode")).toBe("categorized");
-    expect(restartedService.getAllData().profiles).toEqual({});
+    service.invalidateCache();
+
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(persistedBeforeInvalidation);
+    expect(service.getAllData()).toMatchObject(replacementRoot);
   });
-
-  it.each([
-    {
-      label: "root removal",
-      removeItemErrorKeys: [STORAGE_KEY],
-      expected: { root: true, backup: true, settings: true },
-    },
-    {
-      label: "backup removal",
-      removeItemErrorKeys: [BACKUP_KEY],
-      expected: { root: false, backup: true, settings: true },
-    },
-    {
-      label: "reset sentinel write",
-      setItemErrorKeys: ["sto_app_reset"],
-      expected: { root: false, backup: false, settings: true },
-    },
-  ])(
-    "invalidates its cache and stays silent after failed $label",
-    async ({ removeItemErrorKeys, setItemErrorKeys, expected }) => {
-      const originalRoot = readFixtureJson("complete-current-root.json");
-      const settings = readFixtureJson("complete-current-settings.json");
-      const localFixture = createLocalStorageFixture({
-        initialData: {
-          [STORAGE_KEY]: originalRoot,
-          [SETTINGS_KEY]: settings,
-          unrelated: "preserved",
-        },
-        removeItemErrorKeys,
-        setItemErrorKeys,
-      });
-      vi.spyOn(console, "error").mockImplementation(() => {});
-      const service = new StorageService({
-        eventBus: eventBusFixture.eventBus,
-        version: STORAGE_VERSION,
-        runPreferencesTransition: (_source, operation) =>
-          operation(
-            async () => ({
-              success: true,
-              changed: true,
-              revision: 2,
-              effects: "applied",
-            }),
-            () => {},
-          ),
-      });
-      services.push(service);
-
-      try {
-        service.init();
-        const request = vi.spyOn(service, "request");
-        eventBusFixture.clearEventHistory();
-
-        await expect(service.handleAppReset()).resolves.toBe(false);
-
-        expect(Boolean(localStorage.getItem(STORAGE_KEY))).toBe(expected.root);
-        expect(Boolean(localStorage.getItem(BACKUP_KEY))).toBe(expected.backup);
-        expect(Boolean(localStorage.getItem(SETTINGS_KEY))).toBe(
-          expected.settings,
-        );
-        expect(localStorage.getItem("sto_app_reset")).toBeNull();
-        expect(localStorage.getItem("unrelated")).toBe("preserved");
-        expect(service._cachedData).toBeNull();
-        expect(
-          eventBusFixture.getEventsOfType("storage:data-reset"),
-        ).toHaveLength(0);
-        expect(request).not.toHaveBeenCalled();
-      } finally {
-        localFixture.destroy();
-      }
-    },
-  );
 });

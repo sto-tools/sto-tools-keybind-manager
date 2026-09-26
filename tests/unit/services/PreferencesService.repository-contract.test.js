@@ -228,7 +228,7 @@ describe("Preferences repository ownership contract", () => {
     expectNoSuccess();
   });
 
-  it("closes retained import capabilities and forbids them in reset leases", async () => {
+  it("closes a retained import capability after its lease", async () => {
     await start();
     let retained;
     await service.runExternalActivationTransition(
@@ -239,14 +239,6 @@ describe("Preferences repository ownership contract", () => {
     );
     await expect(retained({ theme: "default" })).rejects.toThrow(
       "operation_cancelled",
-    );
-    await service.runExternalActivationTransition(
-      "application-reset",
-      async (_activate, _assert, persist) => {
-        await expect(persist({ theme: "default" })).rejects.toThrow(
-          "preferences_import_persistence_unavailable",
-        );
-      },
     );
     expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
   });
@@ -364,57 +356,6 @@ describe("Preferences repository ownership contract", () => {
     expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     release();
     await expect(lease).resolves.toBe("callback-settled");
-  });
-
-  it("does not adopt reset defaults when clear succeeds but defaults verification fails", async () => {
-    await start();
-    const before = service.getCurrentState();
-    fixture.settingsRepository.replace.mockReturnValueOnce(
-      verificationFailed(),
-    );
-    await expect(
-      service.activatePersistedSettings("application-reset"),
-    ).resolves.toMatchObject({
-      success: false,
-      params: { reason: "preferences_settings_verification_failed" },
-    });
-    expect(fixture.settingsRepository.clear).toHaveBeenCalledOnce();
-    expect(fixture.settingsRepository.replace).toHaveBeenCalledOnce();
-    expect(fixture.settingsRepository.load).not.toHaveBeenCalled();
-    expect(service.getCurrentState()).toBe(before);
-    expectNoSuccess();
-  });
-
-  it("retains owner state after an indeterminate repository reset-clear receipt", async () => {
-    await start();
-    const before = service.getCurrentState();
-    fixture.settingsRepository.clear.mockReturnValueOnce({
-      status: "clear_failed",
-      removal: {
-        status: "indeterminate",
-        error: "storage_write_failed",
-        category: "security",
-      },
-    });
-
-    await expect(
-      service.activatePersistedSettings("application-reset"),
-    ).resolves.toEqual({
-      success: false,
-      error: "preferences_activation_failed",
-      params: { reason: "preferences_settings_clear_failed" },
-      retryable: true,
-    });
-
-    expect(fixture.settingsRepository.clear).toHaveBeenCalledOnce();
-    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
-    expect(fixture.settingsRepository.load).not.toHaveBeenCalled();
-    expect(service.getCurrentState()).toBe(before);
-    expect(service.getSettings()).toEqual(before.settings);
-    expect(
-      fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
-    ).toHaveLength(0);
-    expectNoSuccess();
   });
 
   it.each(["repair_required", "read_failed"])(

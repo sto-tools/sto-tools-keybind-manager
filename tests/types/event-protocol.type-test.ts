@@ -91,6 +91,7 @@ type RetiredListenersAreAbsent = Expect<
   Equal<Extract<EventTopic, RetiredListenerTopics>, never>
 >;
 type RetiredProducerTopics =
+  | "app:reset-confirmed"
   | "app:reset-complete"
   | "app:reset-failed"
   | "bindset-operation:completed"
@@ -110,6 +111,7 @@ type RetiredProducerTopics =
   | "settings:changed"
   | "storage:backup-created"
   | "storage:data-cleared"
+  | "storage:data-reset"
   | "storage:settings-changed"
   | "update"
   | "vfx:settings-changed";
@@ -711,8 +713,12 @@ bus.emit("settings:changed", {
 });
 // @ts-expect-error Storage backup success is proven by the persisted backup artifact.
 bus.emit("storage:backup-created", { backup: retiredStorageBackup });
-// @ts-expect-error Direct clearing returns its result; application reset publishes storage:data-reset.
+// @ts-expect-error Application reset is a typed action with authoritative owner publications.
 bus.emit("storage:data-cleared");
+// @ts-expect-error The Data owner now publishes reset state directly.
+bus.emit("storage:data-reset", { data: {} });
+// @ts-expect-error Confirmation invokes the typed application reset action.
+bus.emit("app:reset-confirmed", null);
 // @ts-expect-error Storage writes return a boolean; preferences own runtime settings broadcasts.
 bus.emit("storage:settings-changed", { settings: { autoSync: true } });
 // @ts-expect-error VFX state is projected from the accepted coordinator snapshot.

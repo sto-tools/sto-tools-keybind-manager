@@ -1,5 +1,10 @@
 import type { NoPayloadRpc, OptionalRpc, RequiredRpc } from "./base.js";
 import type { ProjectImportResult } from "./import-export.js";
+import type {
+  ApplicationPreferencesResetReceipt,
+  ApplicationProjectResetReceipt,
+  DurableStageReceipt,
+} from "../storage-contracts.js";
 
 export type { EditingContext } from "../events/base.js";
 
@@ -59,7 +64,32 @@ export type ProjectRestoreResult =
       activation: ProjectRestorePendingActivation;
     };
 
+export type ApplicationResetReceipt = {
+  validation: DurableStageReceipt;
+} & ApplicationProjectResetReceipt &
+  ApplicationPreferencesResetReceipt;
+
+export type ApplicationResetResult =
+  | { success: true; receipt: ApplicationResetReceipt }
+  | {
+      success: false;
+      error: "application_reset_failed" | "invalid_reset_request";
+      stage:
+        | "validation"
+        | "rootClear"
+        | "backupClear"
+        | "resetSentinel"
+        | "dataOwnerAdoption"
+        | "settingsClear"
+        | "settingsDefaults"
+        | "preferencesOwnerAdoption";
+      durable: false | "indeterminate" | true;
+      params: { reason: string };
+      receipt: ApplicationResetReceipt;
+    };
+
 export interface ApplicationRpcProtocol {
+  "application:reset": NoPayloadRpc<ApplicationResetResult>;
   "project:retry-restore-activation": NoPayloadRpc<ProjectRestoreResult>;
   "project:restore-from-content": RequiredRpc<
     { content: string; fileName?: string },

@@ -22,6 +22,7 @@ const profile = (name, currentEnvironment = "space") => ({
 describe("DataCoordinator complete state snapshots", () => {
   let fixture;
   let coordinator;
+  let projectRepository;
 
   beforeEach(() => {
     localStorage.setItem("sto_keybind_manager_visited", "true");
@@ -36,9 +37,18 @@ describe("DataCoordinator complete state snapshots", () => {
       version: "1.0.0",
       lastModified: "2026-07-16T00:00:00.000Z",
     });
+    projectRepository = {
+      reset: vi.fn(() => ({
+        status: "reset",
+        rootRemoval: { status: "acknowledged" },
+        backupRemoval: { status: "acknowledged" },
+        sentinelWrite: { status: "acknowledged" },
+      })),
+    };
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
       storage: fixture.storage,
+      projectRepository,
       i18n: { t: (key) => key },
     });
   });
@@ -244,14 +254,15 @@ describe("DataCoordinator complete state snapshots", () => {
     await initialize();
     clearEvents();
 
-    const resetData = {
-      currentProfile: null,
-      profiles: {},
-      settings: { language: "fr" },
-      version: "2.0.0",
-      lastModified: "2026-07-16T01:00:00.000Z",
-    };
-    fixture.eventBus.emit("storage:data-reset", { data: resetData });
+    const reset = await coordinator.runApplicationResetTransition(
+      async ({ resetProjectPersistence, adoptEmptyProject }) => {
+        const persistence = await resetProjectPersistence();
+        expect(persistence.success).toBe(true);
+        return adoptEmptyProject();
+      },
+    );
+    expect(reset.result.success).toBe(true);
+    await reset.settlement;
 
     let events = fixture.getEventHistory();
     expect(
@@ -269,13 +280,14 @@ describe("DataCoordinator complete state snapshots", () => {
         currentEnvironment: "space",
         profiles: {},
         metadata: {
-          version: "2.0.0",
-          lastModified: "2026-07-16T01:00:00.000Z",
+          version: "1.0.0",
+          lastModified: expect.any(String),
         },
       },
     });
-    resetData.settings.language = "caller mutation";
     expect(coordinator.state).not.toHaveProperty("settings");
+    expect(projectRepository.reset).toHaveBeenCalledTimes(1);
+    expect(fixture.storage.invalidateCache).toHaveBeenCalledTimes(1);
 
     clearEvents();
     fixture.storage.getAllData.mockReturnValueOnce({

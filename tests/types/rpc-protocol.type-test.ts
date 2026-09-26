@@ -19,6 +19,7 @@ import type {
   KeyViewMode,
 } from "../../src/js/types/events/base.js";
 import type {
+  ApplicationResetResult,
   ProjectRestorePendingActivation,
   ProjectRestoreResult,
   SyncFolderSelectionResult,
@@ -124,7 +125,7 @@ type PreferencesMutationResult = Expect<
 type PreferencesActivationRequest = Expect<
   Equal<
     RpcRequest<"preferences:activate-persisted-settings">,
-    { source: "project-restore" | "application-reset" }
+    { source: "project-restore" }
   >
 >;
 type PreferencesActivationResultIsExact = Expect<
@@ -214,6 +215,12 @@ type ProjectRestoreRequestIsExact = Expect<
 >;
 type ProjectRestoreResultIsExact = Expect<
   Equal<RpcResult<"project:restore-from-content">, ProjectRestoreResult>
+>;
+type ApplicationResetRequestIsEmpty = Expect<
+  Equal<RpcRequest<"application:reset">, RpcEmptyPayload>
+>;
+type ApplicationResetResultIsExact = Expect<
+  Equal<RpcResult<"application:reset">, ApplicationResetResult>
 >;
 type SyncLoadFailure = Extract<SyncDirectoryLoadResult, { success: false }>;
 type SyncLoadExcludesSelectionCompensationFailure = Expect<
@@ -578,6 +585,12 @@ async function exerciseCoreApi() {
   await request(eventBus, "parser:clear-cache", undefined, 25);
   // @ts-expect-error No-payload topics reject non-empty payload objects.
   request(eventBus, "parser:clear-cache", { unexpected: true });
+
+  const resetResult = await request(eventBus, "application:reset", {}, 0);
+  const typedResetResult: ApplicationResetResult = resetResult;
+  void typedResetResult;
+  // @ts-expect-error Application reset accepts no request data.
+  request(eventBus, "application:reset", { force: true }, 0);
 
   const nextViewMode = await request(eventBus, "key:cycle-view-mode");
   const closedViewMode: KeyViewMode = nextViewMode;
@@ -996,6 +1009,7 @@ async function exerciseCoreApi() {
     // @ts-expect-error Failure receipts do not claim a revision.
     preferencesActivation.revision;
   }
+  // @ts-expect-error Application reset has its own owner-coordinated action.
   request(eventBus, "preferences:activate-persisted-settings", {
     source: "application-reset",
   });

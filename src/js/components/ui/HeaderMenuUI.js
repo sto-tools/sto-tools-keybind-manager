@@ -25,6 +25,8 @@ export default class HeaderMenuUI extends UIComponentBase {
     this.document = resolveDocument(document);
     this.confirmDialog = confirmDialog ?? null;
     this.i18n = resolveI18n(i18n);
+    this._resetRequestGeneration = 0;
+    this._resetRequestInFlight = false;
   }
 
   onInit() {
@@ -116,7 +118,7 @@ export default class HeaderMenuUI extends UIComponentBase {
     });
 
     this.onDom("resetAppBtn", "click", () => {
-      this.confirmResetApp();
+      void this.confirmResetApp();
     });
 
     // Language selection - using EventBus with built-in protection
@@ -181,20 +183,57 @@ export default class HeaderMenuUI extends UIComponentBase {
 
   // Confirm app reset with user
   async confirmResetApp() {
-    if (!this.confirmDialog) return;
+    if (!this.confirmDialog || this._resetRequestInFlight) return;
 
     const message = this.i18n.t("confirm_reset_application");
     const title = this.i18n.t("confirm_reset_app");
+    const generation = this._resetRequestGeneration;
 
-    if (
-      await this.confirmDialog.confirm(
+    let confirmed = false;
+    try {
+      confirmed = await this.confirmDialog.confirm(
         message,
         title,
         "danger",
         "resetApplication",
-      )
+      );
+    } catch {
+      return;
+    }
+    if (
+      !confirmed ||
+      generation !== this._resetRequestGeneration ||
+      this.destroyed
     ) {
-      this.emit("app:reset-confirmed");
+      return;
+    }
+
+    this._resetRequestInFlight = true;
+    try {
+      const result = await this.request("application:reset", {}, 0);
+      const success = Object.getOwnPropertyDescriptor(
+        Object(result),
+        "success",
+      );
+      if (
+        generation === this._resetRequestGeneration &&
+        !this.destroyed &&
+        success?.enumerable &&
+        "value" in success &&
+        success.value === true
+      ) {
+        this.showToast(
+          this.i18n.t("application_reset_successfully"),
+          "success",
+        );
+      }
+    } catch {
+      // The reset action owns its structured failure result. Header feedback is
+      // deliberately success-only so a transport failure cannot claim reset.
+    } finally {
+      if (generation === this._resetRequestGeneration) {
+        this._resetRequestInFlight = false;
+      }
     }
   }
 
@@ -202,5 +241,7 @@ export default class HeaderMenuUI extends UIComponentBase {
     // DOM and application listeners are cleaned up by ComponentBase. Reset the
     // installation guard so the same instance can own them again after reinit.
     this.eventListenersSetup = false;
+    this._resetRequestGeneration += 1;
+    this._resetRequestInFlight = false;
   }
 }

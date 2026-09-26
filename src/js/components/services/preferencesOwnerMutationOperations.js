@@ -10,7 +10,6 @@ import {
 import {
   materializeCanonicalPreferences,
   materializeSettingsLoadResult,
-  materializeSettingsClearResult,
 } from "./preferencesRepositoryBoundary.js";
 import {
   isSettingsRecord,
@@ -27,7 +26,6 @@ import {
 /** @typedef {import('../../types/rpc/parameters-preferences.js').PreferencesActivationSource} PreferencesActivationSource */
 /** @typedef {import('../../types/rpc/parameters-preferences.js').SyncFolderSettingsMutation} SyncFolderSettingsMutation */
 /** @typedef {(patch: unknown) => Promise<import('../../types/storage-contracts.js').SettingsWriteResult>} PersistImportedPreferences */
-
 /** @param {import('./PreferencesService.js').default} owner */
 export function savePreferenceSettings(owner) {
   const generation = owner._readyMutationGeneration();
@@ -294,25 +292,7 @@ export async function activatePersistedPreferencesWithinMutation(
 
   /** @type {PreferencesSettings | null} */
   let nextSettings = null;
-  if (source === "application-reset") {
-    const removal = materializeSettingsClearResult(
-      owner.settingsRepository.clear(),
-    );
-    if (
-      removal?.status !== "cleared" ||
-      removal.removal?.status !== "acknowledged"
-    ) {
-      throw new Error("preferences_settings_clear_failed");
-    }
-    owner._assertCurrentLifecycle(generation);
-    const defaults = materializeCanonicalPreferences(owner.defaultSettings);
-    if (!defaults) throw new Error("invalid_preferences_defaults");
-    const persisted = owner.persistSettings(defaults);
-    owner._assertCurrentLifecycle(generation);
-    if (persisted?.status !== "committed")
-      throw new Error("preferences_settings_verification_failed");
-    nextSettings = persisted.value;
-  } else if (stagedSettings !== undefined) {
+  if (stagedSettings !== undefined) {
     nextSettings = materializeCanonicalPreferences(stagedSettings);
   } else {
     const loaded = materializeSettingsLoadResult(
@@ -340,9 +320,7 @@ export async function activatePersistedPreferencesWithinMutation(
   const nextState = owner._adoptPreparedTransition(prepared);
   const activation = await owner._applyAndPublishTransition(
     nextState,
-    source === "project-restore"
-      ? "project-settings-activated"
-      : "settings-reset",
+    "project-settings-activated",
     { generation, localizeCommands: activateLanguage },
   );
   owner._languageActivationDirty = activation.languageActivationFailed;
@@ -372,8 +350,7 @@ export async function activatePersistedPreferencesWithinMutation(
  * serialized mutation boundary.
  *
  * Project restore is read-only because the import stage already wrote the
- * acknowledged record. Application reset clears the record inside this same
- * queue operation before adopting defaults.
+ * acknowledged record.
  *
  * @param {import('./PreferencesService.js').default} owner
  * @param {PreferencesActivationSource} source

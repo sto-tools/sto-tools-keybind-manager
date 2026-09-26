@@ -32,6 +32,7 @@ import {
   runExternalPreferencesActivation,
   savePreferenceSettings,
 } from "./preferencesOwnerMutationOperations.js";
+import { runApplicationPreferencesReset } from "./preferencesApplicationReset.js";
 import { activateImportedPreferences } from "./preferencesImportActivation.js";
 import {
   createPreferencesStateSnapshot,
@@ -379,6 +380,20 @@ export default class PreferencesService extends ComponentBase {
   }
 
   /**
+   * Hold the Preferences mutation queue across the application reset workflow.
+   * The reset-only owner capability invokes its publications while the queue is
+   * held, but returns their settlement separately so callers can wait only after
+   * this lease has closed.
+   *
+   * @template Result
+   * @param {(capabilities: import('./preferencesApplicationReset.js').PreferencesResetCapabilities) => Result | Promise<Result>} operation
+   * @returns {Promise<Result>}
+   */
+  runApplicationResetTransition(operation) {
+    return runApplicationPreferencesReset(this, operation);
+  }
+
+  /**
    * Persist and publish the selected sync folder without applying settings or
    * emitting preferences:saved. The next saved publication, normally produced
    * by the Preferences modal Save action, remains SyncService's established
@@ -464,7 +479,7 @@ export default class PreferencesService extends ComponentBase {
    * normal saved/changed receipts continue after logging the effect failure.
    * @param {import('../../types/events/component-state.js').PreferencesStateSnapshot} state
    * @param {import('../../types/events/preferences.js').PreferencesStateChangeReason} reason
-   * @param {{ generation: number, localizeCommands: boolean }} application
+   * @param {{ generation: number, localizeCommands: boolean, synchronousPublication?: boolean }} application
    */
   async _applyAndPublishTransition(state, reason, application) {
     /** @type {unknown} */
@@ -478,7 +493,9 @@ export default class PreferencesService extends ComponentBase {
     }
     this._assertCurrentLifecycle(application.generation);
     this._currentStateSnapshot = state;
-    this._publishState(reason, state);
+    const stateSettlement = application.synchronousPublication
+      ? this._publishStateReceipt(reason, state, { synchronous: true })
+      : this._publishStateReceipt(reason, state);
     this._assertCurrentLifecycle(application.generation);
     reportPreferencesActivationError(applicationError);
     return {
@@ -487,6 +504,7 @@ export default class PreferencesService extends ComponentBase {
         applicationError instanceof PreferencesApplicationEffectsError
           ? applicationError.languageActivationFailed
           : Boolean(effectsDegraded && application.localizeCommands),
+      stateSettlement,
     };
   }
 
@@ -513,8 +531,18 @@ export default class PreferencesService extends ComponentBase {
    * @param {import('../../types/events/component-state.js').PreferencesStateSnapshot} [state]
    */
   _publishState(reason, state = this.getCurrentState()) {
-    this.emit("preferences:state-changed", { reason, state });
+    this._publishStateReceipt(reason, state);
     return state;
+  }
+
+  /**
+   * @param {import('../../types/events/preferences.js').PreferencesStateChangeReason} reason
+   * @param {import('../../types/events/component-state.js').PreferencesStateSnapshot} state
+   * @param {import('../../types/events/protocol.js').EventEmitOptions} [options]
+   * @returns {import('../../types/events/protocol.js').EventEmitResult}
+   */
+  _publishStateReceipt(reason, state, options) {
+    return this.emit("preferences:state-changed", { reason, state }, options);
   }
 
   // Late-join state sharing

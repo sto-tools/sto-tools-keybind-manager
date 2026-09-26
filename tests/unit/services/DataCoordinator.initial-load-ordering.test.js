@@ -244,7 +244,7 @@ describe("DataCoordinator initial-load ordering", () => {
     expect(fixture.eventBus.getListenerCount("rpc:data:create-profile")).toBe(
       1,
     );
-    expect(fixture.eventBus.getListenerCount("storage:data-reset")).toBe(1);
+    expect(fixture.eventBus.getListenerCount("storage:data-reset")).toBe(0);
     const priorReadyState = coordinator.getCurrentState();
 
     coordinator.destroy();
@@ -288,9 +288,6 @@ describe("DataCoordinator initial-load ordering", () => {
       replyTopic: "rpc:test:blocked-create",
       payload: { name: "Blocked" },
     });
-    fixture.eventBus.emit("storage:data-reset", {
-      data: { currentProfile: null, profiles: {}, settings: {} },
-    });
     expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
     expect(coordinator.state.currentProfile).toBe("stale");
 
@@ -300,7 +297,7 @@ describe("DataCoordinator initial-load ordering", () => {
     expect(fixture.eventBus.getListenerCount("rpc:data:create-profile")).toBe(
       1,
     );
-    expect(fixture.eventBus.getListenerCount("storage:data-reset")).toBe(1);
+    expect(fixture.eventBus.getListenerCount("storage:data-reset")).toBe(0);
     expect(fixture.eventBus.getListenerCount("data:load-default")).toBe(1);
   });
 

@@ -7,6 +7,7 @@ describe("STOToolsKeybindManager dependencies", () => {
     const dependencies = {
       i18n: { t: (key) => key },
       storageService: { name: "storage" },
+      applicationDataResetTransitionRunner: vi.fn(),
       ui: { showToast: () => {} },
       syncService: { name: "sync" },
       applyTranslations: () => {},
@@ -16,6 +17,9 @@ describe("STOToolsKeybindManager dependencies", () => {
 
     expect(app.i18n).toBe(dependencies.i18n);
     expect(app.storageService).toBe(dependencies.storageService);
+    expect(app.applicationDataResetTransitionRunner).toBe(
+      dependencies.applicationDataResetTransitionRunner,
+    );
     expect(app.ui).toBe(dependencies.ui);
     expect(app.syncService).toBe(dependencies.syncService);
     expect(app.applyTranslations).toBe(dependencies.applyTranslations);

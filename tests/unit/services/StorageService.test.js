@@ -3,13 +3,9 @@ import { createServiceFixture } from "../../fixtures/index.js";
 import StorageService from "../../../src/js/components/services/StorageService.js";
 import PreferencesService from "../../../src/js/components/services/PreferencesService.js";
 import { createProjectSettingsRepository } from "../../fixtures/services/projectRestore.js";
-import { respond } from "../../../src/js/core/requestResponse.js";
 
 describe("StorageService", () => {
   let fixture, storageService, eventBusFixture, mockEventBus;
-  let detachPreferencesActivation;
-  let detachPreferencesTransition;
-  let runPreferencesTransition;
   let settingsRepository;
   let preferencesOwner;
 
@@ -26,45 +22,12 @@ describe("StorageService", () => {
     });
     settingsRepository = createProjectSettingsRepository();
     preferencesOwner = null;
-    detachPreferencesActivation = respond(
-      mockEventBus,
-      "preferences:activate-persisted-settings",
-      () => {
-        expect(settingsRepository.clear().status).toBe("cleared");
-        expect(
-          settingsRepository.replace(storageService.getDefaultSettings())
-            .status,
-        ).toBe("committed");
-        return {
-          success: true,
-          changed: true,
-          revision: 2,
-          effects: "applied",
-        };
-      },
-    );
-    runPreferencesTransition = vi.fn((source, operation) =>
-      operation(
-        () =>
-          storageService.request(
-            "preferences:activate-persisted-settings",
-            { source },
-            0,
-          ),
-        () => {},
-      ),
-    );
-    detachPreferencesTransition = storageService.setPreferencesTransitionRunner(
-      runPreferencesTransition,
-    );
     // Trigger onInit via ComponentBase.init()
     storageService.init();
   });
 
   afterEach(() => {
     preferencesOwner?.destroy();
-    detachPreferencesTransition();
-    detachPreferencesActivation();
     vi.clearAllMocks();
     localStorage.clear();
     fixture.destroy();
@@ -76,9 +39,6 @@ describe("StorageService", () => {
       eventBus: mockEventBus,
       defaults: storageService.getDefaultSettings(),
     });
-    // This owner supplies the real settings actions; the reset facade fixture
-    // above remains intentionally request-backed for its transport tests.
-    detachPreferencesActivation();
     preferencesOwner.init();
     await preferencesOwner.initialStateReady;
     return preferencesOwner;
@@ -241,153 +201,6 @@ describe("StorageService", () => {
         removeItem.mockRestore();
         error.mockRestore();
       }
-    });
-  });
-
-  describe("Application reset", () => {
-    it("clears persisted and cached state before publishing the canonical reset snapshot", async () => {
-      storageService.saveAllData({
-        ...storageService.getAllData(),
-        currentProfile: "captain",
-        profiles: {
-          captain: {
-            id: "captain",
-            name: "Captain",
-            builds: { space: { keys: {} }, ground: { keys: {} } },
-            aliases: {},
-          },
-        },
-      });
-      settingsRepository.replace({
-        ...storageService.getDefaultSettings(),
-        theme: "dark",
-      });
-      expect(storageService.getAllData().currentProfile).toBe("captain");
-      eventBusFixture.clearEventHistory();
-
-      const result = await storageService.handleAppReset();
-
-      expect(result).toBe(true);
-      expect(localStorage.getItem(storageService.storageKey)).toBeNull();
-      expect(localStorage.getItem(storageService.backupKey)).toBeNull();
-      expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
-        storageService.getDefaultSettings(),
-      );
-      expect(localStorage.getItem("sto_app_reset")).toBe("true");
-      const [reset] = eventBusFixture.getEventsOfType("storage:data-reset");
-      expect(storageService.data).toEqual(reset.data.data);
-      expect(storageService.getAllData()).toBe(reset.data.data);
-      expect(reset.data.data).toMatchObject({
-        version: "test-1.0.0",
-        currentProfile: null,
-        profiles: {},
-        globalAliases: {},
-        settings: storageService.getDefaultSettings(),
-      });
-      expect(reset.data.data.created).toEqual(expect.any(String));
-      expect(reset.data.data.lastModified).toEqual(expect.any(String));
-      expect(runPreferencesTransition).toHaveBeenCalledWith(
-        "application-reset",
-        expect.any(Function),
-      );
-      expect(eventBusFixture.getEventsOfType("toast:show")).toEqual([
-        expect.objectContaining({
-          data: {
-            message: "application_reset_successfully",
-            type: "success",
-          },
-        }),
-      ]);
-    });
-
-    it.each([
-      {
-        label: "owner failure",
-        reply: {
-          success: false,
-          error: "preferences_activation_failed",
-          params: { reason: "effect application failed" },
-          retryable: true,
-        },
-      },
-      { label: "malformed owner reply", reply: { success: true } },
-    ])(
-      "retains the durable data reset and prior settings when coordination reports $label",
-      async ({ reply }) => {
-        vi.spyOn(console, "error").mockImplementation(() => {});
-        vi.spyOn(storageService, "request").mockResolvedValue(reply);
-        settingsRepository.replace({
-          ...storageService.getDefaultSettings(),
-          theme: "dark",
-        });
-        eventBusFixture.clearEventHistory();
-
-        await expect(storageService.handleAppReset()).resolves.toBe(false);
-
-        expect(localStorage.getItem(storageService.storageKey)).toBeNull();
-        expect(
-          JSON.parse(localStorage.getItem("sto_keybind_settings")),
-        ).toMatchObject({ theme: "dark" });
-        expect(localStorage.getItem("sto_app_reset")).toBe("true");
-        expect(
-          eventBusFixture.getEventsOfType("storage:data-reset"),
-        ).toHaveLength(1);
-        expect(eventBusFixture.getEventsOfType("toast:show")).toHaveLength(0);
-      },
-    );
-
-    it("retains the durable reset when settings activation transport rejects", async () => {
-      vi.spyOn(console, "error").mockImplementation(() => {});
-      vi.spyOn(storageService, "request").mockRejectedValue(
-        new Error("owner unavailable"),
-      );
-      eventBusFixture.clearEventHistory();
-
-      await expect(storageService.handleAppReset()).resolves.toBe(false);
-
-      expect(localStorage.getItem(storageService.storageKey)).toBeNull();
-      expect(localStorage.getItem("sto_keybind_settings")).toBeNull();
-      expect(localStorage.getItem("sto_app_reset")).toBe("true");
-      expect(
-        eventBusFixture.getEventsOfType("storage:data-reset"),
-      ).toHaveLength(1);
-      expect(eventBusFixture.getEventsOfType("toast:show")).toHaveLength(0);
-    });
-
-    it("returns false without publishing reset state when clearing is rejected", async () => {
-      vi.spyOn(console, "error").mockImplementation(() => {});
-      vi.spyOn(storageService, "clearAllData").mockReturnValue(false);
-      const request = vi.spyOn(storageService, "request");
-      eventBusFixture.clearEventHistory();
-
-      await expect(storageService.handleAppReset()).resolves.toBe(false);
-
-      expect(
-        eventBusFixture.getEventsOfType("storage:data-reset"),
-      ).toHaveLength(0);
-      expect(request).not.toHaveBeenCalled();
-      expect(eventBusFixture.getEventsOfType("toast:show")).toHaveLength(0);
-    });
-
-    it("returns false without publishing reset state when clearing throws", async () => {
-      const failure = new Error("storage unavailable");
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      vi.spyOn(storageService, "clearAllData").mockImplementation(() => {
-        throw failure;
-      });
-      const request = vi.spyOn(storageService, "request");
-      eventBusFixture.clearEventHistory();
-
-      await expect(storageService.handleAppReset()).resolves.toBe(false);
-
-      expect(errorSpy).toHaveBeenCalledWith(
-        "[StorageService] Error during application reset:",
-        failure,
-      );
-      expect(
-        eventBusFixture.getEventsOfType("storage:data-reset"),
-      ).toHaveLength(0);
-      expect(request).not.toHaveBeenCalled();
     });
   });
 

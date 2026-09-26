@@ -238,7 +238,7 @@ describe("PreferencesService transition lifecycle boundaries", () => {
 
     await expect(
       service.runExternalActivationTransition(
-        "application-reset",
+        "project-restore",
         (activatePersistedSettings) => {
           escapedActivation = activatePersistedSettings;
           return "operation-complete";

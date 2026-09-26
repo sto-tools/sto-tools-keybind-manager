@@ -33,6 +33,7 @@ import {
   activateImportedProject,
   replaceProjectFromImport as replaceImportedProject,
 } from "./dataCoordinatorProjectImport.js";
+import { runApplicationDataReset } from "./dataCoordinatorApplicationReset.js";
 import {
   materializeMutationRequest,
   requireMutationString,
@@ -157,6 +158,7 @@ export default class DataCoordinator extends ComponentBase {
    * @param {{
    *   eventBus: import('./serviceTypes.js').EventBus,
    *   storage: import('./serviceTypes.js').Storage,
+   *   projectRepository?: import('../../types/storage-contracts.js').ProjectRepositoryPort | null,
    *   i18n: import('./serviceTypes.js').I18n,
    *   defaultProfiles?: Record<string, unknown>
    * }} options
@@ -164,12 +166,14 @@ export default class DataCoordinator extends ComponentBase {
   constructor({
     eventBus,
     storage,
+    projectRepository = null,
     i18n,
     defaultProfiles = builtInDefaultProfiles,
   }) {
     super(eventBus);
     this.componentName = "DataCoordinator";
     this.storage = storage;
+    this.projectRepository = projectRepository;
     this.i18n = i18n;
     this.defaultProfileDefinitions = defaultProfiles;
 
@@ -204,44 +208,6 @@ export default class DataCoordinator extends ComponentBase {
   }
 
   setupEventListeners() {
-    // Listen for storage reset events
-    this.addEventListener("storage:data-reset", ({ data }) => {
-      console.log("[DataCoordinator] Handling storage reset, reloading state");
-
-      // Update our state to empty/reset state
-      this.state.currentProfile = null;
-      this.state.profiles = {};
-      this.state.currentEnvironment = "space"; // Reset to default environment
-      this.state.metadata = {
-        lastModified: data?.lastModified,
-        version: data?.version || "1.0.0",
-      };
-
-      this._publishState("storage-reset");
-
-      // Broadcast the reset to all components synchronously
-      this.emit(
-        "profile:updated",
-        {
-          profileId: null,
-          profile: null,
-          updateSource: "DataCoordinator-Reset",
-        },
-        { synchronous: true },
-      );
-
-      this.emit(
-        "profile:switched",
-        {
-          profileId: null,
-          profile: null,
-          environment: "space",
-          updateSource: "DataCoordinator-Reset",
-        },
-        { synchronous: true },
-      );
-    });
-
     // Listen for load default data events
     this.addEventListener("data:load-default", (payload) => {
       if (payload !== null) throw new TypeError("invalid_mutation_request");
@@ -326,6 +292,15 @@ export default class DataCoordinator extends ComponentBase {
   /** @param {unknown} project @param {{fingerprint: string}} options @returns {Promise<import('../../types/storage-contracts.js').ImportedProjectActivationResult>} */
   activateProjectFromImport(project, options) {
     return activateImportedProject(this, project, options);
+  }
+
+  /**
+   * Hold the Data mutation queue for the nested application-reset workflow.
+   * @template Result
+   * @param {(capabilities: import('../../types/storage-contracts.js').ApplicationDataResetCapabilities) => Result | Promise<Result>} operation
+   */
+  runApplicationResetTransition(operation) {
+    return runApplicationDataReset(this, operation);
   }
 
   /**

@@ -45,6 +45,7 @@ function createAppHarness(preferencesReady) {
     i18n: { t: (key) => key },
     storageService: {},
     preferencesService,
+    applicationDataResetTransitionRunner: vi.fn(),
     syncService: {},
     ui,
     applyTranslations,
@@ -94,6 +95,10 @@ describe("application Preferences readiness barrier", () => {
     expect(app.modalManagerService.options.applyTranslations).toBe(
       app.applyTranslations,
     );
+    expect(app.applicationResetService.options).toMatchObject({
+      runPreferencesResetTransition: expect.any(Function),
+      runDataResetTransition: app.applicationDataResetTransitionRunner,
+    });
     expect(app.stoCommandParser.args[1]).toEqual({ i18n: app.i18n });
     expect(ready).toHaveBeenCalledOnce();
     await app.ownedComponents.destroyAll();

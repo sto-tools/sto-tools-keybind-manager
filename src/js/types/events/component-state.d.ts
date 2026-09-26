@@ -137,7 +137,7 @@ export interface StorageServiceCapability {
   saveProfile(profileId: string, profile: unknown): boolean;
   deleteProfile(profileId: string): boolean;
   createBackup(): void;
-  clearAllData(): boolean;
+  invalidateCache(): void;
 }
 
 export interface StorageStateSnapshot {

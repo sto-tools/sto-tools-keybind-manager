@@ -43,6 +43,54 @@ export function recordDataCoordinatorPublication(owner, settled) {
   void completion.catch(() => undefined);
 }
 
+/** @param {Promise<unknown>[]} settled */
+async function settleDataCoordinatorPublications(settled) {
+  const observations = await Promise.allSettled(settled);
+  for (const observation of observations) {
+    if (observation.status === "rejected") {
+      console.error(
+        "DataCoordinator publication settlement failed:",
+        observation.reason,
+      );
+    }
+  }
+}
+
+/**
+ * Complete an ordered owner mutation and expose publication settlement without
+ * retaining the writer tail. Cross-owner workflows use this boundary so their
+ * outer lease can be released before they await asynchronous consumers.
+ *
+ * @template Result
+ * @param {DataCoordinator} owner
+ * @param {() => Result | Promise<Result>} operation
+ * @returns {Promise<{result: Result, settlement: Promise<void>}>}
+ */
+export function enqueueDataCoordinatorMutationWithSettlement(owner, operation) {
+  const generation = owner._captureOperationGeneration();
+  const domain = domainFor(owner);
+  const committed = domain.tail.then(async () => {
+    owner._assertCurrentOperation(generation);
+    /** @type {Promise<unknown>[]} */
+    const settled = [];
+    publications.set(owner, settled);
+    try {
+      const result = await operation();
+      return { result, settled };
+    } finally {
+      publications.delete(owner);
+    }
+  });
+  domain.tail = committed.then(
+    () => undefined,
+    () => undefined,
+  );
+  return committed.then(({ result, settled }) => ({
+    result,
+    settlement: settleDataCoordinatorPublications(settled),
+  }));
+}
+
 /**
  * One event-bus domain shares a writer tail across replacement owner instances.
  * Requests must already be validated and detached before entering this helper.
@@ -52,38 +100,14 @@ export function recordDataCoordinatorPublication(owner, settled) {
  * @returns {Promise<Result>}
  */
 export function enqueueDataCoordinatorMutation(owner, operation) {
-  const generation = owner._captureOperationGeneration();
-  const domain = domainFor(owner);
-  const committed = domain.tail.then(async () => {
-    owner._assertCurrentOperation(generation);
-    /** @type {Promise<unknown>[]} */
-    const settled = [];
-    publications.set(owner, settled);
-    try {
-      const value = await operation();
-      return { value, settled };
-    } finally {
-      publications.delete(owner);
-    }
-  });
-  domain.tail = committed.then(
-    () => undefined,
-    () => undefined,
+  return enqueueDataCoordinatorMutationWithSettlement(owner, operation).then(
+    async ({ result, settlement }) => {
+      await settlement;
+      // The operation already persisted, adopted and invoked its publications.
+      // Losing a presentation lifecycle now cannot undo that accepted outcome.
+      return result;
+    },
   );
-  return committed.then(async ({ value, settled }) => {
-    const observations = await Promise.allSettled(settled);
-    for (const observation of observations) {
-      if (observation.status === "rejected") {
-        console.error(
-          "DataCoordinator publication settlement failed:",
-          observation.reason,
-        );
-      }
-    }
-    // The operation already persisted, adopted and invoked its publications.
-    // Losing a presentation lifecycle now cannot undo that accepted outcome.
-    return value;
-  });
 }
 
 /**

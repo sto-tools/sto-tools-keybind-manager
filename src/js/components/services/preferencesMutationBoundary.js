@@ -188,7 +188,7 @@ function createJsonMaterializationContext(
 
 /** @param {unknown} value @returns {value is PreferencesActivationSource} */
 export function isPreferencesActivationSource(value) {
-  return value === "project-restore" || value === "application-reset";
+  return value === "project-restore";
 }
 
 /**
