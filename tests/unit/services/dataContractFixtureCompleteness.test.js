@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -12,6 +13,14 @@ const fixtureDirectory = join(
 
 function readFixture(fileName) {
   return JSON.parse(readFileSync(join(fixtureDirectory, fileName), "utf8"));
+}
+
+function fixtureText(fileName) {
+  return readFileSync(join(fixtureDirectory, fileName), "utf8");
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 const rootFields = [
@@ -104,6 +113,151 @@ function expectOwnFields(value, fields) {
 }
 
 describe("complete persisted-data contract fixture", () => {
+  it("preserves the executable Tranche 0 source, bundle, coverage, and call-ledger record", () => {
+    const baseline = readFixture("tranche-0-baseline.json");
+
+    expect(baseline).toMatchObject({
+      schemaVersion: 1,
+      startingSourceSha: "8bc8655219e47dce1bcdf7f4738e26f49838a5db",
+      productionBundle: {
+        path: "src/dist/bundle.js",
+        sha256:
+          "57bcaa28bb5152143122beb438200ad613982bac23d4fd6a618601bdd828f68b",
+      },
+      coverage: {
+        acceptedSnapshot: {
+          statements: 85.53,
+          branches: 76.88,
+          functions: 84.21,
+          lines: 87.49,
+        },
+        floor: {
+          statements: 85.39,
+          branches: 76.76,
+          functions: 84.06,
+          lines: 87.33,
+        },
+      },
+      ledgerCounts: {
+        directScalarStorageCalls: 34,
+        indexedDbBoundaryBlocks: 8,
+        storageServiceNamedMethodCalls: 49,
+        storageServiceExternalCalls: 33,
+        storageWritesNamedMethodCalls: 6,
+        storageServiceInternalDelegations: 10,
+        storageWritesImplementationCallsIncludingHelperDelegation: 7,
+        activeRepositoryAdapters: 0,
+        routineStateQueryRpcTopics: 0,
+      },
+      testDisposition: {
+        retired: [],
+        rule: "Tranche 0 retires no behavior test or legacy fixture",
+      },
+    });
+  });
+
+  it("reproduces the exact four persisted rollback strings", () => {
+    const baseline = readFixture("tranche-0-baseline.json");
+    const root = JSON.stringify(readFixture("complete-current-root.json"));
+    const settings = JSON.stringify(
+      readFixture("complete-current-settings.json"),
+    );
+    const backup = JSON.stringify({
+      data: root,
+      timestamp: baseline.persistedStrings.previousRootBackup.timestamp,
+      version: baseline.persistedStrings.previousRootBackup.version,
+    });
+    const sentinel = baseline.persistedStrings.resetSentinel.value;
+
+    const materialized = {
+      projectRoot: {
+        key: "sto_keybind_manager",
+        bytes: Buffer.byteLength(root),
+        sha256: sha256(root),
+      },
+      previousRootBackup: {
+        key: "sto_keybind_manager_backup",
+        bytes: Buffer.byteLength(backup),
+        sha256: sha256(backup),
+      },
+      settings: {
+        key: "sto_keybind_settings",
+        bytes: Buffer.byteLength(settings),
+        sha256: sha256(settings),
+      },
+      resetSentinel: {
+        key: "sto_app_reset",
+        value: sentinel,
+        bytes: Buffer.byteLength(sentinel),
+        sha256: sha256(sentinel),
+      },
+    };
+
+    expect(materialized).toEqual(
+      Object.fromEntries(
+        Object.entries(baseline.persistedStrings).map(([name, value]) => [
+          name,
+          Object.fromEntries(
+            Object.entries(value).filter(([field]) =>
+              ["key", "value", "bytes", "sha256"].includes(field),
+            ),
+          ),
+        ]),
+      ),
+    );
+  });
+
+  it("freezes every accepted, legacy, recovery, and rejected storage fixture", () => {
+    const baseline = readFixture("tranche-0-baseline.json");
+    const evidenceFiles = new Set([
+      "tranche-0-active-tests.txt",
+      "tranche-0-baseline.json",
+    ]);
+    const registeredFixtureNames = Object.keys(baseline.fixtureFingerprints);
+    const currentFixtureNames = readdirSync(fixtureDirectory)
+      .filter((fileName) => !evidenceFiles.has(fileName))
+      .sort();
+    const actualFingerprints = Object.fromEntries(
+      registeredFixtureNames.map((fileName) => [
+        fileName,
+        sha256(fixtureText(fileName)),
+      ]),
+    );
+
+    expect(currentFixtureNames).toEqual([...registeredFixtureNames].sort());
+    expect(actualFingerprints).toEqual(baseline.fixtureFingerprints);
+    expect(
+      Object.fromEntries(
+        Object.keys(baseline.artifactFixtureFingerprints).map((fileName) => [
+          fileName,
+          sha256(fixtureText(fileName)),
+        ]),
+      ),
+    ).toEqual(baseline.artifactFixtureFingerprints);
+  });
+
+  it("preserves every active baseline test until it receives a disposition", () => {
+    const baseline = readFixture("tranche-0-baseline.json");
+    const pathList = fixtureText(baseline.activeTests.pathList);
+    const testPaths = pathList.trimEnd().split("\n");
+    const categories = {
+      unit: testPaths.filter((path) => path.startsWith("tests/unit/")).length,
+      integration: testPaths.filter((path) =>
+        path.startsWith("tests/integration/"),
+      ).length,
+      browser: testPaths.filter((path) => path.startsWith("tests/browser/"))
+        .length,
+      types: testPaths.filter((path) => path.startsWith("tests/types/")).length,
+      total: testPaths.length,
+    };
+
+    expect(sha256(pathList)).toBe(baseline.activeTests.sha256);
+    expect(categories).toEqual(baseline.activeTests.counts);
+    expect(
+      testPaths.filter((path) => !existsSync(join(process.cwd(), path))),
+    ).toEqual([]);
+  });
+
   it("materializes every known root, profile, command, alias, and settings field", () => {
     const root = readFixture("complete-current-root.json");
     const profile = root.profiles["complete-profile"];

@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "startingSourceSha": "8bc8655219e47dce1bcdf7f4738e26f49838a5db",
+  "productionBundle": {
+    "path": "src/dist/bundle.js",
+    "sha256": "57bcaa28bb5152143122beb438200ad613982bac23d4fd6a618601bdd828f68b"
+  },
+  "coverage": {
+    "acceptedSnapshot": {
+      "origin": "local prerequisite coverage/coverage-summary.json",
+      "statements": 85.53,
+      "branches": 76.88,
+      "functions": 84.21,
+      "lines": 87.49
+    },
+    "floor": {
+      "statements": 85.39,
+      "branches": 76.76,
+      "functions": 84.06,
+      "lines": 87.33
+    }
+  },
+  "persistedStrings": {
+    "projectRoot": {
+      "key": "sto_keybind_manager",
+      "sourceFixture": "complete-current-root.json",
+      "serialization": "JSON.stringify(JSON.parse(rawFixture))",
+      "bytes": 3060,
+      "sha256": "ebc71e9f34f3a5c967347da3dd8fa7d945ea97ad7b33b04e0a4f589b155b1f31"
+    },
+    "previousRootBackup": {
+      "key": "sto_keybind_manager_backup",
+      "source": "projectRoot",
+      "timestamp": "2026-09-26T00:00:00.000Z",
+      "version": "1.0.0",
+      "serialization": "JSON.stringify({data:projectRoot,timestamp,version})",
+      "bytes": 3546,
+      "sha256": "2096e54c4a03a63f1f57cb140c6239f56a3e38f48cb2213f69cfe25ea6e242e2"
+    },
+    "settings": {
+      "key": "sto_keybind_settings",
+      "sourceFixture": "complete-current-settings.json",
+      "serialization": "JSON.stringify(JSON.parse(rawFixture))",
+      "bytes": 491,
+      "sha256": "1f91784ebef4cea3161aa4731530362b27996d8312be79bd4a1b1cd4b1648a33"
+    },
+    "resetSentinel": {
+      "key": "sto_app_reset",
+      "value": "true",
+      "bytes": 4,
+      "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+    }
+  },
+  "scalarRepresentations": {
+    "visited": {
+      "key": "sto_keybind_manager_visited",
+      "writtenValue": "true",
+      "readRule": "truthy",
+      "rollbackRule": "restore-exact-prior-string-or-absence"
+    },
+    "development": {
+      "key": "dev-mode",
+      "enabledValue": "true",
+      "access": "read-only"
+    },
+    "commandPresentation": {
+      "categoryPattern": "commandCategory_<id>_collapsed",
+      "categoryValues": ["true", "false"],
+      "groupPattern": "commandGroup_<type>_collapsed",
+      "groupCollapsedValue": "true",
+      "groupExpandedValue": null
+    },
+    "keyBrowser": {
+      "viewModeKey": "keyViewMode",
+      "viewModeValues": ["grid", "categorized", "key-types"],
+      "categoryPatterns": [
+        "keyCategory_<id>_collapsed",
+        "keyTypeCategory_<id>_collapsed"
+      ],
+      "bindsetPattern": "bindsetSection_<name>_collapsed",
+      "collapseValues": ["true", "false"]
+    },
+    "syncCapability": {
+      "database": "sto-sync-handles",
+      "store": "directories",
+      "handleKey": "sync-folder",
+      "transitionKey": "sync-folder-transition-pending",
+      "transitionValue": true
+    }
+  },
+  "ledgerCounts": {
+    "directScalarStorageCalls": 34,
+    "indexedDbBoundaryBlocks": 8,
+    "storageServiceNamedMethodCalls": 49,
+    "storageServiceExternalCalls": 33,
+    "storageWritesNamedMethodCalls": 6,
+    "storageServiceInternalDelegations": 10,
+    "storageWritesImplementationCallsIncludingHelperDelegation": 7,
+    "activeRepositoryAdapters": 0,
+    "routineStateQueryRpcTopics": 0
+  },
+  "storageServiceCallsByMethod": {
+    "getAllData": 21,
+    "saveAllData": 6,
+    "getProfile": 8,
+    "saveProfile": 2,
+    "deleteProfile": 1,
+    "getSettings": 6,
+    "saveSettings": 2,
+    "clearSettings": 1,
+    "createBackup": 1,
+    "clearAllData": 1
+  },
+  "fixtureFingerprints": {
+    "complete-current-root.json": "1a817c02a86255faa2d6b23f84dc756462b2772a58d12e8ae5c265afaa09c942",
+    "complete-current-settings.json": "8eeca8b8b3d9dce323949781785a36f4932a0fccaadd0d3af4fc0fe86956653d",
+    "corrupt-settings.txt": "7b761411bdcd5f4b6c14712ff28195bccd72c510e83f731377794f333a40e483",
+    "invalid-profile-root.json": "b38622781bc170ebeacb7661864659bd6aa4f170b0e63e6d7c2b0b8b8c0d54ef",
+    "invalid-profiles-root.json": "a79840d803d59a2508023fd120188c6d61e0a9586eb56e057c06206ee742c085",
+    "legacy-ground-expected-root.json": "b3667e9550ad03b651aecef6b0803f1e4e904a883052e2dcf52d6a30a85d1093",
+    "legacy-ground-root.json": "2c6ee14e30d1e48b3d21aa9bbf5af2df8b9ebb7addbe148ac1b7062f7a3ff03d",
+    "legacy-space-expected-root.json": "ff3211073992fd06deaa44245af73addbe63bdcb5835bcfe14ec055379bb78b8",
+    "legacy-space-root.json": "156b60851e15725c9028e7a0f29091175d804d0e45a4bb8b8ada4e6149c2a416",
+    "malformed-root.txt": "ee13cac527020503fc9b1a302e7bf7a2b4a80d0fdb6663f528a66cbeb8caeffe",
+    "missing-profiles-root.json": "10d579a1050cff3a52d20a495852a70ce21d2d22ba1d95f454da8b90f6a604cf",
+    "recovered-empty-root.json": "2ed3f100f94e6fb5b4e129ac76f8ff5c030ebf364d879288df539a02f2a8814a",
+    "reset-sentinel.json": "26a09ca23fc6e20a948cb129dc6a04771b9c348fd5d7aabc9768e7668e831940",
+    "stale-current-profile-root.json": "0d9cf6c82c2785a7d3b022af523d2e36f92479900c02b15920afb8e62470c38d",
+    "two-location-settings-golden.json": "a2173c175429d46eb02eee4c54d69e416b2ab7983e8e28c152e6f572cf246136"
+  },
+  "artifactFixtureFingerprints": {
+    "../sync/sync-project-golden.json": "b8b6f73fcd7d9f94345776c2afde79669df6f38dc38762dd5b1b60e32079e97f",
+    "../sync/sync-directory-tree-golden.json": "2310896089c9fd5874599f7626c951c8e4a5a9244c498561f5b3e935bf438ecd"
+  },
+  "activeTests": {
+    "pathList": "tranche-0-active-tests.txt",
+    "sha256": "f451febb25c7d7e9d1884adf260ae1f60af457914dd33c0f1d52175881955655",
+    "counts": {
+      "unit": 304,
+      "integration": 58,
+      "browser": 19,
+      "types": 3,
+      "total": 384
+    }
+  },
+  "testDisposition": {
+    "retired": [],
+    "rule": "Tranche 0 retires no behavior test or legacy fixture"
+  }
+}
