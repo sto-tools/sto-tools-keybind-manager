@@ -78,7 +78,7 @@ describe("persistence access architecture ratchet", () => {
       Object.entries(actualWrites)
         .filter(([key]) => !key.startsWith("components/storage/"))
         .reduce((total, [, count]) => total + count, 0),
-    ).toBe(18);
+    ).toBe(15);
   });
 
   it("freezes all IndexedDB boundary blocks inside FileSystemService", () => {
@@ -121,10 +121,10 @@ describe("persistence access architecture ratchet", () => {
       expect(targetTranche, key).toMatch(/^\d+(?:-\d+)?$/);
     }
     expect(dispositionTotals).toEqual({
-      owner: 15,
-      workflow: 13,
+      owner: 11,
+      workflow: 9,
       projection: 7,
-      compatibility: 13,
+      compatibility: 12,
       dead: 1,
     });
   });
@@ -148,13 +148,13 @@ describe("persistence access architecture ratchet", () => {
     }
 
     expect(storageTotals).toEqual(expectedStorageServiceCallsByMethod);
-    expect(classTotals).toEqual({ external: 33, helper: 6, internal: 10 });
+    expect(classTotals).toEqual({ external: 25, helper: 6, internal: 9 });
     expect(
       Object.values(storageTotals).reduce((sum, count) => sum + count, 0),
-    ).toBe(49);
+    ).toBe(40);
   });
 
-  it("records the approved legacy writers and proves repository adapters are not active", () => {
+  it("activates one settings adapter in bootstrap while the project adapter stays unused", () => {
     const storageDirectory = join(sourceRoot, "components/storage");
     expect(existsSync(storageDirectory)).toBe(true);
     expect(readdirSync(storageDirectory).sort()).toEqual([
@@ -169,13 +169,34 @@ describe("persistence access architecture ratchet", () => {
     ]);
 
     const source = javascriptFiles(sourceRoot)
-      .filter((file) => !file.startsWith(`${storageDirectory}/`))
+      .filter(
+        (file) =>
+          !file.startsWith(`${storageDirectory}/`) &&
+          file !== join(sourceRoot, "main.js"),
+      )
       .map((file) => readFileSync(file, "utf8"))
       .join("\n");
     expect(source).not.toContain("/storage/");
-    for (const candidate of repositoryCandidateNames) {
+    for (const candidate of [
+      "LocalStorageProjectRepository",
+      "LocalStorageSettingsRepository",
+    ]) {
       expect(source).not.toContain(candidate);
     }
+    expect(
+      entries
+        .filter(
+          ([file, contents]) =>
+            !file.startsWith("components/storage/") &&
+            contents.includes("settingsRepository"),
+        )
+        .map(([file]) => file)
+        .sort(),
+    ).toEqual([
+      "components/services/PreferencesService.js",
+      "components/services/preferencesOwnerMutationOperations.js",
+      "main.js",
+    ]);
 
     expect(
       constructorCallsites(entries, [
@@ -184,6 +205,7 @@ describe("persistence access architecture ratchet", () => {
       ]),
     ).toEqual({
       "main.js|StorageService|{ eventBus, i18n: i18next }": 1,
+      "main.js|LocalStorageSettingsRepository|{ storage: settingsStorage, defaults, }": 1,
     });
 
     expect(
@@ -191,6 +213,8 @@ describe("persistence access architecture ratchet", () => {
     ).toEqual([
       "components/services/StorageService.js",
       "components/services/StorageService.js",
+      "components/storage/LocalStorageSettingsRepository.js",
+      "components/storage/LocalStorageSettingsRepository.js",
       "components/services/commandPresentationState.js",
       "components/services/commandPresentationState.js",
       "components/services/keyBrowserViewState.js",
@@ -214,9 +238,11 @@ describe("persistence access architecture ratchet", () => {
       "components/services/StorageService.js": [
         'storageKey = "sto_keybind_manager"',
         'backupKey = "sto_keybind_manager_backup"',
-        'settingsKey = "sto_keybind_settings"',
         'localStorage.getItem("sto_app_reset")',
         'localStorage.setItem("sto_app_reset", "true")',
+      ],
+      "components/storage/LocalStorageSettingsRepository.js": [
+        'const SETTINGS_KEY = "sto_keybind_settings"',
       ],
       "components/services/commandPresentationState.js": [
         'const collapsedSuffix = "_collapsed"',

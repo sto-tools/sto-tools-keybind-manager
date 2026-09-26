@@ -1,25 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
-import StorageService from "../../src/js/components/services/StorageService.js";
 import { createServiceFixture } from "../fixtures/index.js";
 
 describe("preferences authoritative snapshot persistence", () => {
   let fixture;
-  let storageService;
   let preferencesService;
 
   beforeEach(async () => {
     localStorage.clear();
     fixture = createServiceFixture();
-    storageService = new StorageService({
-      eventBus: fixture.eventBus,
-      version: "test-settings-snapshot",
-    });
-    storageService.init();
     preferencesService = new PreferencesService({
       eventBus: fixture.eventBus,
-      storage: storageService,
+      settingsRepository: fixture.settingsRepository,
     });
     preferencesService.init();
     await preferencesService.initialStateReady;
@@ -27,7 +20,6 @@ describe("preferences authoritative snapshot persistence", () => {
 
   afterEach(() => {
     preferencesService?.destroy();
-    storageService?.destroy();
     fixture?.destroy();
     localStorage.clear();
   });
@@ -36,7 +28,7 @@ describe("preferences authoritative snapshot persistence", () => {
     expect(
       await preferencesService.setExtensionSetting("plugin:layout", "compact"),
     ).toBe(true);
-    expect(storageService.getSettings()).toHaveProperty(
+    expect(fixture.settingsRepository.load().value).toHaveProperty(
       "plugin:layout",
       "compact",
     );
@@ -45,14 +37,16 @@ describe("preferences authoritative snapshot persistence", () => {
       true,
     );
 
-    const persisted = JSON.parse(localStorage.getItem("sto_keybind_settings"));
+    const persisted = JSON.parse(
+      fixture.storageFixture.localStorage.getItem("sto_keybind_settings"),
+    );
     expect(persisted).toEqual(preferencesService.getSettings());
     expect(persisted).not.toHaveProperty("plugin:layout");
 
     preferencesService.destroy();
     preferencesService = new PreferencesService({
       eventBus: fixture.eventBus,
-      storage: storageService,
+      settingsRepository: fixture.settingsRepository,
     });
     preferencesService.init();
     await preferencesService.initialStateReady;

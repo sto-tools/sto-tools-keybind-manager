@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import PreferencesService from "../../../src/js/components/services/PreferencesService.js";
+import { createDefaultPreferencesSettings } from "../../../src/js/components/services/preferencesDefaults.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
 const ownedTopics = [
@@ -39,7 +40,7 @@ describe("PreferencesService lifecycle ownership", () => {
 
   function createService() {
     const service = new PreferencesService({
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
       eventBus: fixture.eventBus,
     });
     services.push(service);
@@ -135,7 +136,7 @@ describe("PreferencesService lifecycle ownership", () => {
     const applySettings = vi.spyOn(service, "applySettings");
     const failure = new Error("settings unavailable");
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    fixture.storage.saveSettings.mockImplementationOnce(() => {
+    fixture.settingsRepository.replace.mockImplementationOnce(() => {
       throw failure;
     });
     fixture.eventBusFixture.clearEventHistory();
@@ -170,13 +171,19 @@ describe("PreferencesService lifecycle ownership", () => {
         i18n.language = language;
       }),
     };
-    fixture.storage.getSettings
-      .mockReturnValueOnce({ language: "de" })
-      .mockReturnValueOnce({ language: "fr" });
+    fixture.settingsRepository.load
+      .mockReturnValueOnce({
+        status: "current",
+        value: { ...createDefaultPreferencesSettings(), language: "de" },
+      })
+      .mockReturnValueOnce({
+        status: "current",
+        value: { ...createDefaultPreferencesSettings(), language: "fr" },
+      });
     const predecessorLocalize = vi.fn();
     const predecessorTranslations = vi.fn();
     const predecessor = new PreferencesService({
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
       eventBus: fixture.eventBus,
       i18n,
       localizeCommands: predecessorLocalize,
@@ -193,7 +200,7 @@ describe("PreferencesService lifecycle ownership", () => {
     const replacementLocalize = vi.fn();
     const replacementTranslations = vi.fn();
     const replacement = new PreferencesService({
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
       eventBus: fixture.eventBus,
       i18n,
       localizeCommands: replacementLocalize,
@@ -237,7 +244,7 @@ describe("PreferencesService lifecycle ownership", () => {
       }),
     };
     const service = new PreferencesService({
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
       eventBus: fixture.eventBus,
       i18n,
       applyTranslations: vi.fn(),
@@ -248,12 +255,12 @@ describe("PreferencesService lifecycle ownership", () => {
     await service.initialStateReady;
     i18n.language = "de";
     blockLanguage = true;
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
     fixture.eventBusFixture.clearEventHistory();
 
     const first = service.setSetting("theme", "dark");
     await vi.waitFor(() => {
-      expect(fixture.storage.saveSettings).toHaveBeenCalledOnce();
+      expect(fixture.settingsRepository.replace).toHaveBeenCalledOnce();
     });
     const queued = service.setSetting("autoSave", false);
     service.destroy();
@@ -264,7 +271,9 @@ describe("PreferencesService lifecycle ownership", () => {
     await expect(first).rejects.toThrow("operation_cancelled");
     await expect(queued).rejects.toThrow("operation_cancelled");
     await expect(replacementReady).resolves.toMatchObject({ ready: true });
-    expect(fixture.storage.saveSettings).toHaveBeenCalledOnce();
+    // The successor verifies its startup record; the cancelled queued mutation
+    // never writes. The predecessor's accepted write remains durable.
+    expect(fixture.settingsRepository.replace).toHaveBeenCalledTimes(2);
     expect(
       fixture.eventBusFixture
         .getEventsOfType("preferences:state-changed")

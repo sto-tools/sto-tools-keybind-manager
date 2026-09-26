@@ -54,7 +54,7 @@ describe("Bind-to-Alias Mode Integration", () => {
 
     // Create PreferencesService with bind-to-alias mode setting
     const preferencesService = new PreferencesService({
-      storage: serviceFixture.storage,
+      settingsRepository: serviceFixture.settingsRepository,
       eventBus: serviceFixture.eventBus,
     });
     preferencesService.defaultSettings.bindToAliasMode = false;
@@ -110,7 +110,7 @@ describe("Bind-to-Alias Mode Integration", () => {
       await preferencesService.saveSettings();
       preferencesService.destroy();
       preferencesService = new PreferencesService({
-        storage: fixture.storage,
+        settingsRepository: fixture.settingsRepository,
         eventBus: fixture.eventBus,
       });
       preferencesService.init();

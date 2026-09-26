@@ -1,3 +1,4 @@
+import { createPreferencesStateChange } from "../fixtures/core/componentState.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -71,6 +72,10 @@ describe("project artifact producer parity", () => {
     services.push(exporter, projectManager);
     exporter.init();
     projectManager.init();
+    fixture.eventBus.emit(
+      "preferences:state-changed",
+      createPreferencesStateChange(goldenProject.data.settings),
+    );
 
     /** @type {string[]} */
     let downloadedParts = [];

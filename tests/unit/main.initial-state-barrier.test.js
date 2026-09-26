@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const bootstrap = vi.hoisted(() => {
   class ComponentStub {
-    init() {}
+    init() {
+      if (state.intermediateInitError) throw state.intermediateInitError;
+    }
 
     destroy() {}
 
@@ -17,8 +19,12 @@ const bootstrap = vi.hoisted(() => {
     runtimeDiagnostics: null,
     syncOptions: null,
     appInitError: null,
+    intermediateInitError: null,
+    appConstructorError: null,
     operations: [],
     initialStateReady: Promise.resolve(),
+    preferencesInitialStateReady: Promise.resolve(),
+    preferencesOptions: null,
     rejectInitialState: () => {},
     resolveInitialState: () => {},
     reset() {
@@ -29,6 +35,10 @@ const bootstrap = vi.hoisted(() => {
       state.runtimeDiagnostics = null;
       state.syncOptions = null;
       state.appInitError = null;
+      state.intermediateInitError = null;
+      state.appConstructorError = null;
+      state.preferencesInitialStateReady = Promise.resolve();
+      state.preferencesOptions = null;
       state.initialStateReady = new Promise((resolve, reject) => {
         state.resolveInitialState = resolve;
         state.rejectInitialState = reject;
@@ -130,6 +140,25 @@ vi.mock("../../src/js/components/services/DataService.js", () => ({
   },
 }));
 
+vi.mock("../../src/js/components/services/PreferencesService.js", () => ({
+  default: class extends bootstrap.ComponentStub {
+    constructor(options) {
+      super();
+      bootstrap.preferencesOptions = options;
+      this.initialStateReady = bootstrap.preferencesInitialStateReady;
+      bootstrap.operations.push("preferences:construct");
+    }
+
+    init() {
+      bootstrap.operations.push("preferences:init");
+    }
+
+    destroy() {
+      bootstrap.operations.push("preferences:destroy");
+    }
+  },
+}));
+
 vi.mock("../../src/js/components/ui/FileExplorerUI.js", () => ({
   default: bootstrap.ComponentStub,
 }));
@@ -142,6 +171,7 @@ vi.mock("../../src/js/app.js", () => ({
       this.keyBrowserUI = { name: "key-browser-ui" };
       this.keyBrowserService = { name: "key-browser-service" };
       bootstrap.operations.push("app:construct");
+      if (bootstrap.appConstructorError) throw bootstrap.appConstructorError;
     }
 
     async init() {
@@ -187,6 +217,56 @@ describe("main DataCoordinator startup barrier", () => {
     }
     document.body.replaceChildren();
     vi.restoreAllMocks();
+  });
+
+  it("blocks all root initialization and Data composition until Preferences verifies readiness", async () => {
+    let release;
+    bootstrap.preferencesInitialStateReady = new Promise((resolve) => {
+      release = resolve;
+    });
+    await import("../../src/js/main.js");
+    await vi.waitFor(() =>
+      expect(bootstrap.operations).toContain("preferences:init"),
+    );
+    expect(bootstrap.operations).not.toContain("storage:init");
+    expect(bootstrap.operations).not.toContain("coordinator:construct");
+    expect(bootstrap.operations).not.toContain("app:construct");
+    release();
+    await vi.waitFor(() =>
+      expect(bootstrap.operations).toContain("coordinator:init"),
+    );
+    bootstrap.resolveInitialState();
+    await vi.waitFor(() => expect(bootstrap.operations).toContain("app:init"));
+    expect(bootstrap.appDependencies.preferencesService).toBeDefined();
+    expect(
+      bootstrap.operations.filter(
+        (operation) => operation === "preferences:init",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("leaves the legacy root untouched and destroys the blocked owner on Preferences failure", async () => {
+    const before = '{"legacy":"unchanged"}';
+    localStorage.setItem("sto_keybind_manager", before);
+    let reject;
+    bootstrap.preferencesInitialStateReady = new Promise(
+      (_resolve, onReject) => {
+        reject = onReject;
+      },
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await import("../../src/js/main.js");
+    await vi.waitFor(() =>
+      expect(bootstrap.operations).toContain("preferences:init"),
+    );
+    reject(new Error("storage_read_failed"));
+    await vi.waitFor(() =>
+      expect(bootstrap.operations).toContain("preferences:destroy"),
+    );
+    expect(bootstrap.operations).not.toContain("storage:init");
+    expect(bootstrap.operations).not.toContain("coordinator:construct");
+    expect(bootstrap.operations).not.toContain("app:construct");
+    expect(localStorage.getItem("sto_keybind_manager")).toBe(before);
   });
 
   it("does not construct or initialize the app before initial state is ready", async () => {
@@ -311,21 +391,24 @@ describe("main DataCoordinator startup barrier", () => {
     expect(bootstrap.devMonitorI18n).not.toBe(ambientI18next);
   });
 
-  it("waits for DOM readiness after DataCoordinator state is ready", async () => {
+  it("waits for DOM readiness before starting Preferences effects and Data", async () => {
     const readyState = vi
       .spyOn(document, "readyState", "get")
       .mockReturnValue("loading");
     await import("../../src/js/main.js");
 
-    await vi.waitFor(() => {
-      expect(bootstrap.operations).toContain("coordinator:init");
-    });
-    bootstrap.resolveInitialState();
     await Promise.resolve();
     await Promise.resolve();
 
+    expect(bootstrap.operations).not.toContain("preferences:init");
+    expect(bootstrap.operations).not.toContain("coordinator:init");
     expect(bootstrap.operations).not.toContain("app:construct");
     document.dispatchEvent(new Event("DOMContentLoaded"));
+
+    await vi.waitFor(() =>
+      expect(bootstrap.operations).toContain("coordinator:init"),
+    );
+    bootstrap.resolveInitialState();
 
     await vi.waitFor(() => {
       expect(bootstrap.operations).toContain("app:init");
@@ -355,10 +438,11 @@ describe("main DataCoordinator startup barrier", () => {
     expect(bootstrap.operations).not.toContain("app:construct");
     expect(bootstrap.operations).not.toContain("app:init");
     expect(bootstrap.dataRpcTopics.size).toBe(0);
-    expect(bootstrap.operations.slice(-3)).toEqual([
+    expect(bootstrap.operations.slice(-4)).toEqual([
       "coordinator:destroy",
       "data-service:destroy",
       "storage:destroy",
+      "preferences:destroy",
     ]);
     expect(bootstrap.runtimeDiagnostics).toBeNull();
   });
@@ -386,4 +470,44 @@ describe("main DataCoordinator startup barrier", () => {
     expect(bootstrap.operations).not.toContain("dev-monitor:register-runtime");
     expect(bootstrap.runtimeDiagnostics).toBeNull();
   });
+
+  it.each([
+    ["intermediate component initialization", "intermediateInitError", false],
+    ["application construction", "appConstructorError", true],
+  ])(
+    "releases the bootstrap Preferences owner when %s throws",
+    async (_label, fault, constructsApp) => {
+      const error = new Error("post-Data composition failed");
+      bootstrap[fault] = error;
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      await import("../../src/js/main.js");
+      await vi.waitFor(() =>
+        expect(bootstrap.operations).toContain("coordinator:init"),
+      );
+      expect(bootstrap.operations).not.toContain("preferences:destroy");
+      bootstrap.resolveInitialState();
+
+      await vi.waitFor(() => {
+        expect(consoleError).toHaveBeenCalledWith(
+          "Application initialization failed:",
+          error,
+        );
+        expect(
+          bootstrap.operations.filter(
+            (operation) => operation === "preferences:destroy",
+          ),
+        ).toHaveLength(1);
+      });
+      expect(bootstrap.operations.includes("app:construct")).toBe(
+        constructsApp,
+      );
+      expect(bootstrap.operations).not.toContain("app:init");
+      expect(bootstrap.operations).not.toContain(
+        "dev-monitor:register-runtime",
+      );
+      expect(bootstrap.runtimeDiagnostics).toBeNull();
+    },
+  );
 });

@@ -1,6 +1,30 @@
 import { expect, vi } from "vitest";
 
 import PreferencesService from "../../../src/js/components/services/PreferencesService.js";
+import LocalStorageSettingsRepository from "../../../src/js/components/storage/LocalStorageSettingsRepository.js";
+import { createPreferencesState } from "../core/componentState.js";
+
+export function createProjectSettingsRepository(storage = localStorage) {
+  return new LocalStorageSettingsRepository({
+    storage,
+    defaults: createPreferencesState().settings,
+  });
+}
+
+/** Real owner harness for focused import tests; no duplicate settings writer. */
+export async function createImportPreferencesOwner(fixture) {
+  const preferences = new PreferencesService({
+    eventBus: fixture.eventBus,
+    settingsRepository: fixture.settingsRepository,
+    i18n: { language: "en", t: (key) => key, changeLanguage: async () => {} },
+    localizeCommands: () => {},
+    applyTranslations: () => {},
+  });
+  preferences.init();
+  await preferences.initialStateReady;
+  fixture.settingsRepository.replace.mockClear?.();
+  return preferences;
+}
 
 /**
  * Unit-test adapter that preserves the public activation request while the
@@ -12,14 +36,40 @@ import PreferencesService from "../../../src/js/components/services/PreferencesS
 export function createRequestBackedPreferencesTransition(getService) {
   /** @type {import('../../../src/js/components/services/PreferencesService.js').default['runExternalActivationTransition']} */
   const run = (source, operation) =>
-    operation(() =>
-      getService().request(
-        "preferences:activate-persisted-settings",
-        { source },
-        0,
-      ),
+    operation(
+      () =>
+        getService().request(
+          "preferences:activate-persisted-settings",
+          { source },
+          0,
+        ),
+      () => {},
+      async () => {
+        throw new Error("unexpected_settings_stage_in_workflow_unit_test");
+      },
     );
   return run;
+}
+
+/** Record the distinct injected import action and remaining workflow RPCs. */
+export function mockProjectRestoreActions(service) {
+  const request = service.request.bind(service);
+  const actions = vi.fn((topic, payload, timeout) => {
+    if (topic === "import-project")
+      throw new Error("import action unavailable");
+    return request(topic, payload, timeout);
+  });
+  vi.spyOn(service, "request").mockImplementation((...args) =>
+    actions(...args),
+  );
+  service.importProjectWithinPreferencesTransition = vi.fn(
+    (content, options, persist) => {
+      expect(options).toEqual({});
+      expect(persist).toBeTypeOf("function");
+      return actions("import-project", { content }, persist);
+    },
+  );
+  return actions;
 }
 
 /**
@@ -55,6 +105,7 @@ export function rejectFinalProjectRootWrite(storage, profileId = "imported") {
 
 export async function assertMundaneSettingsFinalRootFailure({
   storage,
+  settingsRepository,
   coordinator,
   eventBus,
   projectManager,
@@ -62,7 +113,11 @@ export async function assertMundaneSettingsFinalRootFailure({
   preferences,
 }) {
   expect(
-    storage.saveSettings({ theme: "dark", language: "en" }, { replace: true }),
+    await preferences.setSettings({
+      ...createPreferencesState().settings,
+      theme: "dark",
+      language: "en",
+    }),
   ).toBe(true);
   const beforeRoot = JSON.parse(localStorage.getItem(storage.storageKey));
   const beforeState = coordinator.getCurrentState();
@@ -105,7 +160,9 @@ export async function assertMundaneSettingsFinalRootFailure({
   expect(durableBackup.version).toBe("1.0.0");
   expect(durableBackup.data).toBe(durableRootText);
 
-  const durableSettings = JSON.parse(localStorage.getItem(storage.settingsKey));
+  const durableSettings = JSON.parse(
+    localStorage.getItem("sto_keybind_settings"),
+  );
   expect(durableSettings).toMatchObject({ theme: "light", language: "de" });
   expect(Object.hasOwn(durableSettings, "version")).toBe(false);
   expect(Object.hasOwn(durableSettings, "firstRun")).toBe(false);
@@ -132,7 +189,7 @@ export async function assertMundaneSettingsFinalRootFailure({
   };
   const successor = new PreferencesService({
     eventBus,
-    storage,
+    settingsRepository,
     i18n: successorI18n,
     localizeCommands: vi.fn(),
     applyTranslations: vi.fn(),
@@ -145,7 +202,7 @@ export async function assertMundaneSettingsFinalRootFailure({
     authorityEpoch: beforePreferencesState.authorityEpoch + 1,
     ready: true,
     revision: 1,
-    settings: storage.getSettings(),
+    settings: settingsRepository.load().value,
   });
   expect(successor.getCurrentState().settings).toMatchObject({
     theme: durableSettings.theme,
@@ -153,7 +210,7 @@ export async function assertMundaneSettingsFinalRootFailure({
   });
   expect(storage.getAllData().settings).toEqual(durableRoot.settings);
   expect(localStorage.getItem(storage.storageKey)).toBe(durableRootText);
-  expect(JSON.parse(localStorage.getItem(storage.settingsKey))).toEqual(
+  expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
     durableSettings,
   );
   expect(preferenceStates).toEqual([

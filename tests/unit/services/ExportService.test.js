@@ -5,6 +5,10 @@ import * as SyncService from "../../../src/js/components/services/SyncService.js
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { stoData } from "../../../src/js/data.js";
 import {
+  createPreferencesState,
+  createPreferencesStateChange,
+} from "../../fixtures/core/componentState.js";
+import {
   createProfileDataFixture,
   createServiceFixture,
 } from "../../fixtures/index.js";
@@ -98,6 +102,46 @@ describe("ExportService", () => {
       profile: {},
     });
     expect(section).toContain('F4 ""');
+  });
+
+  it("mirrors stabilized direct commands when accepted preferences disable aliases without mutating the profile", async () => {
+    await fixture.eventBus.emit(
+      "preferences:state-changed",
+      createPreferencesStateChange({ bindToAliasMode: false }),
+    );
+    const profileData = {
+      name: "Direct stabilized commands",
+      builds: {
+        space: {
+          keys: {
+            F1: [
+              "Target_Enemy_Near",
+              "+TrayExecByTray 1 0",
+              "+TrayExecByTray 1 1",
+            ],
+          },
+        },
+      },
+      keybindMetadata: {
+        space: { F1: { stabilizeExecutionOrder: true } },
+      },
+    };
+    const originalProfile = structuredClone(profileData);
+
+    const section = await service.generateKeybindSection(
+      profileData.builds.space.keys,
+      { environment: "space", profile: profileData },
+    );
+
+    expect(service.cache.preferencesState.ready).toBe(true);
+    expect(service.cache.preferences.bindToAliasMode).toBe(false);
+    expect(
+      section.split("\n").filter((line) => line.startsWith("F1 ")),
+    ).toEqual([
+      'F1 "Target_Enemy_Near $$ +TrayExecByTray 1 0 $$ +TrayExecByTray 1 1 $$ +TrayExecByTray 1 0"',
+    ]);
+    expect(section).not.toContain("sto_kb_space_f1");
+    expect(profileData).toEqual(originalProfile);
   });
 
   describe("bind-to-alias mode – empty chains", () => {
@@ -271,6 +315,7 @@ describe("ExportService", () => {
     });
 
     it("rethrows write failures without emitting toast events", async () => {
+      service._cachePreferencesState(createPreferencesState());
       const writeError = new Error("sync write failed");
       const writeSpy = vi
         .spyOn(SyncService, "writeFile")

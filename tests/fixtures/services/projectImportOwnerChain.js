@@ -87,7 +87,9 @@ export async function assertResetSerializesProjectRestore({
   expect(clearAllData).toHaveBeenCalledOnce();
   expect(localStorage.getItem(storage.storageKey)).toBeNull();
   expect(localStorage.getItem(storage.backupKey)).toBeNull();
-  expect(localStorage.getItem(storage.settingsKey)).toBeNull();
+  expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
+    preferences.getCurrentState().settings,
+  );
   expect(storage.getAllData()).toMatchObject({
     currentProfile: null,
     profiles: {},
@@ -102,6 +104,7 @@ export async function assertResetSerializesProjectRestore({
 }
 
 export async function assertSyncRetriesOnlyDurableActivation({
+  settingsRepository,
   eventBusFixture,
   storage,
   coordinator,
@@ -149,9 +152,12 @@ export async function assertSyncRetriesOnlyDurableActivation({
     projectManager,
     "restoreFromProjectContent",
   );
-  const importProjectFile = vi.spyOn(importer, "importProjectFile");
+  const importProjectFile = vi.spyOn(
+    importer,
+    "importProjectWithinPreferencesTransition",
+  );
   const saveProfile = vi.spyOn(storage, "saveProfile");
-  const saveSettings = vi.spyOn(storage, "saveSettings");
+  const saveSettings = vi.spyOn(settingsRepository, "replace");
   const saveAllData = vi.spyOn(storage, "saveAllData");
   const realReloadState = coordinator.reloadState.bind(coordinator);
   const reloadState = vi

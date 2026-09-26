@@ -20,13 +20,16 @@ describe("preferences consumer cache lifecycle", () => {
 
   it("hydrates consumers initialized on either side of the settings owner", async () => {
     fixture = createServiceFixture();
-    fixture.storage.getSettings.mockReturnValue({
-      bindsetsEnabled: false,
-      language: "en",
-    });
+    fixture.storageFixture.localStorage.setItem(
+      "sto_keybind_settings",
+      JSON.stringify({
+        bindsetsEnabled: false,
+        language: "en",
+      }),
+    );
 
-    // ImportService starts before the owner in the production application. It
-    // receives the owner's startup publication once PreferencesService starts.
+    // A consumer initialized before the owner still receives its startup
+    // publication; production normally takes the late-join path below.
     importService = new ImportService({
       eventBus: fixture.eventBus,
       storage: fixture.storage,
@@ -36,7 +39,7 @@ describe("preferences consumer cache lifecycle", () => {
 
     preferencesService = new PreferencesService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
     });
     preferencesService.init();
     await preferencesService.initialStateReady;

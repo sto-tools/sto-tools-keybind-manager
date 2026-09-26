@@ -37,7 +37,7 @@ describe("preferences save sequencing", () => {
   it("rejects acknowledgement when an async saved listener replaces the owner", async () => {
     preferencesService = new PreferencesService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
     });
     preferencesService.init();
     await preferencesService.initialStateReady;
@@ -119,7 +119,7 @@ describe("preferences save sequencing", () => {
     });
     preferencesService = new PreferencesService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
     });
     preferencesUI = new PreferencesUI({
       eventBus: fixture.eventBus,
@@ -130,7 +130,7 @@ describe("preferences save sequencing", () => {
     syncService.init();
     preferencesService.init();
     await preferencesService.initialStateReady;
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
 
     syncService.awaitingSyncDecisionApply = true;
     syncService.pendingSyncAction = "overwrite";
@@ -176,6 +176,6 @@ describe("preferences save sequencing", () => {
     expect(
       document.getElementById("preferencesModal")?.classList,
     ).not.toContain("active");
-    expect(fixture.storage.saveSettings).toHaveBeenCalledOnce();
+    expect(fixture.settingsRepository.replace).toHaveBeenCalledOnce();
   });
 });

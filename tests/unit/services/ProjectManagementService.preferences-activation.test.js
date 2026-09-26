@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ProjectManagementService from "../../../src/js/components/services/ProjectManagementService.js";
 import { createServiceFixture } from "../../fixtures/index.js";
-import { createRequestBackedPreferencesTransition } from "../../fixtures/services/projectRestore.js";
+import {
+  createRequestBackedPreferencesTransition,
+  mockProjectRestoreActions,
+} from "../../fixtures/services/projectRestore.js";
 
 describe("ProjectManagementService Preferences activation", () => {
   let fixture;
@@ -34,10 +37,9 @@ describe("ProjectManagementService Preferences activation", () => {
   });
 
   function installRestoreRequests(preferencesReply, importedSettings = true) {
-    return vi
-      .spyOn(service, "request")
-      .mockImplementation(async (topic, payload) => {
-        if (topic === "import:project-file") {
+    return mockProjectRestoreActions(service).mockImplementation(
+      async (topic, payload) => {
+        if (topic === "import-project") {
           return {
             success: true,
             message: "project_imported_successfully",
@@ -59,7 +61,8 @@ describe("ProjectManagementService Preferences activation", () => {
           return preferencesReply;
         }
         throw new Error(`Unexpected request for topic ${topic}`);
-      });
+      },
+    );
   }
 
   it.each([
@@ -100,7 +103,7 @@ describe("ProjectManagementService Preferences activation", () => {
         activation: { data: "complete", preferences: "pending" },
       });
       expect(request.mock.calls.map(([topic]) => topic)).toEqual([
-        "import:project-file",
+        "import-project",
         "data:reload-state",
         "preferences:activate-persisted-settings",
       ]);
@@ -118,7 +121,7 @@ describe("ProjectManagementService Preferences activation", () => {
       imported: { profiles: 2, settings: false },
     });
     expect(request.mock.calls.map(([topic]) => topic)).toEqual([
-      "import:project-file",
+      "import-project",
       "data:reload-state",
     ]);
   });

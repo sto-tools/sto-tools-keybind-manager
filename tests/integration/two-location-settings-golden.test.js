@@ -1,3 +1,4 @@
+import { createProjectSettingsRepository } from "../fixtures/services/projectRestore.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -64,7 +65,7 @@ describe("two-location settings authority golden", () => {
   async function startPreferences() {
     preferences = new PreferencesService({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      settingsRepository: createProjectSettingsRepository(),
       i18n,
       localizeCommands: vi.fn(),
       applyTranslations: vi.fn(),
@@ -76,7 +77,7 @@ describe("two-location settings authority golden", () => {
 
   it("uses standalone settings for runtime and export while preserving the embedded record", async () => {
     const rootText = localStorage.getItem(storage.storageKey);
-    const settingsText = localStorage.getItem(storage.settingsKey);
+    const settingsText = localStorage.getItem("sto_keybind_settings");
 
     await startPreferences();
 
@@ -84,10 +85,14 @@ describe("two-location settings authority golden", () => {
     expect(storage.getAllData().settings).toEqual(golden.root.settings);
 
     const artifact = JSON.parse(
-      serializeProjectArtifact(storage.getAllData(), storage.getSettings(), {
-        version: "1.0.0",
-        exported: "2026-07-21T12:00:00.000Z",
-      }),
+      serializeProjectArtifact(
+        storage.getAllData(),
+        preferences.getCurrentState().settings,
+        {
+          version: "1.0.0",
+          exported: "2026-07-21T12:00:00.000Z",
+        },
+      ),
     );
     expect(artifact.data).toEqual({
       profiles: storage.getAllData().profiles,
@@ -104,7 +109,7 @@ describe("two-location settings authority golden", () => {
     );
     expect(compatibilityArtifact.data.settings).toEqual(golden.root.settings);
     expect(localStorage.getItem(storage.storageKey)).toBe(rootText);
-    expect(localStorage.getItem(storage.settingsKey)).toBe(settingsText);
+    expect(localStorage.getItem("sto_keybind_settings")).toBe(settingsText);
   });
 
   it.each([
@@ -114,9 +119,9 @@ describe("two-location settings authority golden", () => {
     "restarts from defaults rather than embedded settings when standalone data is %s",
     async (_condition, standaloneText) => {
       if (standaloneText === null) {
-        localStorage.removeItem(storage.settingsKey);
+        localStorage.removeItem("sto_keybind_settings");
       } else {
-        localStorage.setItem(storage.settingsKey, standaloneText);
+        localStorage.setItem("sto_keybind_settings", standaloneText);
         vi.spyOn(console, "error").mockImplementation(() => {});
       }
 
@@ -124,7 +129,9 @@ describe("two-location settings authority golden", () => {
 
       expect(preferences.getSettings()).toEqual(golden.defaults);
       expect(storage.getAllData().settings).toEqual(golden.root.settings);
-      expect(localStorage.getItem(storage.settingsKey)).toBe(standaloneText);
+      expect(localStorage.getItem("sto_keybind_settings")).toBe(
+        JSON.stringify(golden.defaults),
+      );
     },
   );
 
@@ -141,7 +148,7 @@ describe("two-location settings authority golden", () => {
       "plugin:layout": { density: "comfortable" },
     };
     localStorage.setItem(
-      storage.settingsKey,
+      "sto_keybind_settings",
       JSON.stringify(successorSettings),
     );
     preferences = null;

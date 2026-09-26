@@ -21,6 +21,35 @@ const restoreSuccess = {
 };
 
 describe("project restore result boundary", () => {
+  it("recognizes durable standalone-import activation failures without authorizing artifact replay", () => {
+    const failure = {
+      success: false,
+      error: "preferences_activation_failed",
+      durable: true,
+      imported: { profiles: 1, settings: true },
+      currentProfile: "imported",
+      params: { reason: "activation unavailable" },
+    };
+    expect(isProjectImportFailure(failure)).toBe(true);
+    expect(classifyProjectRestoreResult(failure)).toEqual({
+      kind: "terminal-failure",
+      error: "preferences_activation_failed",
+      params: { reason: "activation unavailable" },
+      reason: "activation unavailable",
+    });
+    expect(isProjectImportFailure({ ...failure, durable: false })).toBe(false);
+    expect(
+      isProjectImportFailure({
+        ...failure,
+        imported: { profiles: -1, settings: true },
+      }),
+    ).toBe(false);
+    const getter = vi.fn();
+    const hostile = { ...failure };
+    Object.defineProperty(hostile, "imported", { get: getter });
+    expect(isProjectImportFailure(hostile)).toBe(false);
+    expect(getter).not.toHaveBeenCalled();
+  });
   it("accepts only complete own-data import and restore success results", () => {
     expect(
       isProjectImportSuccess({

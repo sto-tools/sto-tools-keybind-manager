@@ -1,3 +1,4 @@
+import { createPreferencesState } from "../fixtures/core/componentState.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -103,12 +104,13 @@ function createHarness(initial) {
   const fileSystem = createCommittedTreeFileSystem();
   const storage = {
     getAllData: vi.fn(() => structuredClone(state)),
-    getSettings: vi.fn(() => structuredClone(SETTINGS)),
   };
   const exporter = new ExportService({
     storage,
     i18n: { t: (key) => key },
   });
+
+  exporter._cachePreferencesState(createPreferencesState(SETTINGS));
 
   vi.spyOn(exporter, "generateSTOKeybindFile").mockImplementation(
     async (profile, { environment = "space" } = {}) => {

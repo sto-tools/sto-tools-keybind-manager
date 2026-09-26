@@ -5,6 +5,7 @@ import {
   isSettingsRecord,
 } from "./settingsDataBoundary.js";
 import { MAX_PROJECT_JSON_DEPTH, setOwnDataField } from "./jsonDataBoundary.js";
+import { hasBoundedPreferencesJson } from "./preferencesJsonBudget.js";
 
 /** @typedef {import('../../types/events/base.js').PreferenceMutation} PreferenceMutation */
 /** @typedef {import('../../types/events/base.js').PreferencesSettings} PreferencesSettings */
@@ -25,6 +26,7 @@ const invalidData = Symbol("invalid-preferences-mutation-data");
 /**
  * @typedef {{
  *   ancestors: WeakSet<object>,
+ *   maxDepth: number,
  *   clones: WeakMap<object, import('../../types/data-contracts.js').JsonValue[] | import('../../types/data-contracts.js').JsonObject>
  * }} JsonMaterializationContext
  */
@@ -93,7 +95,7 @@ function materializeJsonData(value, context, depth) {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : invalidData;
   }
-  if (typeof value !== "object" || depth > MAX_PROJECT_JSON_DEPTH) {
+  if (typeof value !== "object" || depth > context.maxDepth) {
     return invalidData;
   }
 
@@ -170,10 +172,15 @@ function materializeJsonData(value, context, depth) {
 
 /**
  * @param {object} root
+ * @param {number} [maxDepth]
  * @returns {JsonMaterializationContext}
  */
-function createJsonMaterializationContext(root) {
+function createJsonMaterializationContext(
+  root,
+  maxDepth = MAX_PROJECT_JSON_DEPTH,
+) {
   return {
+    maxDepth,
     ancestors: new WeakSet([root]),
     clones: new WeakMap(),
   };
@@ -240,7 +247,12 @@ function decodePreferenceMutation(value) {
 
     const valueField = ownEnumerableDataValue(descriptors, "value");
     const extensionField = ownEnumerableDataValue(descriptors, "extension");
-    if (!keyField.present || !valueField.present || typeof key !== "string") {
+    if (
+      !keyField.present ||
+      !valueField.present ||
+      typeof key !== "string" ||
+      (extensionField.present && typeof extensionField.value !== "boolean")
+    ) {
       return { mutation: null, key };
     }
 
@@ -249,7 +261,19 @@ function decodePreferenceMutation(value) {
       createJsonMaterializationContext(object),
       1,
     );
-    if (detachedValue === invalidData) return { mutation: null, key };
+    if (
+      detachedValue === invalidData ||
+      !hasBoundedPreferencesJson(
+        extensionField.present
+          ? {
+              key,
+              value: detachedValue,
+              extension: extensionField.value === true,
+            }
+          : { key, value: detachedValue },
+      )
+    )
+      return { mutation: null, key };
 
     if (isKnownSettingKey(key)) {
       if (
@@ -324,11 +348,32 @@ export function requirePreferenceMutation(value) {
  * @returns {SettingsRecord | null}
  */
 export function materializePreferenceSettingsMutation(value) {
+  const settings = materializePreferenceDataRecord(value);
+  return settings &&
+    hasBoundedPreferencesJson(
+      /** @type {import('../../types/data-contracts.js').JsonObject} */ (
+        settings
+      ),
+    )
+    ? settings
+    : null;
+}
+
+/**
+ * Descriptor-only receipt-envelope detachment. The envelope itself is not a
+ * persisted settings value; callers validate its canonical value separately.
+ * @param {unknown} value
+ * @returns {SettingsRecord | null}
+ */
+export function materializePreferenceDataRecord(value) {
   try {
     const captured = capturePlainRecord(value);
     if (!captured) return null;
     const { descriptors, keys, object } = captured;
-    const context = createJsonMaterializationContext(object);
+    const context = createJsonMaterializationContext(
+      object,
+      MAX_PROJECT_JSON_DEPTH + 1,
+    );
     /** @type {Record<string, unknown>} */
     const settings = {};
     for (const key of keys) {
@@ -390,12 +435,13 @@ export function materializeSyncFolderSettingsMutation(value) {
     ) {
       return null;
     }
-    return Object.freeze({
+    const mutation = {
       syncFolderName: syncFolderName.value,
       syncFolderPath: syncFolderPath.value,
-      syncFolderFallback: false,
+      syncFolderFallback: /** @type {const} */ (false),
       autoSync: autoSync.value,
-    });
+    };
+    return hasBoundedPreferencesJson(mutation) ? Object.freeze(mutation) : null;
   } catch {
     return null;
   }
@@ -464,4 +510,28 @@ export function collectPreferenceChanges(previous, next) {
     }
   }
   return changes;
+}
+
+/** @param {unknown} error */
+function getPreferencesActivationFailureReason(error) {
+  try {
+    const reason = error instanceof Error ? error.message : String(error);
+    return reason || "unknown_error";
+  } catch {
+    return "unknown_error";
+  }
+}
+
+/** @param {unknown} error @returns {import('../../types/rpc/parameters-preferences.js').PreferencesActivationFailure} */
+export function preferencesActivationFailure(error) {
+  const reason = getPreferencesActivationFailureReason(error);
+  return Object.freeze({
+    success: false,
+    error:
+      reason === "operation_cancelled"
+        ? "operation_cancelled"
+        : "preferences_activation_failed",
+    params: Object.freeze({ reason }),
+    retryable: true,
+  });
 }

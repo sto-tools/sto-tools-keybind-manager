@@ -12,7 +12,8 @@ export const storageServiceMethodNames = Object.freeze([
 ]);
 
 export const expectedCallsByFile = Object.freeze({
-  "components/services/StorageService.js": 13,
+  "components/services/StorageService.js": 9,
+  "components/storage/LocalStorageSettingsRepository.js": 4,
   "components/services/commandPresentationState.js": 6,
   "components/services/dataCoordinatorInitialState.js": 1,
   "components/services/keyBrowserViewState.js": 8,
@@ -21,8 +22,10 @@ export const expectedCallsByFile = Object.freeze({
 });
 
 export const expectedScalarWrites = Object.freeze({
-  "components/services/StorageService.js|removeItem": 5,
-  "components/services/StorageService.js|setItem": 4,
+  "components/services/StorageService.js|removeItem": 3,
+  "components/services/StorageService.js|setItem": 3,
+  "components/storage/LocalStorageSettingsRepository.js|removeItem": 1,
+  "components/storage/LocalStorageSettingsRepository.js|setItem": 1,
   "components/services/commandPresentationState.js|removeItem": 1,
   "components/services/commandPresentationState.js|setItem": 2,
   "components/services/keyBrowserViewState.js|setItem": 3,
@@ -30,8 +33,8 @@ export const expectedScalarWrites = Object.freeze({
   "core/welcomeMessage.js|setItem": 2,
 });
 
-// Tranche 1 adds test-only adapters. Keep their exact physical surface separate
-// from the frozen active-writer inventory until an approved owner cutover.
+// The project adapter remains uncomposed. Tranche 2 activates only the settings
+// adapter, whose physical surface is in the active inventory.
 export const unusedRepositoryScalarCallsites = Object.freeze({
   "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|RESET_KEY": 2,
   "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|ROOT_KEY": 3,
@@ -41,16 +44,11 @@ export const unusedRepositoryScalarCallsites = Object.freeze({
   "components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|BACKUP_KEY|backup": 1,
   'components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|RESET_KEY|"true"': 1,
   "components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|ROOT_KEY|prepared.json": 1,
-  "components/storage/LocalStorageSettingsRepository.js|this.#storage|getItem|SETTINGS_KEY": 2,
-  "components/storage/LocalStorageSettingsRepository.js|this.#storage|removeItem|SETTINGS_KEY": 1,
-  "components/storage/LocalStorageSettingsRepository.js|this.#storage|setItem|SETTINGS_KEY|prepared.json": 1,
 });
 
 export const unusedRepositoryScalarWrites = Object.freeze({
   "components/storage/LocalStorageProjectRepository.js|removeItem": 3,
   "components/storage/LocalStorageProjectRepository.js|setItem": 3,
-  "components/storage/LocalStorageSettingsRepository.js|removeItem": 1,
-  "components/storage/LocalStorageSettingsRepository.js|setItem": 1,
 });
 
 // This is the complete production syntactic surface for the ten legacy
@@ -62,34 +60,25 @@ export const expectedNamedMethodCalls = Object.freeze({
   "components/services/DataCoordinator.js|this.storage|getAllData": 9,
   "components/services/ExportService.js|this.storage|getProfile": 1,
   "components/services/ImportService.js|this.storage|getProfile": 3,
-  "components/services/PreferencesService.js|this|getSettings": 2,
+  "components/services/PreferencesService.js|this|getSettings": 1,
   "components/services/PreferencesService.js|this|saveSettings": 1,
-  "components/services/PreferencesService.js|this.storage|getSettings": 1,
-  "components/services/PreferencesService.js|this.storage|saveSettings": 1,
   "components/services/ProjectManagementService.js|this.storage|getAllData": 1,
-  "components/services/ProjectManagementService.js|this.storage|getSettings": 1,
   "components/services/StorageService.js|this|clearAllData": 1,
   "components/services/StorageService.js|this|createBackup": 1,
   "components/services/StorageService.js|this|getAllData": 4,
-  "components/services/StorageService.js|this|getSettings": 1,
   "components/services/StorageService.js|this|saveAllData": 3,
   "components/services/dataCoordinatorInitialState.js|coordinator.storage|getAllData": 2,
   "components/services/dataCoordinatorResponders.js|coordinator|deleteProfile": 1,
-  "components/services/preferencesOwnerMutationOperations.js|owner|getSettings": 8,
-  "components/services/preferencesOwnerMutationOperations.js|owner.storage|clearSettings": 1,
-  "components/services/preferencesOwnerMutationOperations.js|owner.storage|getSettings": 1,
+  "components/services/preferencesOwnerMutationOperations.js|owner|getSettings": 11,
   "components/services/projectImportOrchestrator.js|storage|getAllData": 2,
-  "components/services/projectImportOrchestrator.js|storage|getSettings": 1,
   "components/services/projectImportOrchestrator.js|storage|saveAllData": 1,
   "components/services/projectImportOrchestrator.js|storage|saveProfile": 1,
-  "components/services/projectImportOrchestrator.js|storage|saveSettings": 1,
   "components/services/storageWrites.js|storage|deleteProfile": 1,
   "components/services/storageWrites.js|storage|getAllData": 1,
   "components/services/storageWrites.js|storage|getProfile": 1,
   "components/services/storageWrites.js|storage|saveAllData": 2,
   "components/services/storageWrites.js|storage|saveProfile": 1,
   "components/services/syncProjectMaterializer.js|service.storage|getAllData": 1,
-  "components/services/syncProjectMaterializer.js|service.storage|getSettings": 1,
   "components/ui/FileExplorerUI.js|this.storage|getAllData": 1,
   "components/ui/FileExplorerUI.js|this.storage|getProfile": 3,
   "components/ui/PreferencesUI.js|this|saveSettings": 1,
@@ -99,34 +88,19 @@ export const storageServiceCallClass = Object.freeze({
   "components/services/DataCoordinator.js|this.storage|getAllData": "external",
   "components/services/ExportService.js|this.storage|getProfile": "external",
   "components/services/ImportService.js|this.storage|getProfile": "external",
-  "components/services/PreferencesService.js|this.storage|getSettings":
-    "external",
-  "components/services/PreferencesService.js|this.storage|saveSettings":
-    "external",
   "components/services/ProjectManagementService.js|this.storage|getAllData":
-    "external",
-  "components/services/ProjectManagementService.js|this.storage|getSettings":
     "external",
   "components/services/StorageService.js|this|clearAllData": "internal",
   "components/services/StorageService.js|this|createBackup": "internal",
   "components/services/StorageService.js|this|getAllData": "internal",
-  "components/services/StorageService.js|this|getSettings": "internal",
   "components/services/StorageService.js|this|saveAllData": "internal",
   "components/services/dataCoordinatorInitialState.js|coordinator.storage|getAllData":
     "external",
-  "components/services/preferencesOwnerMutationOperations.js|owner.storage|clearSettings":
-    "external",
-  "components/services/preferencesOwnerMutationOperations.js|owner.storage|getSettings":
-    "external",
   "components/services/projectImportOrchestrator.js|storage|getAllData":
-    "external",
-  "components/services/projectImportOrchestrator.js|storage|getSettings":
     "external",
   "components/services/projectImportOrchestrator.js|storage|saveAllData":
     "external",
   "components/services/projectImportOrchestrator.js|storage|saveProfile":
-    "external",
-  "components/services/projectImportOrchestrator.js|storage|saveSettings":
     "external",
   "components/services/storageWrites.js|storage|deleteProfile": "helper",
   "components/services/storageWrites.js|storage|getAllData": "helper",
@@ -134,8 +108,6 @@ export const storageServiceCallClass = Object.freeze({
   "components/services/storageWrites.js|storage|saveAllData": "helper",
   "components/services/storageWrites.js|storage|saveProfile": "helper",
   "components/services/syncProjectMaterializer.js|service.storage|getAllData":
-    "external",
-  "components/services/syncProjectMaterializer.js|service.storage|getSettings":
     "external",
   "components/ui/FileExplorerUI.js|this.storage|getAllData": "external",
   "components/ui/FileExplorerUI.js|this.storage|getProfile": "external",
@@ -147,9 +119,9 @@ export const expectedStorageServiceCallsByMethod = Object.freeze({
   getProfile: 8,
   saveProfile: 2,
   deleteProfile: 1,
-  getSettings: 6,
-  saveSettings: 2,
-  clearSettings: 1,
+  getSettings: 0,
+  saveSettings: 0,
+  clearSettings: 0,
   createBackup: 1,
   clearAllData: 1,
 });
@@ -253,13 +225,13 @@ export const rpcActionTopics = Object.freeze([
 ]);
 
 export const expectedScalarCallsites = Object.freeze({
+  "components/storage/LocalStorageSettingsRepository.js|this.#storage|getItem|SETTINGS_KEY": 2,
+  "components/storage/LocalStorageSettingsRepository.js|this.#storage|removeItem|SETTINGS_KEY": 1,
+  "components/storage/LocalStorageSettingsRepository.js|this.#storage|setItem|SETTINGS_KEY|prepared.json": 1,
   "components/services/StorageService.js|localStorage|getItem|this.storageKey": 2,
   'components/services/StorageService.js|localStorage|getItem|"sto_app_reset"': 1,
   'components/services/StorageService.js|localStorage|removeItem|"sto_app_reset"': 1,
   "components/services/StorageService.js|localStorage|setItem|this.storageKey|JSON.stringify(dataWithMeta)": 1,
-  "components/services/StorageService.js|localStorage|getItem|this.settingsKey": 1,
-  "components/services/StorageService.js|localStorage|setItem|this.settingsKey|JSON.stringify(persistedSettings)": 1,
-  "components/services/StorageService.js|localStorage|removeItem|this.settingsKey": 2,
   "components/services/StorageService.js|localStorage|setItem|this.backupKey|JSON.stringify(backup)": 1,
   "components/services/StorageService.js|localStorage|removeItem|this.storageKey": 1,
   "components/services/StorageService.js|localStorage|removeItem|this.backupKey": 1,
@@ -337,31 +309,15 @@ export const storageCallsiteDispositions = Object.freeze({
     [2, "owner", "4"],
   "components/services/dataCoordinatorInitialState.js|loadInitialCoordinatorState|coordinator.storage|getAllData":
     [2, "owner", "4"],
-  "components/services/PreferencesService.js|_loadInitialState|this.storage|getSettings":
-    [1, "owner", "2"],
-  "components/services/PreferencesService.js|persistSettings|this.storage|saveSettings|structuredClone(settings)|{ replace: true, }":
-    [1, "owner", "2"],
-  "components/services/preferencesOwnerMutationOperations.js|activatePersistedPreferencesWithinMutation|owner.storage|clearSettings":
-    [1, "owner", "2"],
-  "components/services/preferencesOwnerMutationOperations.js|activatePersistedPreferencesWithinMutation|owner.storage|getSettings":
-    [1, "owner", "2"],
   "components/services/projectImportOrchestrator.js|importProjectToStorage|storage|getAllData":
     [2, "workflow", "7"],
   "components/services/projectImportOrchestrator.js|importProjectToStorage|storage|saveProfile|profileId|profile":
-    [1, "workflow", "7"],
-  "components/services/projectImportOrchestrator.js|importProjectToStorage|storage|getSettings":
-    [1, "workflow", "7"],
-  "components/services/projectImportOrchestrator.js|importProjectToStorage|storage|saveSettings|mergedSettings":
     [1, "workflow", "7"],
   "components/services/projectImportOrchestrator.js|importProjectToStorage|storage|saveAllData|restoredData":
     [1, "workflow", "7"],
   "components/services/ProjectManagementService.js|backupApplicationState|this.storage|getAllData":
     [1, "workflow", "6-7"],
-  "components/services/ProjectManagementService.js|backupApplicationState|this.storage|getSettings":
-    [1, "workflow", "6-7"],
   "components/services/syncProjectMaterializer.js|materializeSyncProject|service.storage|getAllData":
-    [1, "workflow", "6"],
-  "components/services/syncProjectMaterializer.js|materializeSyncProject|service.storage|getSettings":
     [1, "workflow", "6"],
   "components/services/StorageService.js|onInit|this|getAllData|true": [
     1,
@@ -373,8 +329,11 @@ export const storageCallsiteDispositions = Object.freeze({
     "workflow",
     "4",
   ],
-  "components/services/StorageService.js|handleAppReset|this|clearAllData|{ preserveSettings: true }":
-    [1, "workflow", "8"],
+  "components/services/StorageService.js|handleAppReset|this|clearAllData": [
+    1,
+    "workflow",
+    "8",
+  ],
   "components/ui/FileExplorerUI.js|setupEventListeners|this.storage|getProfile|profileId":
     [1, "projection", "6"],
   "components/ui/FileExplorerUI.js|buildTree|this.storage|getAllData": [
@@ -420,11 +379,6 @@ export const storageCallsiteDispositions = Object.freeze({
     1,
     "compatibility",
     "4",
-  ],
-  "components/services/StorageService.js|saveSettings|this|getSettings": [
-    1,
-    "compatibility",
-    "2",
   ],
   "components/services/storageWrites.js|all|storage|saveAllData|data": [
     1,

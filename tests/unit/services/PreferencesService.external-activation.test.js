@@ -22,7 +22,7 @@ describe("PreferencesService persisted settings activation", () => {
     localizeCommands = vi.fn();
     applyTranslations = vi.fn();
     service = new PreferencesService({
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
       eventBus: fixture.eventBus,
       i18n: /** @type {any} */ (i18n),
       localizeCommands,
@@ -43,9 +43,9 @@ describe("PreferencesService persisted settings activation", () => {
   });
 
   function clearHistory() {
-    fixture.storage.getSettings.mockClear();
-    fixture.storage.saveSettings.mockClear();
-    fixture.storage.clearSettings.mockClear();
+    fixture.settingsRepository.load.mockClear();
+    fixture.settingsRepository.replace.mockClear();
+    fixture.settingsRepository.clear.mockClear();
     fixture.eventBusFixture.clearEventHistory();
     i18n.changeLanguage.mockClear();
     localizeCommands.mockClear();
@@ -69,7 +69,10 @@ describe("PreferencesService persisted settings activation", () => {
       compactView: true,
       extension,
     };
-    fixture.storage.getSettings.mockReturnValueOnce(persisted);
+    fixture.settingsRepository.load.mockReturnValueOnce({
+      status: "current",
+      value: persisted,
+    });
 
     await expect(activate({ source: "project-restore" })).resolves.toEqual({
       success: true,
@@ -78,9 +81,9 @@ describe("PreferencesService persisted settings activation", () => {
       effects: "applied",
     });
 
-    expect(fixture.storage.getSettings).toHaveBeenCalledOnce();
-    expect(fixture.storage.clearSettings).not.toHaveBeenCalled();
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.load).toHaveBeenCalledOnce();
+    expect(fixture.settingsRepository.clear).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     const state = service.getCurrentState();
     expect(state).toMatchObject({
       ready: true,
@@ -158,7 +161,6 @@ describe("PreferencesService persisted settings activation", () => {
 
   it("clears and adopts reset defaults inside the owner queue", async () => {
     const defaults = structuredClone(service.defaultSettings);
-    fixture.storage.getSettings.mockReturnValueOnce(defaults);
 
     await expect(activate({ source: "application-reset" })).resolves.toEqual({
       success: true,
@@ -167,9 +169,9 @@ describe("PreferencesService persisted settings activation", () => {
       effects: "applied",
     });
 
-    expect(fixture.storage.clearSettings).toHaveBeenCalledOnce();
-    expect(fixture.storage.getSettings).toHaveBeenCalledOnce();
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.clear).toHaveBeenCalledOnce();
+    expect(fixture.settingsRepository.load).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).toHaveBeenCalledWith(defaults);
     expect(service.getCurrentState()).toMatchObject({
       ready: true,
       revision: 2,
@@ -191,7 +193,10 @@ describe("PreferencesService persisted settings activation", () => {
   });
 
   it("publishes a fresh revision but no diff for unchanged durable settings", async () => {
-    fixture.storage.getSettings.mockReturnValueOnce(service.getSettings());
+    fixture.settingsRepository.load.mockReturnValueOnce({
+      status: "current",
+      value: service.getSettings(),
+    });
 
     await expect(activate({ source: "project-restore" })).resolves.toEqual({
       success: true,
@@ -216,7 +221,7 @@ describe("PreferencesService persisted settings activation", () => {
     expect(
       fixture.eventBusFixture.getEventsOfType("language:changed"),
     ).toHaveLength(0);
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
   });
 
   it("treats freshly decoded nested extension data as structurally unchanged", async () => {
@@ -226,12 +231,15 @@ describe("PreferencesService persisted settings activation", () => {
       options: { alpha: 1, beta: 2 },
     });
     clearHistory();
-    fixture.storage.getSettings.mockReturnValueOnce({
-      ...service.getSettings(),
-      "plugin:layout": {
-        options: { beta: 2, alpha: 1 },
-        rows: [{ enabled: true, id: "primary" }],
-        density: "compact",
+    fixture.settingsRepository.load.mockReturnValueOnce({
+      status: "current",
+      value: {
+        ...service.getSettings(),
+        "plugin:layout": {
+          options: { beta: 2, alpha: 1 },
+          rows: [{ enabled: true, id: "primary" }],
+          density: "compact",
+        },
       },
     });
 
@@ -255,7 +263,7 @@ describe("PreferencesService persisted settings activation", () => {
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:changed"),
     ).toHaveLength(0);
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -277,8 +285,8 @@ describe("PreferencesService persisted settings activation", () => {
         retryable: true,
       });
 
-      expect(fixture.storage.getSettings).not.toHaveBeenCalled();
-      expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+      expect(fixture.settingsRepository.load).not.toHaveBeenCalled();
+      expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
       expect(service.getCurrentState()).toBe(before);
       expect(
         fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
@@ -312,16 +320,16 @@ describe("PreferencesService persisted settings activation", () => {
       });
     }
     expect(sourceGetter).not.toHaveBeenCalled();
-    expect(fixture.storage.getSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.load).not.toHaveBeenCalled();
   });
 
   it("returns a retryable read failure without changing canonical state", async () => {
     const before = service.getCurrentState();
-    fixture.storage.getSettings.mockImplementationOnce(() => {
+    fixture.settingsRepository.load.mockImplementationOnce(() => {
       throw new Error("standalone settings unavailable");
     });
 
-    await expect(activate({ source: "application-reset" })).resolves.toEqual({
+    await expect(activate({ source: "project-restore" })).resolves.toEqual({
       success: false,
       error: "preferences_activation_failed",
       params: { reason: "standalone settings unavailable" },
@@ -329,7 +337,7 @@ describe("PreferencesService persisted settings activation", () => {
     });
 
     expect(service.getCurrentState()).toBe(before);
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
     ).toHaveLength(0);
@@ -337,7 +345,7 @@ describe("PreferencesService persisted settings activation", () => {
 
   it("returns a retryable reset-clear failure without reading or publishing", async () => {
     const before = service.getCurrentState();
-    fixture.storage.clearSettings.mockReturnValueOnce(false);
+    fixture.settingsRepository.clear.mockReturnValueOnce(false);
 
     await expect(activate({ source: "application-reset" })).resolves.toEqual({
       success: false,
@@ -346,9 +354,9 @@ describe("PreferencesService persisted settings activation", () => {
       retryable: true,
     });
 
-    expect(fixture.storage.clearSettings).toHaveBeenCalledOnce();
-    expect(fixture.storage.getSettings).not.toHaveBeenCalled();
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.clear).toHaveBeenCalledOnce();
+    expect(fixture.settingsRepository.load).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     expect(service.getCurrentState()).toBe(before);
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
@@ -362,7 +370,10 @@ describe("PreferencesService persisted settings activation", () => {
     const failure = new Error("catalog activation failed");
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const persisted = { ...service.getSettings(), language: "de" };
-    fixture.storage.getSettings.mockReturnValue(persisted);
+    fixture.settingsRepository.load.mockReturnValue({
+      status: "current",
+      value: persisted,
+    });
     localizeCommands.mockImplementationOnce(() => {
       throw failure;
     });
@@ -402,7 +413,7 @@ describe("PreferencesService persisted settings activation", () => {
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:changed"),
     ).toHaveLength(0);
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
   });
 
   it("performs its durable read only after an overlapping mutation settles", async () => {
@@ -417,12 +428,12 @@ describe("PreferencesService persisted settings activation", () => {
 
     const mutation = service.setSetting("language", "de");
     await vi.waitFor(() => expect(i18n.changeLanguage).toHaveBeenCalledOnce());
-    fixture.storage.getSettings.mockReturnValueOnce({
-      ...service.getSettings(),
-      language: "fr",
+    fixture.settingsRepository.load.mockReturnValueOnce({
+      status: "current",
+      value: { ...service.getSettings(), language: "fr" },
     });
     const activation = activate({ source: "project-restore" });
-    expect(fixture.storage.getSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.load).not.toHaveBeenCalled();
 
     releaseLanguage();
     await expect(mutation).resolves.toBe(true);
@@ -433,8 +444,8 @@ describe("PreferencesService persisted settings activation", () => {
       effects: "applied",
     });
 
-    expect(fixture.storage.getSettings).toHaveBeenCalledOnce();
-    expect(fixture.storage.saveSettings).toHaveBeenCalledOnce();
+    expect(fixture.settingsRepository.load).toHaveBeenCalledOnce();
+    expect(fixture.settingsRepository.replace).toHaveBeenCalledOnce();
     expect(service.getCurrentState()).toMatchObject({
       revision: 3,
       settings: { language: "fr" },
@@ -450,10 +461,7 @@ describe("PreferencesService persisted settings activation", () => {
       await languagePending;
       i18n.language = language;
     });
-    fixture.storage.getSettings.mockReturnValueOnce({
-      ...service.getSettings(),
-      language: "de",
-    });
+    service.defaultSettings.language = "de";
 
     const activation = activate({ source: "application-reset" });
     await vi.waitFor(() => expect(i18n.changeLanguage).toHaveBeenCalledOnce());
@@ -475,7 +483,7 @@ describe("PreferencesService persisted settings activation", () => {
     expect(
       fixture.eventBusFixture.getEventsOfType("language:changed"),
     ).toHaveLength(0);
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).toHaveBeenCalledOnce();
   });
 
   it("closes synchronous effect re-entry as a typed failure", async () => {
@@ -484,7 +492,10 @@ describe("PreferencesService persisted settings activation", () => {
     service.applyTranslations = () => {
       nested = service.activatePersistedSettings("project-restore");
     };
-    fixture.storage.getSettings.mockReturnValueOnce(service.getSettings());
+    fixture.settingsRepository.load.mockReturnValueOnce({
+      status: "current",
+      value: service.getSettings(),
+    });
 
     await expect(activate({ source: "project-restore" })).resolves.toEqual({
       success: true,
@@ -499,7 +510,7 @@ describe("PreferencesService persisted settings activation", () => {
       retryable: true,
     });
 
-    expect(fixture.storage.getSettings).toHaveBeenCalledOnce();
+    expect(fixture.settingsRepository.load).toHaveBeenCalledOnce();
     expect(service.getCurrentState().revision).toBe(2);
   });
 });

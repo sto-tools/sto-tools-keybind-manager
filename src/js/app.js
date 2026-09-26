@@ -28,7 +28,6 @@ import {
   KeyBrowserService,
   KeyBrowserUI,
 } from "./components/keybinds/index.js";
-import { PreferencesService } from "./components/services/index.js";
 import PreferencesUI from "./components/ui/PreferencesUI.js";
 import KeyService from "./components/services/KeyService.js";
 import AliasService from "./components/services/AliasService.js";
@@ -61,6 +60,7 @@ export default class STOToolsKeybindManager {
    * @param {{
    *   i18n?: any,
    *   storageService?: any,
+   *   preferencesService?: import('./components/services/PreferencesService.js').default,
    *   ui?: any,
    *   syncService?: any,
    *   applyTranslations?: (root?: Document | Element | null) => void
@@ -69,12 +69,14 @@ export default class STOToolsKeybindManager {
   constructor({
     i18n,
     storageService,
+    preferencesService,
     ui,
     syncService,
     applyTranslations,
   } = {}) {
     this.i18n = i18n;
     this.storageService = storageService;
+    this.preferencesService = preferencesService;
     this.ui = ui;
     this.syncService = syncService;
     this.applyTranslations = applyTranslations ?? (() => {});
@@ -166,20 +168,19 @@ export default class STOToolsKeybindManager {
     let welcomeAttempt = null;
 
     try {
-      if (!this.i18n || !storageService || !stoUI || !this.syncService) {
+      if (
+        !this.i18n ||
+        !storageService ||
+        !stoUI ||
+        !this.syncService ||
+        !this.preferencesService
+      ) {
         throw new Error("Required dependencies not loaded");
       }
 
-      // Preferences is the first app-owned authority. No downstream component
-      // may initialize against default or partially applied settings.
-      this.preferencesService = create(PreferencesService, {
-        storage: storageService,
-        eventBus,
-        i18n: this.i18n,
-        applyTranslations: this.applyTranslations,
-      });
+      // Bootstrap owns and initializes this authority before project startup.
+      // App teardown owns only the components it creates, never this dependency.
       const preferencesService = this.preferencesService;
-      preferencesService.init();
       await preferencesService.initialStateReady;
       /** @type {import('./components/services/PreferencesService.js').default['runExternalActivationTransition']} */
       const runPreferencesTransition = (source, operation) =>
@@ -279,6 +280,7 @@ export default class STOToolsKeybindManager {
         eventBus,
         i18n: this.i18n,
         ui: stoUI,
+        runPreferencesTransition,
       });
 
       this.importService.init();
@@ -288,8 +290,11 @@ export default class STOToolsKeybindManager {
         ui: stoUI,
         eventBus,
         i18n: this.i18n,
-        runPreferencesTransition: (source, operation) =>
-          preferencesService.runExternalActivationTransition(source, operation),
+        runPreferencesTransition,
+        importProjectWithinPreferencesTransition:
+          this.importService.importProjectWithinPreferencesTransition.bind(
+            this.importService,
+          ),
       });
 
       this.projectManagementService.init();

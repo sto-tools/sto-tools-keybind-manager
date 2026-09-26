@@ -12,6 +12,12 @@ import {
   ToastService,
 } from "./components/services/index.js";
 import DataService from "./components/services/DataService.js";
+import PreferencesService from "./components/services/PreferencesService.js";
+import LocalStorageSettingsRepository from "./components/storage/LocalStorageSettingsRepository.js";
+import {
+  createDefaultPreferencesSettings,
+  detectPreferencesLanguage,
+} from "./components/services/preferencesDefaults.js";
 // ExportService is now created and managed by app.js
 import { UIUtilityService } from "./components/services/index.js";
 import FileExplorerUI from "./components/ui/FileExplorerUI.js";
@@ -32,7 +38,7 @@ const dataService = new DataService({
 
 (async () => {
   await i18next.init({
-    lng: "en", // Default to English, will be updated after StorageService is created
+    lng: "en", // Preferences applies the verified standalone language below.
     fallbackLng: "en",
     resources: {
       en: { translation: en },
@@ -75,139 +81,183 @@ const dataService = new DataService({
     });
   }
 
-  // Create new StorageService component with i18n support
-  const storageService = new StorageService({ eventBus, i18n: i18next });
-  storageService.init();
-
-  // Initialize the compatibility late-join owner.
-  dataService.init();
-
-  // Create DataCoordinator - the profile-data authority. PreferencesService
-  // becomes the separate settings authority inside the app startup barrier.
-  const dataCoordinator = new DataCoordinator({
-    eventBus,
-    storage: storageService,
-    i18n: i18next,
-  });
-  dataCoordinator.init();
-  try {
-    await dataCoordinator.initialStateReady;
-  } catch (error) {
-    console.error("DataCoordinator initialization failed:", error);
-    for (const component of [dataCoordinator, dataService, storageService]) {
-      if (typeof component.destroy === "function") component.destroy();
-    }
-    return;
-  }
-
   if (document.readyState === "loading") {
     await new Promise((resolve) =>
       document.addEventListener("DOMContentLoaded", resolve, { once: true }),
     );
   }
 
-  // Give DevMonitor the initialized localization capability without publishing
-  // it as application-global state.
-  devMonitor.configure(i18next);
-  if (devMonitor.isDevelopment) {
-    console.log(
-      "🔧 DevMonitor: Development mode detected, monitoring tools available",
-    );
+  // Bootstrap owns Preferences. No legacy project initialization may read or
+  // rewrite the root until standalone settings have been verified and applied.
+  const defaults = createDefaultPreferencesSettings(
+    detectPreferencesLanguage(navigator),
+  );
+  let settingsStorage;
+  try {
+    settingsStorage = localStorage;
+  } catch (error) {
+    // Some browsers deny the capability getter itself. Defer that failure to
+    // the repository load so Preferences still publishes its blocked state.
+    const unavailable = () => {
+      throw error;
+    };
+    settingsStorage = {
+      getItem: unavailable,
+      setItem: unavailable,
+      removeItem: unavailable,
+    };
   }
-
-  // Preferences owns initial translation; bootstrap only supplies version text.
-  const appVersionElement = document.getElementById("appVersion");
-  if (appVersionElement) {
-    appVersionElement.textContent = DISPLAY_VERSION;
-  }
-
-  // Create dependencies first. ExportService and KeyService are app-owned.
-  // Create UI utility service
-  const uiUtilityService = new UIUtilityService(eventBus);
-  uiUtilityService.init();
-
-  // Helper to bridge legacy UI components with the new utility service
-  /**
-   * @param {Element} container
-   * @param {any} [options]
-   * @returns {void | (() => void)}
-   */
-  const initDragAndDropBridge = (container, options = {}) => {
-    if (
-      container instanceof HTMLElement &&
-      uiUtilityService &&
-      typeof uiUtilityService.initDragAndDrop === "function"
-    ) {
-      return uiUtilityService.initDragAndDrop(container, options);
-    } else {
-      // Fallback via eventBus so a remote service instance can handle it (test env)
-      eventBus.emit("ui:init-drag-drop", { container, options });
-    }
-  };
-
-  // Create toast service to handle notifications
-  const toastService = new ToastService({ eventBus });
-  toastService.init();
-
-  // Create the local UI capability facade injected into composed consumers.
-  const stoUI = {
-    showToast: (
-      /** @type {string} */ message,
-      /** @type {string} */ type = "info",
-    ) => eventBus.emit("toast:show", { message, type }),
-    showModal: (/** @type {string} */ modalId) =>
-      eventBus.emit("modal:show", { modalId }),
-    hideModal: (/** @type {string} */ modalId) =>
-      eventBus.emit("modal:hide", { modalId }),
-    copyToClipboard: (/** @type {string} */ text) =>
-      eventBus.emit("ui:copy-to-clipboard", { text }),
-    // New: expose drag-and-drop helper for components
-    initDragAndDrop: initDragAndDropBridge,
-  };
-
-  // Initialize command chain validator service (after stoUI is defined)
-  const chainValidatorService = new CommandChainValidatorService({
+  const settingsRepository = new LocalStorageSettingsRepository({
+    storage: settingsStorage,
+    defaults,
+  });
+  const preferencesService = new PreferencesService({
+    settingsRepository,
+    defaults,
     eventBus,
     i18n: i18next,
-    ui: stoUI,
-  });
-  chainValidatorService.init();
-
-  const stoFileExplorer = new FileExplorerUI({
-    eventBus,
-    storage: storageService,
-    ui: stoUI,
-    i18n: i18next,
-  });
-  // Init immediately so header Explorer button works without waiting for sto-app-ready
-  stoFileExplorer.init();
-  const stoSync = new SyncService({
-    eventBus,
-    ui: stoUI,
-    i18n: i18next,
-    directoryPicker: Object.freeze({
-      isSupported: () => typeof window.showDirectoryPicker === "function",
-      pick: async () => {
-        if (typeof window.showDirectoryPicker !== "function") {
-          throw new Error("directory_picker_unavailable");
-        }
-        return await window.showDirectoryPicker();
-      },
-    }),
-  });
-  stoSync.init();
-
-  // Initialize app after dependencies are available
-  const app = new STOToolsKeybindManager({
-    i18n: i18next,
-    storageService,
-    ui: stoUI,
-    syncService: stoSync,
     applyTranslations,
   });
-
-  // App instance is not exposed globally; components communicate via eventBus.
+  preferencesService.init();
   try {
+    await preferencesService.initialStateReady;
+  } catch (error) {
+    console.error("Preferences initialization failed:", error);
+    preferencesService.destroy();
+    return;
+  }
+
+  const storageService = new StorageService({ eventBus, i18n: i18next });
+
+  // DataCoordinator remains the separate profile-data authority.
+  const dataCoordinator = new DataCoordinator({
+    eventBus,
+    storage: storageService,
+    i18n: i18next,
+  });
+  try {
+    storageService.init();
+    dataService.init();
+    dataCoordinator.init();
+    await dataCoordinator.initialStateReady;
+  } catch (error) {
+    console.error("DataCoordinator initialization failed:", error);
+    for (const component of [
+      dataCoordinator,
+      dataService,
+      storageService,
+      preferencesService,
+    ]) {
+      if (typeof component.destroy === "function") component.destroy();
+    }
+    return;
+  }
+
+  // Preferences is bootstrap-owned even before the app exists. Keep every
+  // remaining composition step inside its failure cleanup boundary.
+  try {
+    // Give DevMonitor the initialized localization capability without publishing
+    // it as application-global state.
+    devMonitor.configure(i18next);
+    if (devMonitor.isDevelopment) {
+      console.log(
+        "🔧 DevMonitor: Development mode detected, monitoring tools available",
+      );
+    }
+
+    // Preferences owns initial translation; bootstrap only supplies version text.
+    const appVersionElement = document.getElementById("appVersion");
+    if (appVersionElement) {
+      appVersionElement.textContent = DISPLAY_VERSION;
+    }
+
+    // Create dependencies first. ExportService and KeyService are app-owned.
+    // Create UI utility service
+    const uiUtilityService = new UIUtilityService(eventBus);
+    uiUtilityService.init();
+
+    // Helper to bridge legacy UI components with the new utility service
+    /**
+     * @param {Element} container
+     * @param {any} [options]
+     * @returns {void | (() => void)}
+     */
+    const initDragAndDropBridge = (container, options = {}) => {
+      if (
+        container instanceof HTMLElement &&
+        uiUtilityService &&
+        typeof uiUtilityService.initDragAndDrop === "function"
+      ) {
+        return uiUtilityService.initDragAndDrop(container, options);
+      } else {
+        // Fallback via eventBus so a remote service instance can handle it (test env)
+        eventBus.emit("ui:init-drag-drop", { container, options });
+      }
+    };
+
+    // Create toast service to handle notifications
+    const toastService = new ToastService({ eventBus });
+    toastService.init();
+
+    // Create the local UI capability facade injected into composed consumers.
+    const stoUI = {
+      showToast: (
+        /** @type {string} */ message,
+        /** @type {string} */ type = "info",
+      ) => eventBus.emit("toast:show", { message, type }),
+      showModal: (/** @type {string} */ modalId) =>
+        eventBus.emit("modal:show", { modalId }),
+      hideModal: (/** @type {string} */ modalId) =>
+        eventBus.emit("modal:hide", { modalId }),
+      copyToClipboard: (/** @type {string} */ text) =>
+        eventBus.emit("ui:copy-to-clipboard", { text }),
+      // New: expose drag-and-drop helper for components
+      initDragAndDrop: initDragAndDropBridge,
+    };
+
+    // Initialize command chain validator service (after stoUI is defined)
+    const chainValidatorService = new CommandChainValidatorService({
+      eventBus,
+      i18n: i18next,
+      ui: stoUI,
+    });
+    chainValidatorService.init();
+
+    const stoFileExplorer = new FileExplorerUI({
+      eventBus,
+      storage: storageService,
+      ui: stoUI,
+      i18n: i18next,
+    });
+    // Init immediately so header Explorer button works without waiting for sto-app-ready
+    stoFileExplorer.init();
+    const stoSync = new SyncService({
+      eventBus,
+      ui: stoUI,
+      i18n: i18next,
+      directoryPicker: Object.freeze({
+        isSupported: () => typeof window.showDirectoryPicker === "function",
+        pick: async () => {
+          if (typeof window.showDirectoryPicker !== "function") {
+            throw new Error("directory_picker_unavailable");
+          }
+          return await window.showDirectoryPicker();
+        },
+      }),
+    });
+    stoSync.init();
+
+    // Initialize app after dependencies are available
+    const app = new STOToolsKeybindManager({
+      i18n: i18next,
+      storageService,
+      preferencesService,
+      ui: stoUI,
+      syncService: stoSync,
+      applyTranslations,
+    });
+
+    // App instance is not exposed globally; components communicate via eventBus.
     await app.init();
     if (devMonitor.isDevelopment) {
       devMonitor.registerRuntimeDiagnostics({
@@ -221,5 +271,6 @@ const dataService = new DataService({
     }
   } catch (error) {
     console.error("Application initialization failed:", error);
+    preferencesService.destroy();
   }
 })();

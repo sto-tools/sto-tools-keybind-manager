@@ -78,7 +78,19 @@ export function createSelectionState(overrides = {}) {
 export function createPreferencesState(settings = {}, identity = {}) {
   return {
     authorityEpoch: identity.authorityEpoch ?? 1,
-    ready: identity.ready ?? true,
+    ...(identity.ready === false
+      ? /** @type {const} */ ({
+          ready: false,
+          blocked: false,
+          readiness: "initializing",
+          durability: "unverified",
+        })
+      : /** @type {const} */ ({
+          ready: true,
+          blocked: false,
+          readiness: "ready",
+          durability: "verified",
+        })),
     revision: identity.revision ?? 1,
     settings: {
       ...defaultPreferencesSettings,

@@ -7,7 +7,10 @@ import {
 } from "../../lib/commandDisplayAdapter.js";
 import { KBFParser } from "../../lib/KBFParser.js";
 import { commitImportedProfile } from "./importProfileCommit.js";
-import { importProjectToStorage } from "./projectImportOrchestrator.js";
+import {
+  importProjectToStorage,
+  importProjectWithPreferencesTransition,
+} from "./projectImportOrchestrator.js";
 import {
   decodeKBFImportConfiguration,
   decodeKBFParseResult,
@@ -42,13 +45,20 @@ const getErrorMessage = (error) =>
   error instanceof Error ? error.message : String(error);
 
 export default class ImportService extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, storage?: import('./serviceTypes.js').Storage, i18n?: import('./serviceTypes.js').I18n, ui?: import('./serviceTypes.js').ToastUI }} [options] */
-  constructor({ eventBus, storage, i18n, ui } = {}) {
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, storage?: import('./serviceTypes.js').Storage, i18n?: import('./serviceTypes.js').I18n, ui?: import('./serviceTypes.js').ToastUI, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null }} [options] */
+  constructor({
+    eventBus,
+    storage,
+    i18n,
+    ui,
+    runPreferencesTransition = null,
+  } = {}) {
     super(eventBus);
     this.componentName = "ImportService";
     this.storage = storage;
     this.i18n = i18n;
     this.ui = ui;
+    this.runPreferencesTransition = runPreferencesTransition;
     this.kbfParser = new KBFParser({ eventBus });
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
@@ -471,12 +481,33 @@ export default class ImportService extends ComponentBase {
 
   // Import a complete project file
   /**
-   * @param {string} content
-   * @param {{ importSettings?: boolean }} [options]
+   * @param {unknown} content
+   * @param {unknown} [options]
    * @returns {Promise<import('../../types/rpc/import-export.js').ProjectImportResult>}
    */
   async importProjectFile(content, options = {}) {
-    return importProjectToStorage(this.storage, content, options);
+    return importProjectWithPreferencesTransition(this, content, options);
+  }
+
+  /**
+   * Direct composition capability for a caller already holding the Preferences
+   * lease. It never acquires a second lease or activates the staged settings.
+   * @param {unknown} content
+   * @param {unknown} options
+   * @param {import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences} persistImportedSettings
+   * @returns {Promise<import('../../types/rpc/import-export.js').ProjectImportResult>}
+   */
+  async importProjectWithinPreferencesTransition(
+    content,
+    options = {},
+    persistImportedSettings,
+  ) {
+    return importProjectToStorage(
+      this.storage,
+      content,
+      options,
+      persistImportedSettings,
+    );
   }
 
   /**

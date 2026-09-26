@@ -22,7 +22,7 @@ describe("PreferencesService transition lifecycle boundaries", () => {
     localizeCommands = vi.fn();
     applyTranslations = vi.fn();
     service = new PreferencesService({
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
       eventBus: fixture.eventBus,
       i18n: /** @type {any} */ (i18n),
       localizeCommands,
@@ -45,9 +45,9 @@ describe("PreferencesService transition lifecycle boundaries", () => {
     localizeCommands.mockClear();
     applyTranslations.mockClear();
     i18n.changeLanguage.mockClear();
-    fixture.storage.getSettings.mockClear();
-    fixture.storage.saveSettings.mockClear();
-    fixture.storage.clearSettings.mockClear();
+    fixture.settingsRepository.load.mockClear();
+    fixture.settingsRepository.replace.mockClear();
+    fixture.settingsRepository.clear.mockClear();
     fixture.eventBusFixture.clearEventHistory();
   }
 
@@ -192,7 +192,7 @@ describe("PreferencesService transition lifecycle boundaries", () => {
       "operation_cancelled",
     );
 
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     expect(service.getCurrentState()).toBe(before);
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
@@ -202,9 +202,14 @@ describe("PreferencesService transition lifecycle boundaries", () => {
   it("keeps a reentrant storage capability from adopting or broadcasting", async () => {
     const before = service.getCurrentState();
     clearTransitionHistory();
-    fixture.storage.saveSettings.mockImplementationOnce(() => {
+    fixture.settingsRepository.replace.mockImplementationOnce((settings) => {
       service.destroy();
-      return true;
+      return {
+        status: "committed",
+        value: settings,
+        write: { status: "acknowledged" },
+        verification: { status: "verified" },
+      };
     });
 
     await expect(
@@ -248,8 +253,8 @@ describe("PreferencesService transition lifecycle boundaries", () => {
       params: { reason: "operation_cancelled" },
       retryable: true,
     });
-    expect(fixture.storage.clearSettings).not.toHaveBeenCalled();
-    expect(fixture.storage.getSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.clear).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.load).not.toHaveBeenCalled();
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
     ).toHaveLength(0);
@@ -270,9 +275,9 @@ describe("PreferencesService transition lifecycle boundaries", () => {
         await languageBlocked;
         i18n.language = language;
       });
-      fixture.storage.getSettings.mockReturnValueOnce({
-        ...service.getSettings(),
-        language: "de",
+      fixture.settingsRepository.load.mockReturnValueOnce({
+        status: "current",
+        value: { ...service.getSettings(), language: "de" },
       });
 
       const transition = service.runExternalActivationTransition(
@@ -292,7 +297,7 @@ describe("PreferencesService transition lifecycle boundaries", () => {
       await Promise.resolve();
 
       expect(settled).not.toHaveBeenCalled();
-      expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+      expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
 
       releaseLanguage();
       if (operationFailure) {
@@ -301,7 +306,7 @@ describe("PreferencesService transition lifecycle boundaries", () => {
         await expect(transition).resolves.toBe("operation-complete");
       }
       await expect(queuedMutation).resolves.toBe(true);
-      expect(fixture.storage.saveSettings).toHaveBeenCalledOnce();
+      expect(fixture.settingsRepository.replace).toHaveBeenCalledOnce();
       expect(service.getCurrentState()).toMatchObject({
         revision: 3,
         settings: { language: "de", theme: "default" },
@@ -312,7 +317,7 @@ describe("PreferencesService transition lifecycle boundaries", () => {
   it("logs a rejected language event action without leaking a synchronous throw", async () => {
     const failure = new Error("settings unavailable");
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    fixture.storage.saveSettings.mockImplementationOnce(() => {
+    fixture.settingsRepository.replace.mockImplementationOnce(() => {
       throw failure;
     });
 

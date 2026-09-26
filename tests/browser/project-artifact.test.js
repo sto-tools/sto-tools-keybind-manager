@@ -2,6 +2,7 @@ import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import { readPreferencesState } from "../fixtures/ui/preferencesState.js";
 
 function createWritableDirectoryFixture({ onFirstProjectionWrite } = {}) {
   const files = new Map();
@@ -33,7 +34,7 @@ function createWritableDirectoryFixture({ onFirstProjectionWrite } = {}) {
               async write(contents) {
                 if (path !== "project.json" && !projectionWriteStarted) {
                   projectionWriteStarted = true;
-                  onFirstProjectionWrite?.();
+                  await onFirstProjectionWrite?.();
                 }
                 files.set(path, String(contents));
               },
@@ -84,17 +85,19 @@ describe("Project artifact checked-bundle parity", () => {
 
     const downloadedText = await downloadedBlob.text();
     const rootSnapshot = structuredClone(storage.getAllData());
-    const settingsSnapshot = structuredClone(storage.getSettings());
+    const settingsSnapshot = (await readPreferencesState(bus)).settings;
     const changedSettings = {
       ...settingsSnapshot,
       artifactParityProbe: "changed-during-projection",
     };
     let settingsMutationAccepted = false;
     const directory = createWritableDirectoryFixture({
-      onFirstProjectionWrite: () => {
-        settingsMutationAccepted = storage.saveSettings(changedSettings, {
-          replace: true,
-        });
+      onFirstProjectionWrite: async () => {
+        settingsMutationAccepted = await request(
+          bus,
+          "preferences:set-settings",
+          changedSettings,
+        );
       },
     });
 
@@ -104,7 +107,9 @@ describe("Project artifact checked-bundle parity", () => {
       });
 
       expect(settingsMutationAccepted).toBe(true);
-      expect(storage.getSettings()).toEqual(changedSettings);
+      expect((await readPreferencesState(bus)).settings).toEqual(
+        changedSettings,
+      );
       const syncedText = directory.files.get("project.json");
       expect(syncedText).toBe(downloadedText);
       expect(JSON.parse(downloadedText)).toEqual({
@@ -118,7 +123,7 @@ describe("Project artifact checked-bundle parity", () => {
         },
       });
     } finally {
-      storage.saveSettings(settingsSnapshot, { replace: true });
+      await request(bus, "preferences:set-settings", settingsSnapshot);
     }
   });
 });

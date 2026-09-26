@@ -188,6 +188,14 @@ export function isProjectImportFailure(value) {
   }
   const params = ownDataValue(value, "params");
   if (!isSafeDataRecord(params)) return false;
+  if (error === "preferences_activation_failed") {
+    return (
+      ownDataValue(value, "durable") === true &&
+      typeof ownDataValue(params, "reason") === "string" &&
+      materializeImportedSummary(ownDataValue(value, "imported")) !== null &&
+      isCurrentProfile(ownDataValue(value, "currentProfile"))
+    );
+  }
   const path = ownDataValue(params, "path");
   if (error === "invalid_project_file") return typeof path === "string";
   if (error === "invalid_project_options") {
@@ -281,7 +289,8 @@ function materializeFailureParams(error, value) {
   if (!isSafeDataRecord(value)) return undefined;
   if (
     error === "project_restore_import_failed" ||
-    error === "project_restore_reload_failed"
+    error === "project_restore_reload_failed" ||
+    error === "preferences_activation_failed"
   ) {
     const reason = ownDataValue(value, "reason");
     return typeof reason === "string" ? { reason } : undefined;
@@ -340,7 +349,8 @@ export function classifyProjectRestoreResult(value) {
   }
   const reason =
     (error === "project_restore_import_failed" ||
-      error === "project_restore_reload_failed") &&
+      error === "project_restore_reload_failed" ||
+      error === "preferences_activation_failed") &&
     params &&
     typeof params.reason === "string"
       ? params.reason

@@ -5,9 +5,51 @@ import {
   materializePreferenceSettingsMutation,
   materializeSyncFolderSettingsMutation,
 } from "../../../src/js/components/services/preferencesMutationBoundary.js";
+import {
+  materializeCanonicalPreferences,
+  materializeSettingsWriteResult,
+} from "../../../src/js/components/services/preferencesRepositoryBoundary.js";
 import { extensionPreferenceKey } from "../../../src/js/components/services/preferenceKeys.js";
+import { createDefaultPreferencesSettings } from "../../../src/js/components/services/preferencesDefaults.js";
 
 describe("preferences mutation materializers", () => {
+  it("materializes only complete canonical settings and exact verified receipts", () => {
+    const value = {
+      ...createDefaultPreferencesSettings(),
+      extension: { items: [1] },
+    };
+    const receipt = {
+      status: "committed",
+      value,
+      write: { status: "acknowledged" },
+      verification: { status: "verified" },
+    };
+    const detached = materializeSettingsWriteResult(receipt);
+    expect(detached).toEqual(receipt);
+    value.extension.items.push(2);
+    expect(detached.value.extension.items).toEqual([1]);
+    expect(materializeCanonicalPreferences({ language: "en" })).toBeNull();
+    for (const invalid of [
+      false,
+      null,
+      { ...receipt, error: "failure" },
+      { ...receipt, verification: { status: "not_requested" } },
+      { ...receipt, write: { status: "indeterminate" } },
+      { ...receipt, value: { language: "en" } },
+    ]) {
+      expect(materializeSettingsWriteResult(invalid)).toBeNull();
+    }
+  });
+
+  it("never invokes accessor-backed repository acknowledgement data", () => {
+    const getter = vi.fn(() => "committed");
+    const receipt = Object.defineProperty({}, "status", {
+      enumerable: true,
+      get: getter,
+    });
+    expect(materializeSettingsWriteResult(receipt)).toBeNull();
+    expect(getter).not.toHaveBeenCalled();
+  });
   it("materializes the exact known and extension mutation shapes once", () => {
     const known = Object.freeze({
       key: "autoSave",

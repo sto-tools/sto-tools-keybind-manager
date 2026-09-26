@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
+import { createProjectSettingsRepository } from "../fixtures/services/projectRestore.js";
 import StorageService from "../../src/js/components/services/StorageService.js";
 import SyncService from "../../src/js/components/services/SyncService.js";
 import eventBus from "../../src/js/core/eventBus.js";
@@ -54,7 +55,6 @@ describe("sync folder settings owner integration", () => {
           autoSyncInterval: "change",
         },
       },
-      setItemErrorKeys: rejectSettingsWrite ? ["sto_keybind_settings"] : [],
     });
     ui = { showToast: vi.fn() };
     let storedHandle = priorHandle;
@@ -82,14 +82,25 @@ describe("sync folder settings owner integration", () => {
       },
       directoryPicker,
     });
-    preferences = new PreferencesService({ storage, eventBus });
+    preferences = new PreferencesService({
+      settingsRepository: createProjectSettingsRepository(),
+      eventBus,
+    });
 
     storage.init();
-    // Preserve the production startup order: SyncService is live before the
+    // Exercise the supported pre-owner consumer lifecycle: SyncService is live before the
     // Preferences owner announces its complete initial snapshot.
     sync.init();
     preferences.init();
     await preferences.initialStateReady;
+    if (rejectSettingsWrite) {
+      const setItem = localStorage.setItem.bind(localStorage);
+      vi.spyOn(localStorage, "setItem").mockImplementation((key, value) => {
+        if (key === "sto_keybind_settings")
+          throw new DOMException("quota exceeded", "QuotaExceededError");
+        return setItem(key, value);
+      });
+    }
     vi.spyOn(sync, "isFirefox").mockReturnValue(false);
     vi.spyOn(sync, "isSecureContext").mockReturnValue(true);
   }
@@ -182,7 +193,7 @@ describe("sync folder settings owner integration", () => {
         autoSync: true,
       }),
     );
-    expect(storage.getSettings()).toEqual(
+    expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
       expect.objectContaining({
         "plugin:concurrent": { density: "compact" },
         syncFolderName: "Fleet Builds",

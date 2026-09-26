@@ -26,13 +26,13 @@ describe("PreferencesService sync folder mutation", () => {
   beforeEach(async () => {
     fixture = createServiceFixture();
     service = new PreferencesService({
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
       eventBus: fixture.eventBus,
     });
     consumers = [];
     service.init();
     await service.initialStateReady;
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
     fixture.eventBusFixture.clearEventHistory();
   });
 
@@ -47,7 +47,7 @@ describe("PreferencesService sync folder mutation", () => {
 
   it("persists, adopts, and publishes a full cache snapshot without applying or saving", async () => {
     await service.setExtensionSetting("plugin:layout", { density: "compact" });
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
     fixture.eventBusFixture.clearEventHistory();
     const before = service.getCurrentState();
     const applySettings = vi.spyOn(service, "applySettings");
@@ -59,13 +59,12 @@ describe("PreferencesService sync folder mutation", () => {
       ),
     ).resolves.toBe(true);
 
-    expect(fixture.storage.saveSettings).toHaveBeenCalledOnce();
-    expect(fixture.storage.saveSettings).toHaveBeenCalledWith(
+    expect(fixture.settingsRepository.replace).toHaveBeenCalledOnce();
+    expect(fixture.settingsRepository.replace).toHaveBeenCalledWith(
       expect.objectContaining({
         ...mutation,
         "plugin:layout": { density: "compact" },
       }),
-      { replace: true },
     );
     expect(service.getSettings()).toEqual(
       expect.objectContaining({
@@ -113,7 +112,9 @@ describe("PreferencesService sync folder mutation", () => {
     "leaves owner state and publications unchanged when persistence %s",
     async (_label, persistSettings, outcome, expected) => {
       const before = service.getCurrentState();
-      fixture.storage.saveSettings.mockImplementationOnce(persistSettings);
+      fixture.settingsRepository.replace.mockImplementationOnce(
+        persistSettings,
+      );
 
       const request = fixture.eventBus.request(
         "preferences:persist-sync-folder-settings",
@@ -156,7 +157,7 @@ describe("PreferencesService sync folder mutation", () => {
     ).rejects.toThrow("Invalid sync folder settings mutation");
 
     expect(service.getCurrentState()).toEqual(before);
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
   });
 
   it("rejects descriptor-hostile envelopes without invoking accessors", async () => {
@@ -193,6 +194,6 @@ describe("PreferencesService sync folder mutation", () => {
 
     expect(folderNameGetter).not.toHaveBeenCalled();
     expect(service.getCurrentState()).toBe(before);
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
   });
 });

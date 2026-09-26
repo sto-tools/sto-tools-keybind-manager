@@ -1,5 +1,4 @@
 // Service Components
-export { default as PreferencesService } from "./PreferencesService.js";
 export { default as ProjectManagementService } from "./ProjectManagementService.js";
 export { default as AutoSync } from "./AutoSync.js";
 export { default as StorageService } from "./StorageService.js";

@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import StorageService from "../../src/js/components/services/StorageService.js";
 import LocalStorageProjectRepository from "../../src/js/components/storage/LocalStorageProjectRepository.js";
 import LocalStorageSettingsRepository from "../../src/js/components/storage/LocalStorageSettingsRepository.js";
+import PreferencesService from "../../src/js/components/services/PreferencesService.js";
+import { decodeStoredSettingsJson } from "../../src/js/components/services/settingsDataBoundary.js";
 import { createEventBusFixture } from "../fixtures/core/eventBus.js";
 
 const ROOT = "sto_keybind_manager";
@@ -30,7 +32,7 @@ function memoryStorage(initial) {
   };
 }
 
-describe("unused repository parity with the active StorageService", () => {
+describe("project repository parity and settings owner cutover characterization", () => {
   let bus;
   let services;
 
@@ -153,12 +155,18 @@ describe("unused repository parity with the active StorageService", () => {
       storage,
       defaults: service.getDefaultSettings(),
     });
-    expect(repository.load().value).toEqual(service.getSettings());
+    // Retain the frozen legacy decoder contract while standalone persistence
+    // now belongs exclusively to the Preferences owner/repository chain.
+    expect(repository.load().value).toEqual(
+      raw
+        ? decodeStoredSettingsJson(raw, service.getDefaultSettings()).value
+        : service.getDefaultSettings(),
+    );
     expect(storage.setItem).not.toHaveBeenCalled();
     expect(storage.removeItem).not.toHaveBeenCalled();
   });
 
-  it("matches complete settings replacement without retaining stale extensions", () => {
+  it("matches complete settings replacement through the owner without retaining stale extensions", async () => {
     const initial = {
       [SETTINGS]: '{"oldExtension":true}',
       [ROOT]: "keep root",
@@ -167,7 +175,18 @@ describe("unused repository parity with the active StorageService", () => {
     };
     const service = legacy(initial);
     const replacement = JSON.parse(fixture("complete-current-settings.json"));
-    expect(service.saveSettings(replacement, { replace: true })).toBe(true);
+    const owner = new PreferencesService({
+      eventBus: bus.eventBus,
+      settingsRepository: new LocalStorageSettingsRepository({
+        storage: localStorage,
+        defaults: service.getDefaultSettings(),
+      }),
+      defaults: service.getDefaultSettings(),
+    });
+    services.push(owner);
+    owner.init();
+    await owner.initialStateReady;
+    expect(await owner.setSettings(replacement)).toBe(true);
     const storage = memoryStorage(initial);
     const repository = new LocalStorageSettingsRepository({
       storage,

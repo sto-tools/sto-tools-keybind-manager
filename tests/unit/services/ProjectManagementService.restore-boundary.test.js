@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ProjectManagementService from "../../../src/js/components/services/ProjectManagementService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
-import { createRequestBackedPreferencesTransition } from "../../fixtures/services/projectRestore.js";
+import {
+  createRequestBackedPreferencesTransition,
+  mockProjectRestoreActions,
+} from "../../fixtures/services/projectRestore.js";
 
 describe("ProjectManagementService restore RPC boundary", () => {
   let fixture;
@@ -36,11 +39,7 @@ describe("ProjectManagementService restore RPC boundary", () => {
 
   it("fails closed before import dispatch when the Preferences transition is unavailable", async () => {
     const importHandler = vi.fn();
-    const detachImport = respond(
-      fixture.eventBus,
-      "import:project-file",
-      importHandler,
-    );
+    service.importProjectWithinPreferencesTransition = importHandler;
     service.runPreferencesTransition = null;
 
     await expect(
@@ -53,7 +52,6 @@ describe("ProjectManagementService restore RPC boundary", () => {
     });
 
     expect(importHandler).not.toHaveBeenCalled();
-    detachImport();
   });
 
   it("waits for durable import acknowledgement beyond the default transport timeout", async () => {
@@ -69,11 +67,7 @@ describe("ProjectManagementService restore RPC boundary", () => {
         });
     });
     const importHandler = vi.fn(() => importResult);
-    const detachImport = respond(
-      fixture.eventBus,
-      "import:project-file",
-      importHandler,
-    );
+    service.importProjectWithinPreferencesTransition = importHandler;
     const detachReload = respond(fixture.eventBus, "data:reload-state", () => ({
       success: true,
       profiles: 1,
@@ -110,7 +104,6 @@ describe("ProjectManagementService restore RPC boundary", () => {
 
     detachPreferences();
     detachReload();
-    detachImport();
   });
 
   it("stops after an awaited import when the restore lifecycle is destroyed", async () => {
@@ -124,20 +117,16 @@ describe("ProjectManagementService restore RPC boundary", () => {
           imported: { profiles: 1, settings: false },
         });
     });
-    const detachImport = respond(
-      fixture.eventBus,
-      "import:project-file",
+    service.importProjectWithinPreferencesTransition = vi.fn(
       () => importResult,
     );
     const request = vi.spyOn(service, "request");
 
     const restore = service.restoreFromProjectContent("{}", "backup.json");
     await vi.waitFor(() => {
-      expect(request).toHaveBeenCalledWith(
-        "import:project-file",
-        { content: "{}" },
-        0,
-      );
+      expect(
+        service.importProjectWithinPreferencesTransition,
+      ).toHaveBeenCalledWith("{}", {}, expect.any(Function));
     });
     service.destroy();
     releaseImport();
@@ -148,8 +137,7 @@ describe("ProjectManagementService restore RPC boundary", () => {
       params: { reason: "operation_cancelled" },
       durable: "indeterminate",
     });
-    expect(request).toHaveBeenCalledOnce();
-    detachImport();
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("reports no durable write when destroyed before queued import dispatch", async () => {
@@ -185,14 +173,10 @@ describe("ProjectManagementService restore RPC boundary", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
-  it("closes a registered import responder rejection as durability-indeterminate", async () => {
-    const detachImport = respond(
-      fixture.eventBus,
-      "import:project-file",
-      () => {
-        throw new Error("import handler failed after dispatch");
-      },
-    );
+  it("closes an injected import action rejection as durability-indeterminate", async () => {
+    service.importProjectWithinPreferencesTransition = vi.fn(() => {
+      throw new Error("import handler failed after dispatch");
+    });
 
     await expect(
       service.restoreFromProjectContent('{"fake":true}', "backup.json"),
@@ -203,8 +187,6 @@ describe("ProjectManagementService restore RPC boundary", () => {
       durable: "indeterminate",
     });
     expect(service.ui.showToast).not.toHaveBeenCalled();
-
-    detachImport();
   });
 
   it("uses a detached import receipt without invoking proxy data reads", async () => {
@@ -226,10 +208,9 @@ describe("ProjectManagementService restore RPC boundary", () => {
       },
       { get: resultGet },
     );
-    const requestMock = vi
-      .spyOn(service, "request")
-      .mockImplementation(async (topic) => {
-        if (topic === "import:project-file") return resultProxy;
+    const requestMock = mockProjectRestoreActions(service).mockImplementation(
+      async (topic) => {
+        if (topic === "import-project") return resultProxy;
         if (topic === "data:reload-state") {
           importedTarget.profiles = 99;
           return {
@@ -248,7 +229,8 @@ describe("ProjectManagementService restore RPC boundary", () => {
           };
         }
         throw new Error(`Unexpected request for topic ${topic}`);
-      });
+      },
+    );
 
     await expect(
       service.restoreFromProjectContent('{"fake":true}', "backup.json"),

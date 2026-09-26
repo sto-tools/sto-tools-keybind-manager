@@ -1,3 +1,7 @@
+import {
+  createProjectSettingsRepository,
+  createImportPreferencesOwner,
+} from "../fixtures/services/projectRestore.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ImportService from "../../src/js/components/services/ImportService.js";
@@ -30,8 +34,10 @@ describe("project import boundary", () => {
   let localStorageFixture;
   let storage;
   let service;
+  let preferences;
+  let settingsRepository;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     eventBusFixture = createEventBusFixture();
     localStorageFixture = createLocalStorageFixture({
       initialData: {
@@ -48,8 +54,15 @@ describe("project import boundary", () => {
       eventBus: eventBusFixture.eventBus,
       version: "1.0.0",
     });
+    settingsRepository = createProjectSettingsRepository();
+    preferences = await createImportPreferencesOwner({
+      eventBus: eventBusFixture.eventBus,
+      settingsRepository,
+    });
     storage.init();
     service = new ImportService({
+      runPreferencesTransition: (source, operation) =>
+        preferences.runExternalActivationTransition(source, operation),
       eventBus: eventBusFixture.eventBus,
       storage,
     });
@@ -58,6 +71,7 @@ describe("project import boundary", () => {
 
   afterEach(() => {
     service?.destroy();
+    preferences?.destroy();
     storage?.destroy();
     eventBusFixture?.destroy();
     localStorageFixture?.destroy();
@@ -68,7 +82,7 @@ describe("project import boundary", () => {
     const beforeRoot = localStorage.getItem("sto_keybind_manager");
     const beforeSettings = localStorage.getItem("sto_keybind_settings");
     const saveProfile = vi.spyOn(storage, "saveProfile");
-    const saveSettings = vi.spyOn(storage, "saveSettings");
+    const saveSettings = vi.spyOn(settingsRepository, "replace");
     const saveAllData = vi.spyOn(storage, "saveAllData");
     const result = await service.importProjectFile(
       JSON.stringify({
@@ -124,7 +138,7 @@ describe("project import boundary", () => {
       const beforeRoot = localStorage.getItem("sto_keybind_manager");
       const beforeSettings = localStorage.getItem("sto_keybind_settings");
       const saveProfile = vi.spyOn(storage, "saveProfile");
-      const saveSettings = vi.spyOn(storage, "saveSettings");
+      const saveSettings = vi.spyOn(settingsRepository, "replace");
       const saveAllData = vi.spyOn(storage, "saveAllData");
       const result = await service.importProjectFile(
         JSON.stringify({ type: "project", data }),
@@ -147,7 +161,7 @@ describe("project import boundary", () => {
     const beforeRoot = localStorage.getItem("sto_keybind_manager");
     const beforeSettings = localStorage.getItem("sto_keybind_settings");
     const saveProfile = vi.spyOn(storage, "saveProfile");
-    const saveSettings = vi.spyOn(storage, "saveSettings");
+    const saveSettings = vi.spyOn(settingsRepository, "replace");
     const saveAllData = vi.spyOn(storage, "saveAllData");
     const result = await service.importProjectFile(
       JSON.stringify({
@@ -268,15 +282,20 @@ describe("project import boundary", () => {
     "imports a settings patch when standalone settings %s",
     async (_condition, standaloneSettings, projectVersion) => {
       if (standaloneSettings === null) {
-        localStorage.removeItem(storage.settingsKey);
+        localStorage.removeItem("sto_keybind_settings");
       } else {
         localStorage.setItem(
-          storage.settingsKey,
+          "sto_keybind_settings",
           JSON.stringify(standaloneSettings),
         );
       }
+      preferences.destroy();
+      preferences = await createImportPreferencesOwner({
+        eventBus: eventBusFixture.eventBus,
+        settingsRepository,
+      });
       const beforeRoot = localStorage.getItem(storage.storageKey);
-      const saveSettings = vi.spyOn(storage, "saveSettings");
+      const saveSettings = vi.spyOn(settingsRepository, "replace");
 
       const result = await service.importProjectFile(
         JSON.stringify({
@@ -314,7 +333,7 @@ describe("project import boundary", () => {
       }
       expect(Object.hasOwn(settingsPayload, "firstRun")).toBe(false);
       const persistedSettings = JSON.parse(
-        localStorage.getItem(storage.settingsKey),
+        localStorage.getItem("sto_keybind_settings"),
       );
       expect(persistedSettings).toMatchObject({
         theme: "light",

@@ -345,7 +345,7 @@ describe("DataCoordinator Service", () => {
           settings: embeddedSettings,
         }),
       );
-      expect(mockStorage.saveSettings).not.toHaveBeenCalled();
+      expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     });
 
     it("should reload state from storage", async () => {

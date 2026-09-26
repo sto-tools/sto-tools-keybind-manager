@@ -14,12 +14,13 @@ export async function materializeSyncProject(service, rawDirectory, version) {
   if (!service.storage) throw new Error("Storage is required to sync exports");
   const directory = requireSyncDirectoryCapability(rawDirectory).raw;
   const data = service.storage.getAllData();
+  const preferences = service.cache.preferencesState;
+  if (!preferences?.ready) throw new Error("Preferences state is unavailable");
   const exported = new Date().toISOString();
-  const projectArtifact = serializeProjectArtifact(
-    data,
-    service.storage.getSettings(),
-    { version, exported },
-  );
+  const projectArtifact = serializeProjectArtifact(data, preferences.settings, {
+    version,
+    exported,
+  });
   const profiles = data.profiles || {};
 
   for (const profile of Object.values(profiles)) {

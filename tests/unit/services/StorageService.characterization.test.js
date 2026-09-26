@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import StorageService from "../../../src/js/components/services/StorageService.js";
+import PreferencesService from "../../../src/js/components/services/PreferencesService.js";
+import { createProjectSettingsRepository } from "../../fixtures/services/projectRestore.js";
 import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
 import { createLocalStorageFixture } from "../../fixtures/core/storage.js";
 
@@ -64,6 +66,17 @@ describe("StorageService persisted-format characterization", () => {
     return service;
   }
 
+  async function startPreferences() {
+    const owner = new PreferencesService({
+      settingsRepository: createProjectSettingsRepository(),
+      eventBus: eventBusFixture.eventBus,
+    });
+    services.push(owner);
+    owner.init();
+    await owner.initialStateReady;
+    return owner;
+  }
+
   it("preserves every known current root, profile, and settings field", () => {
     const originalRoot = readFixtureJson("complete-current-root.json");
     const settings = readFixtureJson("complete-current-settings.json");
@@ -72,7 +85,7 @@ describe("StorageService persisted-format characterization", () => {
     localStorage.setItem(STORAGE_KEY, rawRoot);
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 
-    const service = startStorage();
+    startStorage();
     const persistedRoot = readPersistedJson(STORAGE_KEY);
 
     expect(persistedRoot).toEqual({
@@ -84,7 +97,7 @@ describe("StorageService persisted-format characterization", () => {
       originalRoot.profiles["complete-profile"],
     );
     expect(persistedRoot.settings).toEqual(settings);
-    expect(service.getSettings()).toEqual(settings);
+    expect(createProjectSettingsRepository().load().value).toEqual(settings);
     expect(readPersistedJson(SETTINGS_KEY)).toEqual(settings);
     expect(readPersistedJson(BACKUP_KEY)).toEqual({
       data: rawRoot,
@@ -213,7 +226,7 @@ describe("StorageService persisted-format characterization", () => {
     },
   );
 
-  it("falls back from corrupt separate settings without repairing them until save", () => {
+  it("recovers corrupt standalone settings read-only, then verifies repair before owner readiness", async () => {
     const root = readFixtureJson("complete-current-root.json");
     const corruptSettings = readFixtureText("corrupt-settings.txt");
     const expectedDefaults = readFixtureJson(
@@ -223,14 +236,18 @@ describe("StorageService persisted-format characterization", () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(root));
     localStorage.setItem(SETTINGS_KEY, corruptSettings);
 
-    const service = startStorage();
+    startStorage();
 
-    expect(service.getSettings()).toEqual(expectedDefaults);
+    expect(createProjectSettingsRepository().load().value).toEqual(
+      expectedDefaults,
+    );
     expect(localStorage.getItem(SETTINGS_KEY)).toBe(corruptSettings);
 
-    expect(service.saveSettings({ theme: "dark", bindsetsEnabled: true })).toBe(
-      true,
-    );
+    const owner = await startPreferences();
+    expect(readPersistedJson(SETTINGS_KEY)).toEqual(expectedDefaults);
+    expect(
+      await owner.setSettings({ theme: "dark", bindsetsEnabled: true }),
+    ).toBe(true);
     expect(readPersistedJson(SETTINGS_KEY)).toEqual({
       ...expectedDefaults,
       theme: "dark",
@@ -238,7 +255,7 @@ describe("StorageService persisted-format characterization", () => {
     });
   });
 
-  it("recovers stored settings field by field and repairs them on the next save", () => {
+  it("recovers stored settings field by field and verifies repair through Preferences", async () => {
     const root = readFixtureJson("complete-current-root.json");
     const unsafeSettings = JSON.parse(
       '{"theme":42,"language":"fr","currentProfile":7,"plugin:layout":{"density":"compact"},"plugin:unsafe":{"nested":{"constructor":true}}}',
@@ -247,8 +264,8 @@ describe("StorageService persisted-format characterization", () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(root));
     localStorage.setItem(SETTINGS_KEY, rawSettings);
 
-    const service = startStorage();
-    const recovered = service.getSettings();
+    startStorage();
+    const recovered = createProjectSettingsRepository().load().value;
 
     expect(recovered).toMatchObject({
       theme: "default",
@@ -260,7 +277,9 @@ describe("StorageService persisted-format characterization", () => {
     expect(localStorage.getItem(SETTINGS_KEY)).toBe(rawSettings);
     expect({}.polluted).toBeUndefined();
 
-    expect(service.saveSettings({ compactView: true })).toBe(true);
+    const owner = await startPreferences();
+    expect(readPersistedJson(SETTINGS_KEY)).toEqual(recovered);
+    expect(await owner.setSetting("compactView", true)).toBe(true);
     expect(readPersistedJson(SETTINGS_KEY)).toEqual({
       ...recovered,
       compactView: true,
@@ -273,15 +292,23 @@ describe("StorageService persisted-format characterization", () => {
     const rawSettings = JSON.stringify(settings);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(root));
     localStorage.setItem(SETTINGS_KEY, rawSettings);
-    const service = startStorage();
+    startStorage();
+    const repository = createProjectSettingsRepository();
 
     const cyclic = {};
     cyclic.self = cyclic;
-    expect(service.saveSettings({ "plugin:cyclic": cyclic })).toBe(false);
-    expect(service.saveSettings({ theme: 42 })).toBe(false);
     expect(
-      service.saveSettings(JSON.parse('{"constructor":{"unsafe":true}}')),
-    ).toBe(false);
+      repository.replace({ ...settings, "plugin:cyclic": cyclic }).status,
+    ).toBe("rejected");
+    expect(repository.replace({ ...settings, theme: 42 }).status).toBe(
+      "rejected",
+    );
+    expect(
+      repository.replace({
+        ...settings,
+        ...JSON.parse('{"constructor":{"unsafe":true}}'),
+      }).status,
+    ).toBe("rejected");
     expect(localStorage.getItem(SETTINGS_KEY)).toBe(rawSettings);
   });
 
@@ -399,7 +426,9 @@ describe("StorageService persisted-format characterization", () => {
     expect(resettingService.clearAllData()).toBe(true);
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     expect(localStorage.getItem(BACKUP_KEY)).toBeNull();
-    expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
+    // Standalone settings are now outside the project reset capability. The
+    // Preferences reset owner clears and verifies defaults in its own stage.
+    expect(readPersistedJson(SETTINGS_KEY)).toEqual(settings);
     expect(localStorage.getItem(sentinel.key)).toBe(sentinel.value);
 
     resettingService.destroy();

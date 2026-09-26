@@ -32,6 +32,7 @@ export async function createBasicTestEnvironment(options = {}) {
     eventBus: eventBus.eventBus,
     eventBusFixture: eventBus,
     storage: storage.storageService,
+    settingsRepository: storage.settingsRepository,
     storageFixture: storage,
     profile: profileData.profile,
     profileFixture: profileData,

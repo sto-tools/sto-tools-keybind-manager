@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import en from "../../../src/i18n/en.json";
+import { createImportPreferencesOwner } from "../../fixtures/services/projectRestore.js";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createImportServiceFixture } from "../../fixtures/index.js";
@@ -7,10 +8,14 @@ import { createImportServiceFixture } from "../../fixtures/index.js";
 describe("ImportService project import", () => {
   let fixture;
   let service;
+  let preferences;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     fixture = createImportServiceFixture();
+    preferences = await createImportPreferencesOwner(fixture);
     service = new ImportService({
+      runPreferencesTransition: (source, operation) =>
+        preferences.runExternalActivationTransition(source, operation),
       eventBus: fixture.eventBus,
       storage: fixture.storage,
     });
@@ -25,10 +30,78 @@ describe("ImportService project import", () => {
 
   afterEach(() => {
     service.destroy();
+    preferences.destroy();
     fixture.destroy();
   });
 
   describe("importProjectFile", () => {
+    it("keeps an explicitly settings-free import independent of the Preferences queue", async () => {
+      service.runPreferencesTransition = vi.fn(() => {
+        throw new Error("preferences blocked");
+      });
+      await expect(
+        service.importProjectFile(
+          JSON.stringify({
+            type: "project",
+            data: {
+              profiles: { imported: { name: "Imported" } },
+              settings: { theme: "light" },
+            },
+          }),
+          { importSettings: false },
+        ),
+      ).resolves.toMatchObject({
+        success: true,
+        imported: { profiles: 1, settings: false },
+      });
+      expect(service.runPreferencesTransition).not.toHaveBeenCalled();
+      expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
+    });
+
+    it("captures the importSettings action flag before waiting for the Preferences lease", async () => {
+      const options = { importSettings: true };
+      const run = service.runPreferencesTransition;
+      service.runPreferencesTransition = async (source, operation) => {
+        await Promise.resolve();
+        return run(source, operation);
+      };
+      const importing = service.importProjectFile(
+        JSON.stringify({
+          type: "project",
+          data: { settings: { theme: "light" } },
+        }),
+        options,
+      );
+      options.importSettings = false;
+      await expect(importing).resolves.toMatchObject({
+        success: true,
+        imported: { profiles: 0, settings: true },
+      });
+      expect(preferences.getCurrentState().settings.theme).toBe("light");
+    });
+
+    it("rejects accessor-backed options without invoking their getter or writing", async () => {
+      const getter = vi.fn(() => true);
+      const options = Object.defineProperty({}, "importSettings", {
+        get: getter,
+      });
+      await expect(
+        service.importProjectFile(
+          JSON.stringify({
+            type: "project",
+            data: { settings: { theme: "light" } },
+          }),
+          options,
+        ),
+      ).resolves.toEqual({
+        success: false,
+        error: "invalid_project_options",
+        params: { path: "$.options.importSettings" },
+      });
+      expect(getter).not.toHaveBeenCalled();
+      expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
+    });
+
     it("should accept valid project files with correct type and data", async () => {
       const validProjectContent = JSON.stringify({
         type: "project",
@@ -127,7 +200,7 @@ describe("ImportService project import", () => {
         params: { path },
       });
       expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
-      expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+      expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
       expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
     });
 
@@ -148,7 +221,9 @@ describe("ImportService project import", () => {
         success: true,
         imported: { profiles: 0, settings: true },
       });
-      expect(fixture.storage.getSettings()).toMatchObject({ theme: "light" });
+      expect(fixture.settingsRepository.load().value).toMatchObject({
+        theme: "light",
+      });
     });
 
     it("should reject malformed JSON content", async () => {
@@ -337,7 +412,7 @@ describe("ImportService project import", () => {
           params: { path },
         });
         expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
-        expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+        expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
         expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
       },
     );
@@ -358,7 +433,8 @@ describe("ImportService project import", () => {
     });
 
     it("preserves destination version and first-run settings during overlay", async () => {
-      fixture.storage.saveSettings({
+      await preferences.setSettings({
+        ...preferences.getCurrentState().settings,
         theme: "dark",
         version: "destination-version",
         firstRun: false,
@@ -382,7 +458,7 @@ describe("ImportService project import", () => {
         success: true,
         imported: { profiles: 0, settings: true },
       });
-      expect(fixture.storage.getSettings()).toMatchObject({
+      expect(fixture.settingsRepository.load().value).toMatchObject({
         theme: "light",
         version: "destination-version",
         firstRun: false,

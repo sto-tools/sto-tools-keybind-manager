@@ -1,3 +1,5 @@
+import { createProjectSettingsRepository } from "../fixtures/services/projectRestore.js";
+import { createPreferencesState } from "../fixtures/core/componentState.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import AutoSync from "../../src/js/components/services/AutoSync.js";
@@ -23,6 +25,7 @@ function createProfile() {
 describe("application reset settings activation", () => {
   let fixture;
   let storage;
+  let settingsRepository;
   let coordinator;
   let preferences;
   let autoSync;
@@ -44,6 +47,7 @@ describe("application reset settings activation", () => {
       version: "test-reset-activation",
       i18n,
     });
+    settingsRepository = createProjectSettingsRepository();
     storage.init();
 
     const root = storage.getEmptyData();
@@ -54,14 +58,15 @@ describe("application reset settings activation", () => {
     root.settings = { ...root.settings, theme: "default", language: "fr" };
     expect(storage.saveAllData(root)).toBe(true);
     expect(
-      storage.saveSettings({
+      settingsRepository.replace({
+        ...createPreferencesState().settings,
         theme: "dark",
         language: "de",
         compactView: true,
         autoSync: true,
         autoSyncInterval: "change",
-      }),
-    ).toBe(true);
+      }).status,
+    ).toBe("committed");
 
     coordinator = new DataCoordinator({
       eventBus: fixture.eventBus,
@@ -74,7 +79,7 @@ describe("application reset settings activation", () => {
 
     preferences = new PreferencesService({
       eventBus: fixture.eventBus,
-      storage,
+      settingsRepository,
       i18n,
       localizeCommands: vi.fn(),
       applyTranslations: vi.fn(),
@@ -123,7 +128,9 @@ describe("application reset settings activation", () => {
 
     expect(localStorage.getItem(storage.storageKey)).toBeNull();
     expect(localStorage.getItem(storage.backupKey)).toBeNull();
-    expect(localStorage.getItem(storage.settingsKey)).toBeNull();
+    expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
+      preferences.getCurrentState().settings,
+    );
     expect(localStorage.getItem("sto_app_reset")).toBe("true");
     expect(coordinator.state).toMatchObject({
       currentProfile: null,
@@ -163,16 +170,24 @@ describe("application reset settings activation", () => {
       fixture.eventBusFixture.getEventsOfType("preferences:loaded"),
     ).toHaveLength(0);
     // The owner clears the standalone record inside its serialized reset
-    // transition, then keeps defaults as the in-memory canonical snapshot.
-    expect(localStorage.getItem(storage.settingsKey)).toBeNull();
+    // transition, then verifies persisted defaults before canonical adoption.
+    expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
+      preferences.getCurrentState().settings,
+    );
   });
 
   it("keeps the reset durable and recovers stale Preferences state on owner restart", async () => {
     const dataRevision = coordinator.getCurrentState().revision;
     const preferencesBefore = preferences.getCurrentState();
-    const readFailure = new Error("standalone settings unavailable");
-    vi.spyOn(storage, "getSettings").mockImplementationOnce(() => {
-      throw readFailure;
+    vi.spyOn(settingsRepository, "replace").mockReturnValueOnce({
+      status: "write_failed",
+      error: "storage_write_failed",
+      write: {
+        status: "indeterminate",
+        error: "storage_write_failed",
+        category: "quota",
+      },
+      verification: { status: "not_attempted" },
     });
     vi.spyOn(console, "error").mockImplementation(() => {});
     fixture.eventBusFixture.clearEventHistory();
@@ -181,7 +196,7 @@ describe("application reset settings activation", () => {
 
     expect(localStorage.getItem(storage.storageKey)).toBeNull();
     expect(localStorage.getItem(storage.backupKey)).toBeNull();
-    expect(localStorage.getItem(storage.settingsKey)).toBeNull();
+    expect(localStorage.getItem("sto_keybind_settings")).toBeNull();
     expect(localStorage.getItem("sto_app_reset")).toBe("true");
     expect(coordinator.getCurrentState()).toMatchObject({
       ready: true,
@@ -202,7 +217,7 @@ describe("application reset settings activation", () => {
     fixture.eventBusFixture.clearEventHistory();
     preferences = new PreferencesService({
       eventBus: fixture.eventBus,
-      storage,
+      settingsRepository,
       i18n,
       localizeCommands: vi.fn(),
       applyTranslations: vi.fn(),
@@ -224,7 +239,9 @@ describe("application reset settings activation", () => {
     expect(autoSync.isEnabled).toBe(false);
     expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
     expect(document.body.classList.contains("compact-view")).toBe(false);
-    expect(localStorage.getItem(storage.settingsKey)).toBeNull();
+    expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
+      preferences.getCurrentState().settings,
+    );
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
     ).toEqual([
@@ -243,7 +260,7 @@ describe("application reset settings activation", () => {
       await languageBlocked;
       i18n.language = language;
     });
-    const saveSettings = vi.spyOn(storage, "saveSettings");
+    const saveSettings = vi.spyOn(settingsRepository, "replace");
     fixture.eventBusFixture.clearEventHistory();
 
     const firstMutation = preferences.setSetting("language", "fr");
@@ -259,20 +276,22 @@ describe("application reset settings activation", () => {
       fixture.eventBusFixture.getEventsOfType("storage:data-reset"),
     ).toHaveLength(0);
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(JSON.parse(localStorage.getItem(storage.settingsKey))).toMatchObject(
-      {
-        theme: "dark",
-        language: "fr",
-      },
-    );
+    expect(
+      JSON.parse(localStorage.getItem("sto_keybind_settings")),
+    ).toMatchObject({
+      theme: "dark",
+      language: "fr",
+    });
 
     releaseLanguage();
     await expect(firstMutation).resolves.toBe(true);
     await expect(queuedMutation).resolves.toBe(true);
     await expect(reset).resolves.toBe(true);
 
-    expect(saveSettings).toHaveBeenCalledTimes(2);
-    expect(localStorage.getItem(storage.settingsKey)).toBeNull();
+    expect(saveSettings).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
+      preferences.getCurrentState().settings,
+    );
     expect(preferences.getCurrentState()).toMatchObject({
       ready: true,
       settings: {

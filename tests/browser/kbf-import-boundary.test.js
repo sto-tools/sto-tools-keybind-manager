@@ -129,7 +129,7 @@ describe("KBF import browser boundary", () => {
       ? beforeState.currentEnvironment
       : "space";
     const beforeRoot = localStorage.getItem(storage.storageKey);
-    const beforeSettings = localStorage.getItem(storage.settingsKey);
+    const beforeSettings = localStorage.getItem("sto_keybind_settings");
     const beforeProfile = structuredClone(beforeState.profiles[profileId]);
     const originalSettings = structuredClone(consumer.cache.preferences);
     const originalBindsetsEnabled = consumer.cache.preferences.bindsetsEnabled;
@@ -150,7 +150,8 @@ describe("KBF import browser boundary", () => {
         expect(consumer.cache.preferences.bindsetsEnabled).toBe(false);
       });
       expect(
-        JSON.parse(localStorage.getItem(storage.settingsKey)).bindsetsEnabled,
+        JSON.parse(localStorage.getItem("sto_keybind_settings"))
+          .bindsetsEnabled,
       ).toBe(false);
 
       const importMenuButton = document.getElementById("importMenuBtn");
@@ -283,11 +284,11 @@ describe("KBF import browser boundary", () => {
       expect(document.body.classList).not.toContain("modal-open");
     } finally {
       await request(bus, "preferences:set-settings", originalSettings);
-      if (localStorage.getItem(storage.settingsKey) !== beforeSettings) {
+      if (localStorage.getItem("sto_keybind_settings") !== beforeSettings) {
         if (beforeSettings === null) {
-          localStorage.removeItem(storage.settingsKey);
+          localStorage.removeItem("sto_keybind_settings");
         } else {
-          localStorage.setItem(storage.settingsKey, beforeSettings);
+          localStorage.setItem("sto_keybind_settings", beforeSettings);
         }
       }
       if (beforeRoot === null) localStorage.removeItem(storage.storageKey);

@@ -118,7 +118,7 @@ describe("DataCoordinator lifecycle and state ownership", () => {
     fixture.storage.saveAllData.mockClear();
     fixture.storage.saveProfile.mockClear();
     fixture.storage.deleteProfile.mockClear();
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
 
     for (const topic of retiredTopics) {
       expect(fixture.eventBus.hasListeners(`rpc:${topic}`)).toBe(false);
@@ -141,7 +141,7 @@ describe("DataCoordinator lifecycle and state ownership", () => {
     expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
     expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
     expect(fixture.storage.deleteProfile).not.toHaveBeenCalled();
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     expect(publishedAfterDestroy).toEqual([]);
   });
 

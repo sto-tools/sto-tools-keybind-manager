@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createServiceFixture } from "../../fixtures/index.js";
 import StorageService from "../../../src/js/components/services/StorageService.js";
+import PreferencesService from "../../../src/js/components/services/PreferencesService.js";
+import { createProjectSettingsRepository } from "../../fixtures/services/projectRestore.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 
 describe("StorageService", () => {
@@ -8,6 +10,8 @@ describe("StorageService", () => {
   let detachPreferencesActivation;
   let detachPreferencesTransition;
   let runPreferencesTransition;
+  let settingsRepository;
+  let preferencesOwner;
 
   beforeEach(() => {
     // Ensure a clean slate before each test
@@ -20,11 +24,17 @@ describe("StorageService", () => {
       eventBus: mockEventBus,
       version: "test-1.0.0",
     });
+    settingsRepository = createProjectSettingsRepository();
+    preferencesOwner = null;
     detachPreferencesActivation = respond(
       mockEventBus,
       "preferences:activate-persisted-settings",
       () => {
-        expect(storageService.clearSettings()).toBe(true);
+        expect(settingsRepository.clear().status).toBe("cleared");
+        expect(
+          settingsRepository.replace(storageService.getDefaultSettings())
+            .status,
+        ).toBe("committed");
         return {
           success: true,
           changed: true,
@@ -52,12 +62,27 @@ describe("StorageService", () => {
   });
 
   afterEach(() => {
+    preferencesOwner?.destroy();
     detachPreferencesTransition();
     detachPreferencesActivation();
     vi.clearAllMocks();
     localStorage.clear();
     fixture.destroy();
   });
+
+  async function startPreferencesOwner() {
+    preferencesOwner = new PreferencesService({
+      settingsRepository,
+      eventBus: mockEventBus,
+      defaults: storageService.getDefaultSettings(),
+    });
+    // This owner supplies the real settings actions; the reset facade fixture
+    // above remains intentionally request-backed for its transport tests.
+    detachPreferencesActivation();
+    preferencesOwner.init();
+    await preferencesOwner.initialStateReady;
+    return preferencesOwner;
+  }
 
   describe("Initialization", () => {
     it("should populate localStorage with default structure", () => {
@@ -127,26 +152,31 @@ describe("StorageService", () => {
   });
 
   describe("Settings operations", () => {
-    it("should return default settings", () => {
-      const settings = storageService.getSettings();
+    it("loads standalone defaults through SettingsRepository without legacy delegates", () => {
+      const settings = settingsRepository.load().value;
       expect(settings).toMatchObject({
         theme: "default",
         language: "en",
         autoSave: true,
       });
+      expect(storageService.getSettings).toBeUndefined();
+      expect(storageService.saveSettings).toBeUndefined();
+      expect(storageService.clearSettings).toBeUndefined();
     });
 
-    it("should save settings and merge with existing", () => {
-      const ok = storageService.saveSettings({ language: "es" });
+    it("retains other settings when the Preferences owner changes one field", async () => {
+      const owner = await startPreferencesOwner();
+      const ok = await owner.setSetting("language", "es");
       expect(ok).toBe(true);
 
-      const settings = storageService.getSettings();
+      const settings = settingsRepository.load().value;
       expect(settings.language).toBe("es");
       expect(settings.theme).toBe("default"); // Unchanged
     });
 
-    it("should replace a complete authoritative settings snapshot", () => {
-      storageService.saveSettings({
+    it("replaces a complete authoritative settings snapshot through its owner", async () => {
+      const owner = await startPreferencesOwner();
+      await owner.setSettings({
         language: "de",
         "plugin:layout": "compact",
       });
@@ -156,24 +186,29 @@ describe("StorageService", () => {
       };
       eventBusFixture.clearEventHistory();
 
-      const ok = storageService.saveSettings(replacement, { replace: true });
+      const ok = await owner.setSettings(replacement);
 
       expect(ok).toBe(true);
       expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
         replacement,
       );
-      expect(storageService.getSettings()).not.toHaveProperty("plugin:layout");
+      expect(settingsRepository.load().value).not.toHaveProperty(
+        "plugin:layout",
+      );
     });
 
     it("clears only the standalone settings record", () => {
-      storageService.saveSettings({ theme: "dark" });
+      settingsRepository.replace({
+        ...storageService.getDefaultSettings(),
+        theme: "dark",
+      });
       storageService.createBackup("2026-07-26T00:00:00.000Z");
       const persistedRoot = localStorage.getItem(storageService.storageKey);
       const persistedBackup = localStorage.getItem(storageService.backupKey);
 
-      expect(storageService.clearSettings()).toBe(true);
+      expect(settingsRepository.clear().status).toBe("cleared");
 
-      expect(localStorage.getItem(storageService.settingsKey)).toBeNull();
+      expect(localStorage.getItem("sto_keybind_settings")).toBeNull();
       expect(localStorage.getItem(storageService.storageKey)).toBe(
         persistedRoot,
       );
@@ -183,7 +218,7 @@ describe("StorageService", () => {
       expect(localStorage.getItem("sto_app_reset")).toBeNull();
     });
 
-    it("returns false when the standalone settings record cannot be cleared", () => {
+    it("returns indeterminate evidence when the standalone settings record cannot be cleared", () => {
       const failure = new Error("settings storage unavailable");
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       const removeItem = vi
@@ -193,8 +228,15 @@ describe("StorageService", () => {
         });
 
       try {
-        expect(storageService.clearSettings()).toBe(false);
-        expect(error).toHaveBeenCalledWith("Error clearing settings:", failure);
+        expect(settingsRepository.clear()).toEqual({
+          status: "clear_failed",
+          removal: {
+            status: "indeterminate",
+            error: "storage_write_failed",
+            category: "unknown",
+          },
+        });
+        expect(error).not.toHaveBeenCalled();
       } finally {
         removeItem.mockRestore();
         error.mockRestore();
@@ -216,7 +258,10 @@ describe("StorageService", () => {
           },
         },
       });
-      storageService.saveSettings({ theme: "dark" });
+      settingsRepository.replace({
+        ...storageService.getDefaultSettings(),
+        theme: "dark",
+      });
       expect(storageService.getAllData().currentProfile).toBe("captain");
       eventBusFixture.clearEventHistory();
 
@@ -225,7 +270,9 @@ describe("StorageService", () => {
       expect(result).toBe(true);
       expect(localStorage.getItem(storageService.storageKey)).toBeNull();
       expect(localStorage.getItem(storageService.backupKey)).toBeNull();
-      expect(localStorage.getItem(storageService.settingsKey)).toBeNull();
+      expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
+        storageService.getDefaultSettings(),
+      );
       expect(localStorage.getItem("sto_app_reset")).toBe("true");
       const [reset] = eventBusFixture.getEventsOfType("storage:data-reset");
       expect(storageService.data).toEqual(reset.data.data);
@@ -269,14 +316,17 @@ describe("StorageService", () => {
       async ({ reply }) => {
         vi.spyOn(console, "error").mockImplementation(() => {});
         vi.spyOn(storageService, "request").mockResolvedValue(reply);
-        storageService.saveSettings({ theme: "dark" });
+        settingsRepository.replace({
+          ...storageService.getDefaultSettings(),
+          theme: "dark",
+        });
         eventBusFixture.clearEventHistory();
 
         await expect(storageService.handleAppReset()).resolves.toBe(false);
 
         expect(localStorage.getItem(storageService.storageKey)).toBeNull();
         expect(
-          JSON.parse(localStorage.getItem(storageService.settingsKey)),
+          JSON.parse(localStorage.getItem("sto_keybind_settings")),
         ).toMatchObject({ theme: "dark" });
         expect(localStorage.getItem("sto_app_reset")).toBe("true");
         expect(
@@ -296,7 +346,7 @@ describe("StorageService", () => {
       await expect(storageService.handleAppReset()).resolves.toBe(false);
 
       expect(localStorage.getItem(storageService.storageKey)).toBeNull();
-      expect(localStorage.getItem(storageService.settingsKey)).toBeNull();
+      expect(localStorage.getItem("sto_keybind_settings")).toBeNull();
       expect(localStorage.getItem("sto_app_reset")).toBe("true");
       expect(
         eventBusFixture.getEventsOfType("storage:data-reset"),

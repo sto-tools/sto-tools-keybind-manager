@@ -1,7 +1,7 @@
 /** @typedef {import('../../types/events/base.js').PreferencesSettings} PreferencesSettings */
 
-/** @returns {PreferencesSettings} */
-export function createDefaultPreferencesSettings() {
+/** @param {string} [language] @returns {PreferencesSettings} */
+export function createDefaultPreferencesSettings(language = "en") {
   return {
     theme: "default",
     autoSave: true,
@@ -10,7 +10,7 @@ export function createDefaultPreferencesSettings() {
     maxUndoSteps: 50,
     defaultMode: "space",
     compactView: false,
-    language: "en",
+    language: ["en", "de", "es", "fr"].includes(language) ? language : "en",
     syncFolderName: null,
     syncFolderPath: null,
     autoSync: false,
@@ -19,4 +19,17 @@ export function createDefaultPreferencesSettings() {
     bindsetsEnabled: false,
     translateGeneratedMessages: false,
   };
+}
+
+/** @param {Pick<Navigator, 'languages' | 'language'> | undefined} browser */
+export function detectPreferencesLanguage(browser) {
+  try {
+    const candidate = browser?.languages?.[0] || browser?.language;
+    const language = candidate?.toLowerCase().split(/[-_]/)[0];
+    return language && ["en", "de", "es", "fr"].includes(language)
+      ? language
+      : "en";
+  } catch {
+    return "en";
+  }
 }

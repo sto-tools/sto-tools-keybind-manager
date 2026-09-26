@@ -97,6 +97,8 @@ const startupHarness = vi.hoisted(() => {
       operations.push({ operation: "hide-modal", modalId });
       return true;
     }
+
+    importProjectWithinPreferencesTransition() {}
   }
 
   let bindsetSelectorInitError = null;
@@ -304,6 +306,7 @@ describe("STOToolsKeybindManager startup composition", () => {
     app = new STOToolsKeybindManager({
       i18n,
       storageService: {},
+      preferencesService: new startupHarness.StubComponent(),
       syncService,
       ui,
     });
@@ -390,6 +393,7 @@ describe("STOToolsKeybindManager startup composition", () => {
     app = new STOToolsKeybindManager({
       i18n,
       storageService: {},
+      preferencesService: new startupHarness.StubComponent(),
       syncService: {},
       ui,
     });
@@ -458,6 +462,7 @@ describe("STOToolsKeybindManager startup composition", () => {
     app = new STOToolsKeybindManager({
       i18n,
       storageService,
+      preferencesService: new startupHarness.StubComponent(),
       syncService: syncDependency,
       ui,
     });
@@ -496,7 +501,12 @@ describe("STOToolsKeybindManager startup composition", () => {
     const destroyed = startupHarness.operations
       .filter(({ operation }) => operation === "destroy-component")
       .map(({ component }) => component);
-    expect(destroyed).toEqual([...constructed].reverse());
+    expect(destroyed).toEqual(
+      constructed
+        .filter((component) => component !== app.preferencesService.lifecycleId)
+        .reverse(),
+    );
+    expect(app.preferencesService.destroyed).toBe(false);
 
     const responderTopics = [
       "rpc:parser:parse-command-string",

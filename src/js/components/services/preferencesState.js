@@ -102,11 +102,15 @@ function decodePreferencesStateSnapshot(value) {
       Object.getOwnPropertyDescriptors(value),
     );
     if (
-      snapshotKeys.length !== 4 ||
+      (snapshotKeys.length !== 7 && snapshotKeys.length !== 8) ||
       !snapshotKeys.every(
         (key) =>
           key === "authorityEpoch" ||
           key === "ready" ||
+          key === "blocked" ||
+          key === "readiness" ||
+          key === "durability" ||
+          key === "blockReason" ||
           key === "revision" ||
           key === "settings",
       )
@@ -117,11 +121,18 @@ function decodePreferencesStateSnapshot(value) {
     const readyField = ownDataValue(value, "ready");
     const revisionField = ownDataValue(value, "revision");
     const settingsField = ownDataValue(value, "settings");
+    const blockedField = ownDataValue(value, "blocked");
+    const readinessField = ownDataValue(value, "readiness");
+    const durabilityField = ownDataValue(value, "durability");
+    const blockReasonField = ownDataValue(value, "blockReason");
     if (
       !epochField.present ||
       !readyField.present ||
       !revisionField.present ||
-      !settingsField.present
+      !settingsField.present ||
+      !blockedField.present ||
+      !readinessField.present ||
+      !durabilityField.present
     ) {
       return null;
     }
@@ -129,10 +140,30 @@ function decodePreferencesStateSnapshot(value) {
     const ready = readyField.value;
     const revision = revisionField.value;
     const settings = settingsField.value;
+    const blocked = blockedField.value;
+    const readiness = readinessField.value;
+    const durability = durabilityField.value;
+    const blockReason = blockReasonField.value;
+    const validReadiness =
+      ready === true
+        ? blocked === false &&
+          readiness === "ready" &&
+          durability === "verified" &&
+          !blockReasonField.present
+        : ready === false &&
+          durability === "unverified" &&
+          ((blocked === false &&
+            readiness === "initializing" &&
+            !blockReasonField.present) ||
+            (blocked === true &&
+              readiness === "blocked" &&
+              (blockReason === "storage_read_failed" ||
+                blockReason === "verification_failed")));
     if (
       !Number.isSafeInteger(authorityEpoch) ||
       Number(authorityEpoch) < 1 ||
       typeof ready !== "boolean" ||
+      !validReadiness ||
       !Number.isSafeInteger(revision) ||
       Number(revision) < 0 ||
       (ready ? Number(revision) < 1 : Number(revision) !== 0) ||
@@ -151,6 +182,10 @@ function decodePreferencesStateSnapshot(value) {
     return /** @type {PreferencesStateSnapshot} */ ({
       authorityEpoch,
       ready,
+      blocked,
+      readiness,
+      durability,
+      ...(blockReasonField.present ? { blockReason } : {}),
       revision,
       settings: decoded.value,
     });
@@ -166,16 +201,20 @@ export function isPreferencesStateSnapshot(value) {
 
 /**
  * @param {PreferencesSettings} settings
- * @param {{ authorityEpoch: number, ready: boolean, revision: number }} status
+ * @param {{ authorityEpoch: number, ready: boolean, revision: number, blockReason?: "storage_read_failed" | "verification_failed" }} status
  * @returns {PreferencesStateSnapshot}
  */
 export function createPreferencesStateSnapshot(
   settings,
-  { authorityEpoch, ready, revision },
+  { authorityEpoch, ready, revision, blockReason },
 ) {
   const snapshot = decodePreferencesStateSnapshot({
     authorityEpoch,
     ready,
+    blocked: blockReason !== undefined,
+    readiness: ready ? "ready" : blockReason ? "blocked" : "initializing",
+    durability: ready ? "verified" : "unverified",
+    ...(blockReason !== undefined ? { blockReason } : {}),
     revision,
     settings,
   });
@@ -201,11 +240,19 @@ export function adoptPreferencesStateSnapshot(candidate, current) {
     ? /** @type {PreferencesStateSnapshot} */ (candidate)
     : decodePreferencesStateSnapshot(candidate);
   if (!decoded) return null;
+  const advancesBlockedState =
+    current &&
+    decoded.authorityEpoch === current.authorityEpoch &&
+    decoded.revision === 0 &&
+    current.revision === 0 &&
+    current.readiness === "initializing" &&
+    decoded.readiness === "blocked";
   if (
     current &&
     (decoded.authorityEpoch < current.authorityEpoch ||
       (decoded.authorityEpoch === current.authorityEpoch &&
-        decoded.revision <= current.revision))
+        decoded.revision <= current.revision &&
+        !advancesBlockedState))
   ) {
     return null;
   }
@@ -215,5 +262,8 @@ export function adoptPreferencesStateSnapshot(candidate, current) {
     authorityEpoch: decoded.authorityEpoch,
     ready: decoded.ready,
     revision: decoded.revision,
+    ...(decoded.readiness === "blocked"
+      ? { blockReason: decoded.blockReason }
+      : {}),
   });
 }

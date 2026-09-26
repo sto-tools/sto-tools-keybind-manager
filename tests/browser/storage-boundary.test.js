@@ -2,27 +2,7 @@ import { runtime } from "../fixtures/ui/applicationRuntime.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
-
-async function readPreferencesState(bus) {
-  const replyTopic = `component:registered:reply:browser-preferences:${Date.now()}`;
-  let preferencesState;
-  const detach = bus.on(replyTopic, ({ sender, state }) => {
-    if (sender === "PreferencesService")
-      preferencesState = structuredClone(state);
-  });
-  try {
-    bus.emit("component:register", {
-      name: "BrowserPreferencesProbe",
-      replyTopic,
-    });
-    await vi.waitFor(() => {
-      expect(preferencesState).toBeTruthy();
-    });
-    return preferencesState;
-  } finally {
-    detach();
-  }
-}
+import { readPreferencesState } from "../fixtures/ui/preferencesState.js";
 
 function createSyncDirectoryHandle(name) {
   return {
@@ -38,7 +18,7 @@ function createSyncDirectoryHandle(name) {
 }
 
 describe("Persisted storage browser boundary", () => {
-  it("keeps one legacy writer per settings and project action in production composition", async () => {
+  it("uses the sole settings owner and keeps legacy project writes separate in production composition", async () => {
     const {
       storageService: storage,
       dataCoordinator: coordinator,
@@ -49,15 +29,17 @@ describe("Persisted storage browser boundary", () => {
     const beforeProfileId = coordinator.getCurrentState().currentProfile;
     expect(beforeProfileId).toBeTruthy();
     const beforeRoot = localStorage.getItem(storage.storageKey);
-    const beforeSettings = localStorage.getItem(storage.settingsKey);
+    const beforeSettings = localStorage.getItem("sto_keybind_settings");
     const beforeBackup = localStorage.getItem(storage.backupKey);
     const keys = [
       storage.storageKey,
-      storage.settingsKey,
+      "sto_keybind_settings",
       storage.backupKey,
       "sto_app_reset",
     ];
-    const saveSettings = vi.spyOn(storage, "saveSettings");
+    expect(storage).not.toHaveProperty("saveSettings");
+    expect(storage).not.toHaveProperty("getSettings");
+    expect(storage).not.toHaveProperty("clearSettings");
     const saveAllData = vi.spyOn(storage, "saveAllData");
     const setItem = vi.spyOn(Storage.prototype, "setItem");
     const removeItem = vi.spyOn(Storage.prototype, "removeItem");
@@ -76,14 +58,12 @@ describe("Persisted storage browser boundary", () => {
           value: nextTheme,
         }),
       ).resolves.toBe(true);
-      expect(saveSettings).toHaveBeenCalledTimes(1);
       expect(saveAllData).not.toHaveBeenCalled();
-      expect(canonicalWrites()).toEqual([storage.settingsKey]);
+      expect(canonicalWrites()).toEqual(["sto_keybind_settings"]);
       expect(removeItem).not.toHaveBeenCalled();
       expect(clear).not.toHaveBeenCalled();
       expect((await readPreferencesState(bus)).settings.theme).toBe(nextTheme);
 
-      saveSettings.mockClear();
       saveAllData.mockClear();
       setItem.mockClear();
       removeItem.mockClear();
@@ -91,10 +71,9 @@ describe("Persisted storage browser boundary", () => {
 
       await request(bus, "data:update-profile", {
         profileId: beforeProfileId,
-        properties: { description: "Tranche 1 checked-bundle writer probe" },
+        properties: { description: "Tranche 2 checked-bundle writer probe" },
       });
       expect(saveAllData).toHaveBeenCalledTimes(1);
-      expect(saveSettings).not.toHaveBeenCalled();
       expect(canonicalWrites()).toEqual([
         storage.backupKey,
         storage.storageKey,
@@ -103,9 +82,8 @@ describe("Persisted storage browser boundary", () => {
       expect(clear).not.toHaveBeenCalled();
       expect(
         coordinator.getCurrentState().profiles[beforeProfileId].description,
-      ).toBe("Tranche 1 checked-bundle writer probe");
+      ).toBe("Tranche 2 checked-bundle writer probe");
     } finally {
-      saveSettings.mockRestore();
       saveAllData.mockRestore();
       setItem.mockRestore();
       removeItem.mockRestore();
@@ -116,7 +94,7 @@ describe("Persisted storage browser boundary", () => {
       });
       for (const [key, value] of [
         [storage.storageKey, beforeRoot],
-        [storage.settingsKey, beforeSettings],
+        ["sto_keybind_settings", beforeSettings],
       ]) {
         if (value === null) localStorage.removeItem(key);
         else localStorage.setItem(key, value);
@@ -135,7 +113,7 @@ describe("Persisted storage browser boundary", () => {
     expect(bus?.hasListeners("rpc:preferences:set-setting")).toBe(true);
     if (!storage || !bus) return;
 
-    const beforeRaw = localStorage.getItem(storage.settingsKey);
+    const beforeRaw = localStorage.getItem("sto_keybind_settings");
     const beforeState = await readPreferencesState(bus);
     const saved = [];
     const changed = [];
@@ -150,7 +128,7 @@ describe("Persisted storage browser boundary", () => {
     const setItem = vi
       .spyOn(Storage.prototype, "setItem")
       .mockImplementation(function (key, value) {
-        if (key === storage.settingsKey) {
+        if (key === "sto_keybind_settings") {
           throw new DOMException(
             "Storage quota exceeded",
             "QuotaExceededError",
@@ -170,7 +148,7 @@ describe("Persisted storage browser boundary", () => {
       ).resolves.toBe(false);
 
       expect(await readPreferencesState(bus)).toEqual(beforeState);
-      expect(localStorage.getItem(storage.settingsKey)).toBe(beforeRaw);
+      expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeRaw);
       expect(saved).toHaveLength(0);
       expect(changed).toHaveLength(0);
     } finally {
@@ -191,7 +169,7 @@ describe("Persisted storage browser boundary", () => {
     ).toBe(true);
     if (!storage || !bus) return;
 
-    const beforeRaw = localStorage.getItem(storage.settingsKey);
+    const beforeRaw = localStorage.getItem("sto_keybind_settings");
     const beforeState = await readPreferencesState(bus);
     const folderSet = [];
     const toasts = [];
@@ -226,7 +204,7 @@ describe("Persisted storage browser boundary", () => {
     const setItem = vi
       .spyOn(Storage.prototype, "setItem")
       .mockImplementation(function (key, value) {
-        if (key === storage.settingsKey) {
+        if (key === "sto_keybind_settings") {
           throw new DOMException(
             "Storage quota exceeded",
             "QuotaExceededError",
@@ -242,7 +220,7 @@ describe("Persisted storage browser boundary", () => {
 
       expect(picker).toHaveBeenCalledOnce();
       expect(await readPreferencesState(bus)).toEqual(beforeState);
-      expect(localStorage.getItem(storage.settingsKey)).toBe(beforeRaw);
+      expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeRaw);
       expect(stateChanges).toHaveLength(0);
       expect(saved).toHaveLength(0);
       expect(changed).toHaveLength(0);
@@ -330,7 +308,7 @@ describe("Persisted storage browser boundary", () => {
     if (!storage || !coordinator || !bus) return;
 
     const beforeRoot = localStorage.getItem(storage.storageKey);
-    const beforeSettings = localStorage.getItem(storage.settingsKey);
+    const beforeSettings = localStorage.getItem("sto_keybind_settings");
     const beforeBackup = localStorage.getItem(storage.backupKey);
     try {
       const legacyRoot = {
@@ -464,29 +442,28 @@ describe("Persisted storage browser boundary", () => {
 
       const unsafeSettingsRaw =
         '{"theme":42,"language":"de","plugin:layout":{"density":"compact"},"plugin:unsafe":{"prototype":true}}';
-      localStorage.setItem(storage.settingsKey, unsafeSettingsRaw);
-      const settings = storage.getSettings();
-      expect(settings).toMatchObject({
-        theme: "default",
-        language: "de",
-        "plugin:layout": { density: "compact" },
-      });
-      expect(settings).not.toHaveProperty("plugin:unsafe");
-      const pluginLayout = /** @type {{ density: string }} */ (
-        settings["plugin:layout"]
+      localStorage.setItem("sto_keybind_settings", unsafeSettingsRaw);
+      const accepted = await readPreferencesState(bus);
+      await expect(
+        request(bus, "preferences:set-settings", JSON.parse(unsafeSettingsRaw)),
+      ).rejects.toThrow("Invalid preferences settings payload");
+      expect(await readPreferencesState(bus)).toEqual(accepted);
+      accepted.settings.theme = "consumer-mutation";
+      expect((await readPreferencesState(bus)).settings.theme).not.toBe(
+        "consumer-mutation",
       );
-      pluginLayout.density = "mutated";
-      expect(storage.getSettings()["plugin:layout"]).toEqual({
-        density: "compact",
-      });
-      expect(localStorage.getItem(storage.settingsKey)).toBe(unsafeSettingsRaw);
+      expect(localStorage.getItem("sto_keybind_settings")).toBe(
+        unsafeSettingsRaw,
+      );
+      // Startup repair is exercised through the real repository/owner chain in
+      // settings-repository-owner-chain.test.js, not a removed storage getter.
     } finally {
       if (beforeRoot === null) localStorage.removeItem(storage.storageKey);
       else localStorage.setItem(storage.storageKey, beforeRoot);
       if (beforeSettings === null) {
-        localStorage.removeItem(storage.settingsKey);
+        localStorage.removeItem("sto_keybind_settings");
       } else {
-        localStorage.setItem(storage.settingsKey, beforeSettings);
+        localStorage.setItem("sto_keybind_settings", beforeSettings);
       }
       if (beforeBackup === null) localStorage.removeItem(storage.backupKey);
       else localStorage.setItem(storage.backupKey, beforeBackup);

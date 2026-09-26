@@ -95,13 +95,34 @@ export interface InterfaceModeStateSnapshot {
   currentEnvironment: string;
 }
 
-export interface PreferencesStateSnapshot {
+export type PreferencesStateSnapshot = {
   /** Monotonic identity of the PreferencesService lifecycle owning this state. */
   authorityEpoch: number;
-  ready: boolean;
   revision: number;
   settings: PreferencesSettings;
-}
+} & (
+  | {
+      ready: false;
+      blocked: false;
+      readiness: "initializing";
+      durability: "unverified";
+      blockReason?: never;
+    }
+  | {
+      ready: false;
+      blocked: true;
+      readiness: "blocked";
+      durability: "unverified";
+      blockReason: "storage_read_failed" | "verification_failed";
+    }
+  | {
+      ready: true;
+      blocked: false;
+      readiness: "ready";
+      durability: "verified";
+      blockReason?: never;
+    }
+);
 
 /**
  * Structural storage capability retained by the legacy late-join snapshot.
@@ -115,14 +136,8 @@ export interface StorageServiceCapability {
   getProfile(profileId: string): unknown;
   saveProfile(profileId: string, profile: unknown): boolean;
   deleteProfile(profileId: string): boolean;
-  getSettings(): unknown;
-  saveSettings(
-    settings: Record<string, unknown>,
-    options?: { replace?: boolean },
-  ): boolean;
-  clearSettings(): boolean;
   createBackup(): void;
-  clearAllData(options?: { preserveSettings?: boolean }): boolean;
+  clearAllData(): boolean;
 }
 
 export interface StorageStateSnapshot {

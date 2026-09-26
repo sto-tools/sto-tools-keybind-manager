@@ -4,7 +4,6 @@ import { extensionPreferenceKey } from "./preferenceKeys.js";
 import {
   hasValidKnownSettingValue,
   isKnownSettingKey,
-  sanitizeStoredSettings,
 } from "./settingsDataBoundary.js";
 import {
   applyOtherPreferences,
@@ -18,25 +17,27 @@ import {
   invalidMutationError,
   materializePreferencesActivationRequest,
   requirePreferenceMutation,
+  preferencesActivationFailure,
 } from "./preferencesMutationBoundary.js";
+import {
+  materializeCanonicalPreferences,
+  materializeSettingsWriteResult,
+  materializeSettingsLoadResult,
+} from "./preferencesRepositoryBoundary.js";
 import {
   activatePersistedPreferences,
   commitPreferenceSetting,
   persistSyncFolderPreferenceSettings,
-  preferencesActivationFailure,
   replacePreferenceSettings,
   runExternalPreferencesActivation,
+  savePreferenceSettings,
 } from "./preferencesOwnerMutationOperations.js";
 import {
   createPreferencesStateSnapshot,
   isCurrentPreferencesStateAuthority,
   nextPreferencesStateAuthorityEpoch,
 } from "./preferencesState.js";
-import {
-  preparePreferencesTransition,
-  publishPreferencesTransitionReceipts,
-  settlePreferencesMutation,
-} from "./preferencesTransitionState.js";
+import { preparePreferencesTransition } from "./preferencesTransitionState.js";
 
 /** @typedef {import('../../types/events/base.js').KnownPreferenceKey} KnownPreferenceKey */
 /** @typedef {import('../../types/events/base.js').KnownPreferencesSettings} KnownPreferencesSettings */
@@ -56,9 +57,10 @@ let preferencesEffectTail = Promise.resolve();
  * Pure logic / no DOM querying.  UI interactions live in PreferencesUI.
  */
 export default class PreferencesService extends ComponentBase {
-  /** @param {{ storage?: import('./serviceTypes.js').Storage, eventBus?: import('./serviceTypes.js').EventBus, i18n?: import('./serviceTypes.js').I18n, localizeCommands?: typeof defaultLocalizeCommands, applyTranslations?: (root?: Document | Element | null) => void }} [options] */
+  /** @param {{ settingsRepository?: import('../../types/storage-contracts.js').SettingsRepositoryPort, defaults?: import('../../types/data-contracts.js').CanonicalSettings, eventBus?: import('./serviceTypes.js').EventBus, i18n?: import('./serviceTypes.js').I18n, localizeCommands?: typeof defaultLocalizeCommands, applyTranslations?: (root?: Document | Element | null) => void }} [options] */
   constructor({
-    storage,
+    settingsRepository,
+    defaults = createDefaultPreferencesSettings(),
     eventBus,
     i18n,
     localizeCommands,
@@ -66,18 +68,20 @@ export default class PreferencesService extends ComponentBase {
   } = {}) {
     super(eventBus);
     this.componentName = "PreferencesService";
-    this.storage = storage;
+    this.settingsRepository = settingsRepository;
     this.i18n = i18n;
     this.localizeCommands = localizeCommands ?? defaultLocalizeCommands;
     this.applyTranslations = applyTranslations ?? (() => {});
 
     // Defaults
+    const validatedDefaults = materializeCanonicalPreferences(defaults);
+    if (!validatedDefaults) throw new TypeError("invalid_preferences_defaults");
     /** @type {PreferencesSettings} */
-    this.defaultSettings = createDefaultPreferencesSettings();
+    this.defaultSettings = validatedDefaults;
 
     // Runtime copy
     /** @type {PreferencesSettings} */
-    this.settings = { ...this.defaultSettings };
+    this.settings = structuredClone(this.defaultSettings);
     this._lifecycleGeneration = 0;
     this._stateAuthorityEpoch = 0;
     this._stateRevision = 0;
@@ -107,7 +111,7 @@ export default class PreferencesService extends ComponentBase {
     this._stateAuthorityEpoch = nextPreferencesStateAuthorityEpoch();
     this._stateRevision = 0;
     this._languageActivationDirty = true;
-    this.settings = { ...this.defaultSettings };
+    this.settings = structuredClone(this.defaultSettings);
     this._currentStateSnapshot = createPreferencesStateSnapshot(this.settings, {
       authorityEpoch: this._stateAuthorityEpoch,
       ready: false,
@@ -213,28 +217,43 @@ export default class PreferencesService extends ComponentBase {
 
   /**
    * Read and apply the durable settings once, then expose the first ready owner
-   * snapshot. Storage read failures retain the established defaults fallback;
-   * language or application failures reject readiness without publishing ready.
+   * snapshot. Both readable current values and repaired defaults are durably
+   * verified before readiness. A read failure is never permission to write.
    * @param {number} generation
    */
   async _loadInitialState(generation) {
-    /** @type {PreferencesSettings} */
-    let nextSettings = { ...this.defaultSettings };
-    try {
-      if (this.storage) {
-        const stored = this.storage.getSettings();
-        nextSettings = sanitizeStoredSettings(stored, this.defaultSettings);
-      }
-      console.log("[PreferencesService] loadSettings", {
-        settings: { ...nextSettings },
-      });
-    } catch (err) {
-      console.error("[PreferencesService] loadSettings failed", err);
-      nextSettings = { ...this.defaultSettings };
+    if (!this.settingsRepository) {
+      return this._blockInitialState(generation, "storage_read_failed");
     }
-
+    /** @type {import('../../types/storage-contracts.js').SettingsLoadResult | null} */
+    let loaded;
+    try {
+      loaded = materializeSettingsLoadResult(this.settingsRepository.load());
+    } catch {
+      return this._blockInitialState(generation, "storage_read_failed");
+    }
     this._assertCurrentLifecycle(generation);
-    this.settings = nextSettings;
+    if (!loaded)
+      return this._blockInitialState(generation, "verification_failed");
+    if (loaded.status === "read_failed") {
+      return this._blockInitialState(generation, "storage_read_failed");
+    }
+    const nextSettings =
+      loaded.status === "current" || loaded.status === "repair_required"
+        ? materializeCanonicalPreferences(loaded.value)
+        : null;
+    if (!nextSettings)
+      return this._blockInitialState(generation, "verification_failed");
+    let persisted;
+    try {
+      persisted = this.persistSettings(nextSettings);
+    } catch {
+      return this._blockInitialState(generation, "verification_failed");
+    }
+    this._assertCurrentLifecycle(generation);
+    if (persisted?.status !== "committed")
+      return this._blockInitialState(generation, "verification_failed");
+    this.settings = persisted.value;
     this._stateRevision = 1;
     await this.applySettings({ generation, localizeCommands: true });
     this._assertCurrentLifecycle(generation);
@@ -253,27 +272,24 @@ export default class PreferencesService extends ComponentBase {
     return this.getCurrentState();
   }
 
-  saveSettings() {
-    const generation = this._readyMutationGeneration();
-    const publication = this._enqueueMutation(() => {
-      this._assertCurrentLifecycle(generation);
-      if (!this.storage) return { ok: false, settlement: null };
-      const settings = this.getSettings();
-      const ok = this.persistSettings(settings);
-      console.log("[PreferencesService] saveSettings", { ok, settings });
-      if (!ok) return { ok: false, settlement: null };
-      this._assertCurrentLifecycle(generation);
-      return publishPreferencesTransitionReceipts(
-        this,
-        generation,
-        settings,
-        null,
-        null,
-      );
+  /** @param {number} generation @param {"storage_read_failed" | "verification_failed"} blockReason @returns {never} */
+  _blockInitialState(generation, blockReason) {
+    this._assertCurrentLifecycle(generation);
+    this.settings = structuredClone(this.defaultSettings);
+    this._stateRevision = 0;
+    this._currentStateSnapshot = createPreferencesStateSnapshot(this.settings, {
+      authorityEpoch: this._stateAuthorityEpoch,
+      ready: false,
+      revision: 0,
+      blockReason,
     });
-    return settlePreferencesMutation(publication, () =>
-      this._assertCurrentLifecycle(generation),
-    );
+    this._publishState("startup-blocked");
+    this._assertCurrentLifecycle(generation);
+    throw new Error(blockReason);
+  }
+
+  saveSettings() {
+    return savePreferenceSettings(this);
   }
 
   // Accessors
@@ -342,7 +358,8 @@ export default class PreferencesService extends ComponentBase {
    * @param {PreferencesActivationSource} source
    * @param {(
    *   activatePersistedSettings: () => Promise<PreferencesActivationResult>,
-   *   assertTransitionActive: () => void
+   *   assertTransitionActive: () => void,
+   *   persistImportedSettings: import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences
    * ) => Result | Promise<Result>} operation
    * @returns {Promise<Result>}
    */
@@ -362,13 +379,11 @@ export default class PreferencesService extends ComponentBase {
     return persistSyncFolderPreferenceSettings(this, mutation);
   }
 
-  /** @param {PreferencesSettings} settings @returns {boolean} */
+  /** @param {PreferencesSettings} settings @returns {import('../../types/storage-contracts.js').SettingsWriteResult | null} */
   persistSettings(settings) {
-    if (!this.storage) return false;
-    return (
-      this.storage.saveSettings(structuredClone(settings), {
-        replace: true,
-      }) === true
+    if (!this.settingsRepository) return null;
+    return materializeSettingsWriteResult(
+      this.settingsRepository.replace(structuredClone(settings)),
     );
   }
 

@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import ProjectManagementService from "../../../src/js/components/services/ProjectManagementService.js";
 import { createServiceFixture } from "../../fixtures/index.js";
-import { createRequestBackedPreferencesTransition } from "../../fixtures/services/projectRestore.js";
+import {
+  createRequestBackedPreferencesTransition,
+  mockProjectRestoreActions,
+} from "../../fixtures/services/projectRestore.js";
 
 const PREFERENCES_ACTIVATION_SUCCESS = {
   success: true,
@@ -52,10 +55,9 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
   });
 
   it("delegates restore and returns the accepted import outcome", async () => {
-    const requestMock = vi
-      .spyOn(service, "request")
-      .mockImplementation(async (topic, payload) => {
-        if (topic === "import:project-file") {
+    const requestMock = mockProjectRestoreActions(service).mockImplementation(
+      async (topic, payload) => {
+        if (topic === "import-project") {
           expect(payload).toEqual({ content: '{"fake":true}' });
           return {
             success: true,
@@ -77,16 +79,17 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
           return PREFERENCES_ACTIVATION_SUCCESS;
         }
         throw new Error(`Unexpected request for topic ${topic}`);
-      });
+      },
+    );
     const result = await service.restoreFromProjectContent(
       '{"fake":true}',
       "backup.json",
     );
 
     expect(requestMock).toHaveBeenCalledWith(
-      "import:project-file",
+      "import-project",
       { content: '{"fake":true}' },
-      0,
+      expect.any(Function),
     );
     expect(requestMock).toHaveBeenCalledWith("data:reload-state", undefined, 0);
     expect(requestMock).toHaveBeenCalledWith(
@@ -95,7 +98,7 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
       0,
     );
     expect(requestMock.mock.calls.map(([topic]) => topic)).toEqual([
-      "import:project-file",
+      "import-project",
       "data:reload-state",
       "preferences:activate-persisted-settings",
     ]);
@@ -119,12 +122,12 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
         project: false,
       },
     };
-    const requestMock = vi
-      .spyOn(service, "request")
-      .mockImplementation(async (topic) => {
-        if (topic === "import:project-file") return importFailure;
+    const requestMock = mockProjectRestoreActions(service).mockImplementation(
+      async (topic) => {
+        if (topic === "import-project") return importFailure;
         throw new Error(`Unexpected request for topic ${topic}`);
-      });
+      },
+    );
     const result = await service.restoreFromProjectContent(
       "bad-data",
       "broken.json",
@@ -167,9 +170,8 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
   ])(
     "closes an inconsistent storage receipt with indeterminate durability: %s",
     async (_label, importResult) => {
-      const requestMock = vi
-        .spyOn(service, "request")
-        .mockResolvedValue(importResult);
+      const requestMock =
+        mockProjectRestoreActions(service).mockResolvedValue(importResult);
 
       await expect(
         service.restoreFromProjectContent('{"fake":true}', "backup.json"),
@@ -190,7 +192,7 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
     });
     const committed = { profiles: [], project: false };
     Object.defineProperty(committed, "settings", { get: settingsGetter });
-    const requestMock = vi.spyOn(service, "request").mockResolvedValue({
+    const requestMock = mockProjectRestoreActions(service).mockResolvedValue({
       success: false,
       error: "storage_write_failed",
       params: { operation: "project" },
@@ -210,20 +212,19 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
     expect(requestMock).toHaveBeenCalledOnce();
   });
 
-  it("keeps a pre-dispatch import request rejection safely non-durable", async () => {
-    const requestMock = vi
-      .spyOn(service, "request")
-      .mockRejectedValue(new Error("import responder unavailable"));
+  it("keeps a missing injected import action safely non-durable before dispatch", async () => {
+    const requestMock = vi.spyOn(service, "request");
+    service.importProjectWithinPreferencesTransition = null;
 
     await expect(
       service.restoreFromProjectContent('{"fake":true}', "backup.json"),
     ).resolves.toEqual({
       success: false,
       error: "project_restore_import_failed",
-      params: { reason: "import responder unavailable" },
+      params: { reason: "project_import_action_unavailable" },
       durable: false,
     });
-    expect(requestMock).toHaveBeenCalledOnce();
+    expect(requestMock).not.toHaveBeenCalled();
     expect(service.ui.showToast).not.toHaveBeenCalled();
   });
 
@@ -242,9 +243,8 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
   ])(
     "maps a malformed import %s to a durability-indeterminate failure",
     async (_label, result) => {
-      const requestMock = vi
-        .spyOn(service, "request")
-        .mockResolvedValue(result);
+      const requestMock =
+        mockProjectRestoreActions(service).mockResolvedValue(result);
 
       await expect(
         service.restoreFromProjectContent('{"fake":true}', "backup.json"),
@@ -260,7 +260,7 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
   );
 
   it("rejects non-string runtime content with the import boundary shape", async () => {
-    const requestMock = vi.spyOn(service, "request");
+    const requestMock = mockProjectRestoreActions(service);
 
     await expect(
       // @ts-expect-error Exercise the runtime boundary beneath the typed RPC.
@@ -352,10 +352,9 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
   });
 
   it("reports a rejected reload as a durable activation failure", async () => {
-    const requestMock = vi
-      .spyOn(service, "request")
-      .mockImplementation(async (topic) => {
-        if (topic === "import:project-file") {
+    const requestMock = mockProjectRestoreActions(service).mockImplementation(
+      async (topic) => {
+        if (topic === "import-project") {
           return {
             success: true,
             message: "project_imported_successfully",
@@ -367,7 +366,8 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
           return { success: false, error: "reload_validation_failed" };
         }
         throw new Error(`Unexpected request for topic ${topic}`);
-      });
+      },
+    );
 
     await expect(
       service.restoreFromProjectContent('{"fake":true}', "backup.json"),
@@ -385,10 +385,9 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
   });
 
   it("maps a reload request rejection to the same durable failure", async () => {
-    const requestMock = vi
-      .spyOn(service, "request")
-      .mockImplementation(async (topic) => {
-        if (topic === "import:project-file") {
+    const requestMock = mockProjectRestoreActions(service).mockImplementation(
+      async (topic) => {
+        if (topic === "import-project") {
           return {
             success: true,
             message: "project_imported_successfully",
@@ -400,7 +399,8 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
           throw new Error("reload responder unavailable");
         }
         throw new Error(`Unexpected request for topic ${topic}`);
-      });
+      },
+    );
 
     await expect(
       service.restoreFromProjectContent('{"fake":true}', "backup.json"),
@@ -418,10 +418,9 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
   });
 
   it("does not expose the internal lifecycle-cancellation code as restore copy", async () => {
-    const requestMock = vi
-      .spyOn(service, "request")
-      .mockImplementation(async (topic) => {
-        if (topic === "import:project-file") {
+    const requestMock = mockProjectRestoreActions(service).mockImplementation(
+      async (topic) => {
+        if (topic === "import-project") {
           return {
             success: true,
             message: "project_imported_successfully",
@@ -433,7 +432,8 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
           return { success: false, error: "operation_cancelled" };
         }
         throw new Error(`Unexpected request for topic ${topic}`);
-      });
+      },
+    );
 
     await expect(
       service.restoreFromProjectContent('{"fake":true}', "backup.json"),
@@ -451,10 +451,9 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
   });
 
   it("localizes a rejected lifecycle cancellation before returning it", async () => {
-    const requestMock = vi
-      .spyOn(service, "request")
-      .mockImplementation(async (topic) => {
-        if (topic === "import:project-file") {
+    const requestMock = mockProjectRestoreActions(service).mockImplementation(
+      async (topic) => {
+        if (topic === "import-project") {
           return {
             success: true,
             message: "project_imported_successfully",
@@ -466,7 +465,8 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
           throw new Error("operation_cancelled");
         }
         throw new Error(`Unexpected request for topic ${topic}`);
-      });
+      },
+    );
 
     await expect(
       service.restoreFromProjectContent('{"fake":true}', "backup.json"),
@@ -489,10 +489,9 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
   ])(
     "maps a malformed reload %s to a durable activation failure",
     async (_label, reload) => {
-      const requestMock = vi
-        .spyOn(service, "request")
-        .mockImplementation(async (topic) => {
-          if (topic === "import:project-file") {
+      const requestMock = mockProjectRestoreActions(service).mockImplementation(
+        async (topic) => {
+          if (topic === "import-project") {
             return {
               success: true,
               message: "project_imported_successfully",
@@ -502,7 +501,8 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
           }
           if (topic === "data:reload-state") return reload;
           throw new Error(`Unexpected request for topic ${topic}`);
-        });
+        },
+      );
 
       await expect(
         service.restoreFromProjectContent('{"fake":true}', "backup.json"),

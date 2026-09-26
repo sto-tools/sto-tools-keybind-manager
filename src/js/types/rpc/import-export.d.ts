@@ -60,6 +60,14 @@ export type ProjectImportResult =
   | { success: false; error: "import_failed_invalid_json" }
   | {
       success: false;
+      error: "preferences_activation_failed";
+      durable: true;
+      imported: { profiles: number; settings: boolean };
+      currentProfile: string | null;
+      params: { reason: string };
+    }
+  | {
+      success: false;
       error: "invalid_project_file";
       params: { path: string };
     }

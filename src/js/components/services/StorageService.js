@@ -2,9 +2,9 @@ import ComponentBase from "../ComponentBase.js";
 import eventBus from "../../core/eventBus.js";
 import { decodeStoredApplicationJson } from "./storedApplicationDataBoundary.js";
 import {
-  decodeStoredSettingsJson,
-  sanitizeStoredSettingsPatch,
-} from "./settingsDataBoundary.js";
+  createDefaultPreferencesSettings,
+  detectPreferencesLanguage,
+} from "./preferencesDefaults.js";
 import { classifyPreferencesActivationResult } from "./preferencesActivationResult.js";
 
 /*
@@ -23,12 +23,11 @@ import { classifyPreferencesActivationResult } from "./preferencesActivationResu
  * Note: Advanced import/export functionality is handled by ProjectManagementService
  */
 export default class StorageService extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, storageKey?: string, backupKey?: string, settingsKey?: string, version?: string, dataService?: unknown, data?: Record<string, unknown>, i18n?: import('./serviceTypes.js').I18n | null, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null }} [options] */
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, storageKey?: string, backupKey?: string, version?: string, dataService?: unknown, data?: Record<string, unknown>, i18n?: import('./serviceTypes.js').I18n | null, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null }} [options] */
   constructor({
     eventBus: bus = eventBus,
     storageKey = "sto_keybind_manager",
     backupKey = "sto_keybind_manager_backup",
-    settingsKey = "sto_keybind_settings",
     version = "1.0.0",
     dataService = null,
     data = {},
@@ -39,7 +38,6 @@ export default class StorageService extends ComponentBase {
     this.componentName = "StorageService";
     this.storageKey = storageKey;
     this.backupKey = backupKey;
-    this.settingsKey = settingsKey;
     this.version = version;
     this.dataService = dataService;
     this.data = data || {};
@@ -133,7 +131,7 @@ export default class StorageService extends ComponentBase {
           // The complete reset workflow owns the same exclusive Preferences
           // transition as project restore. Neither durable workflow can resume
           // inside the other's data/settings transition.
-          const success = this.clearAllData({ preserveSettings: true });
+          const success = this.clearAllData();
           if (!success) {
             console.error("[StorageService] Application reset failed");
             return false;
@@ -321,64 +319,6 @@ export default class StorageService extends ComponentBase {
     return false;
   }
 
-  // Get application settings
-  /** @returns {import('../../types/data-contracts.js').KnownPreferencesSettings & import('../../types/data-contracts.js').SettingsData} */
-  getSettings() {
-    try {
-      const raw = localStorage.getItem(this.settingsKey);
-      if (!raw) return this.getDefaultSettings();
-      const decoded = decodeStoredSettingsJson(raw, this.getDefaultSettings());
-      if (decoded.error === "invalid_json") {
-        console.error(
-          "Error loading settings:",
-          new SyntaxError("Invalid stored settings JSON"),
-        );
-      }
-      return decoded.value;
-    } catch (error) {
-      console.error("Error loading settings:", error);
-      return this.getDefaultSettings();
-    }
-  }
-
-  // Save application settings
-  /**
-   * Partial callers retain the historical merge behavior. An authoritative
-   * owner can explicitly replace the complete snapshot so removed extension
-   * keys do not reappear on the next load.
-   * @param {Record<string, any>} settings
-   * @param {{ replace?: boolean }} [options]
-   */
-  saveSettings(settings, { replace = false } = {}) {
-    try {
-      const decoded = sanitizeStoredSettingsPatch(settings);
-      if (decoded.repaired) return false;
-      const persistedSettings = replace
-        ? decoded.value
-        : { ...this.getSettings(), ...decoded.value };
-      localStorage.setItem(this.settingsKey, JSON.stringify(persistedSettings));
-
-      return true;
-    } catch (error) {
-      console.error("Error saving settings:", error);
-      return false;
-    }
-  }
-
-  /**
-   * Clear only the standalone settings record. PreferencesService invokes this
-   * narrow persistence capability from its serialized reset transition.
-   */
-  clearSettings() {
-    try {
-      localStorage.removeItem(this.settingsKey);
-      return true;
-    } catch (error) {
-      console.error("Error clearing settings:", error);
-      return false;
-    }
-  }
-
   // Create backup of current data
   /** @param {string} [timestamp] */
   createBackup(timestamp = new Date().toISOString()) {
@@ -397,13 +337,11 @@ export default class StorageService extends ComponentBase {
     }
   }
 
-  // Clear all data (reset application)
-  /** @param {{ preserveSettings?: boolean }} [options] */
-  clearAllData({ preserveSettings = false } = {}) {
+  // Clear project data only. Preferences owns the standalone settings reset.
+  clearAllData() {
     try {
       localStorage.removeItem(this.storageKey);
       localStorage.removeItem(this.backupKey);
-      if (!preserveSettings) localStorage.removeItem(this.settingsKey);
 
       // Set reset flag to prevent loading default data on next startup
       localStorage.setItem("sto_app_reset", "true");
@@ -452,37 +390,13 @@ export default class StorageService extends ComponentBase {
 
   /** @returns {import('../../types/data-contracts.js').KnownPreferencesSettings & Record<string, unknown>} */
   getDefaultSettings() {
-    return {
-      theme: "default",
-      autoSave: true,
-      showTooltips: true,
-      confirmDeletes: true,
-      maxUndoSteps: 50,
-      defaultMode: "space",
-      compactView: false,
-      language: this.detectBrowserLanguage(),
-      syncFolderName: null,
-      syncFolderPath: null,
-      autoSync: false,
-      autoSyncInterval: "change",
-      bindToAliasMode: false,
-      bindsetsEnabled: false,
-      translateGeneratedMessages: false,
-    };
+    return createDefaultPreferencesSettings(this.detectBrowserLanguage());
   }
 
   detectBrowserLanguage() {
-    try {
-      if (typeof navigator === "undefined") return "en";
-      const cand =
-        (navigator.languages && navigator.languages[0]) || navigator.language;
-      if (!cand) return "en";
-      const lang = cand.toLowerCase().split(/[-_]/)[0];
-      return ["en", "de", "es", "fr"].includes(lang) ? lang : "en";
-    } catch (error) {
-      console.error("Error detecting browser language:", error);
-      return "en";
-    }
+    return detectPreferencesLanguage(
+      typeof navigator === "undefined" ? undefined : navigator,
+    );
   }
 
   /**

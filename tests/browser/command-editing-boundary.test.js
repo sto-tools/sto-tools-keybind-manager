@@ -234,7 +234,7 @@ describe("Command editing checked-bundle boundary", () => {
         }),
       ).resolves.toBe(true);
       const settingsAfterLanguageRestore = localStorage.getItem(
-        storage.settingsKey,
+        "sto_keybind_settings",
       );
       expect(document.querySelector("#parameterModal > .modal-content")).toBe(
         settledModalContent,
@@ -252,7 +252,7 @@ describe("Command editing checked-bundle boundary", () => {
       expect(chainUi.cache.dataState).toBe(cacheBeforeEdit);
       expect(storage.getProfile(profileId)).toEqual(durableBeforeEdit);
       expect(localStorage.getItem(storage.storageKey)).toBe(rootBeforeEdit);
-      expect(localStorage.getItem(storage.settingsKey)).toBe(
+      expect(localStorage.getItem("sto_keybind_settings")).toBe(
         settingsAfterLanguageRestore,
       );
 

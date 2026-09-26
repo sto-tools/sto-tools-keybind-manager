@@ -3,6 +3,7 @@ import type { PreferencesStateSnapshot } from "./component-state.js";
 
 export type PreferencesStateChangeReason =
   | "startup-loaded"
+  | "startup-blocked"
   | "setting-committed"
   | "settings-replaced"
   | "sync-folder-staged"

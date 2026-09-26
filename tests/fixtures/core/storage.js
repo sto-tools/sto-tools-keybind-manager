@@ -2,6 +2,8 @@
 // Provides mock storage with realistic behavior for testing
 
 import { vi } from "vitest";
+import LocalStorageSettingsRepository from "../../../src/js/components/storage/LocalStorageSettingsRepository.js";
+import { createDefaultPreferencesSettings } from "../../../src/js/components/services/preferencesDefaults.js";
 import {
   registerFixture,
   unregisterFixture,
@@ -178,46 +180,10 @@ export function createStorageFixture(options = {}) {
       }
     }),
 
-    getSettings: vi.fn(() => {
-      const data = mockLocalStorage.getItem("sto_keybind_settings");
-      if (data) {
-        return JSON.parse(data);
-      }
-      return {
-        theme: "dark",
-        language: "en",
-        autoSave: true,
-      };
-    }),
-
-    saveSettings: vi.fn((settings, { replace = false } = {}) => {
-      try {
-        const persistedSettings = replace
-          ? { ...settings }
-          : { ...mockStorageService.getSettings(), ...settings };
-        mockLocalStorage.setItem(
-          "sto_keybind_settings",
-          JSON.stringify(persistedSettings),
-        );
-        return true;
-      } catch {
-        return false;
-      }
-    }),
-
-    clearSettings: vi.fn(() => {
-      mockLocalStorage.removeItem("sto_keybind_settings");
-      return true;
-    }),
-
-    clearAllData: vi.fn(({ preserveSettings = false } = {}) => {
-      const settings = preserveSettings
-        ? mockLocalStorage.getItem("sto_keybind_settings")
-        : null;
-      mockLocalStorage.clear();
-      if (settings !== null) {
-        mockLocalStorage.setItem("sto_keybind_settings", settings);
-      }
+    clearAllData: vi.fn(() => {
+      mockLocalStorage.removeItem("sto_keybind_manager");
+      mockLocalStorage.removeItem("sto_keybind_manager_backup");
+      mockLocalStorage.setItem("sto_app_reset", "true");
       return true;
     }),
 
@@ -229,9 +195,20 @@ export function createStorageFixture(options = {}) {
     getComponentName: vi.fn(() => "StorageService"),
   };
 
+  const repository = new LocalStorageSettingsRepository({
+    storage: mockLocalStorage,
+    defaults: createDefaultPreferencesSettings(),
+  });
+  const settingsRepository = {
+    load: vi.fn(() => repository.load()),
+    replace: vi.fn((settings) => repository.replace(settings)),
+    clear: vi.fn(() => repository.clear()),
+  };
+
   const fixture = {
     localStorage: mockLocalStorage,
     storageService: mockStorageService,
+    settingsRepository,
 
     // Testing utilities
     getOperations: () => [...operations],

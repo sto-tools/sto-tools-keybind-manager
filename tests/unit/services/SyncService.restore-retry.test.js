@@ -241,7 +241,7 @@ describe("SyncService restore retry ownership", () => {
 
   it.each([
     [
-      "registered responder rejection",
+      "injected import action rejection",
       () => {
         throw new Error("import handler failed after dispatch");
       },
@@ -252,11 +252,6 @@ describe("SyncService restore retry ownership", () => {
     async (_label, importImplementation) => {
       const importProject = vi.fn(importImplementation);
       const reloadState = vi.fn().mockResolvedValue(RELOAD_SUCCESS);
-      const detachImport = respond(
-        fixture.eventBus,
-        "import:project-file",
-        importProject,
-      );
       const detachReload = respond(
         fixture.eventBus,
         "data:reload-state",
@@ -265,6 +260,7 @@ describe("SyncService restore retry ownership", () => {
       const projectManager = new ProjectManagementService({
         eventBus: fixture.eventBus,
         i18n: service.i18n,
+        importProjectWithinPreferencesTransition: importProject,
         runPreferencesTransition: createRequestBackedPreferencesTransition(
           () => projectManager,
         ),
@@ -291,7 +287,6 @@ describe("SyncService restore retry ownership", () => {
       } finally {
         projectManager.destroy();
         detachReload();
-        detachImport();
       }
     },
   );

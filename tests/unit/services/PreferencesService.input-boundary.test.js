@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import PreferencesService from "../../../src/js/components/services/PreferencesService.js";
 import { extensionPreferenceKey } from "../../../src/js/components/services/preferenceKeys.js";
+import { MAX_PROJECT_JSON_BYTES } from "../../../src/js/components/services/jsonDataBoundary.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
 describe("PreferencesService mutation boundary", () => {
@@ -11,12 +12,12 @@ describe("PreferencesService mutation boundary", () => {
   beforeEach(async () => {
     fixture = createServiceFixture();
     service = new PreferencesService({
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
       eventBus: fixture.eventBus,
     });
     service.init();
     await service.initialStateReady;
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
     fixture.eventBusFixture.clearEventHistory();
   });
 
@@ -27,7 +28,7 @@ describe("PreferencesService mutation boundary", () => {
 
   function expectNoMutation(before) {
     expect(service.getCurrentState()).toEqual(before);
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:saved"),
     ).toHaveLength(0);
@@ -38,6 +39,77 @@ describe("PreferencesService mutation boundary", () => {
       fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),
     ).toHaveLength(0);
   }
+
+  it.each([
+    ["oversized string", () => "x".repeat(MAX_PROJECT_JSON_BYTES)],
+    [
+      "expanded shared DAG",
+      () => {
+        let value = { text: "x".repeat(MAX_PROJECT_JSON_BYTES / 4) };
+        for (let level = 0; level < 3; level += 1)
+          value = { left: value, right: value };
+        return value;
+      },
+    ],
+  ])(
+    "rejects %s before owner capture or queue admission",
+    async (_label, makeValue) => {
+      const before = service.getCurrentState();
+      const ownerRead = vi.spyOn(service, "getSettings");
+      const queue = vi.spyOn(service, "_enqueueMutation");
+      const generation = vi.spyOn(service, "_readyMutationGeneration");
+
+      const value = makeValue();
+      for (const operation of [
+        () => service.setSettings({ "plugin:oversized": value }),
+        () =>
+          service.setExtensionSetting(
+            extensionPreferenceKey("plugin:oversized"),
+            value,
+          ),
+        () =>
+          fixture.eventBus.request("preferences:set-setting", {
+            key: extensionPreferenceKey("plugin:oversized"),
+            value,
+            extension: true,
+          }),
+      ]) {
+        const outcome = await Promise.resolve()
+          .then(operation)
+          .catch((error) => error);
+        expect({
+          generation: generation.mock.calls.length,
+          queue: queue.mock.calls.length,
+          ownerRead: ownerRead.mock.calls.length,
+          repository: fixture.settingsRepository.replace.mock.calls.length,
+        }).toEqual({ generation: 0, queue: 0, ownerRead: 0, repository: 0 });
+        expect(outcome).toBeInstanceOf(Error);
+        expect(outcome.message).toMatch(/^Invalid /);
+      }
+      expectNoMutation(before);
+    },
+  );
+
+  it("rejects oversized sync-folder input before owner capture or queue admission", async () => {
+    const before = service.getCurrentState();
+    const ownerRead = vi.spyOn(service, "getSettings");
+    const queue = vi.spyOn(service, "_enqueueMutation");
+    const generation = vi.spyOn(service, "_readyMutationGeneration");
+    await expect(
+      Promise.resolve().then(() =>
+        service.persistSyncFolderSettings({
+          syncFolderName: "folder",
+          syncFolderPath: "é".repeat(MAX_PROJECT_JSON_BYTES / 2),
+          syncFolderFallback: false,
+          autoSync: false,
+        }),
+      ),
+    ).rejects.toThrow();
+    expect(generation).not.toHaveBeenCalled();
+    expect(queue).not.toHaveBeenCalled();
+    expect(ownerRead).not.toHaveBeenCalled();
+    expectNoMutation(before);
+  });
 
   it.each(["__proto__", "prototype", "constructor"])(
     "rejects reserved extension key %s before persistence",

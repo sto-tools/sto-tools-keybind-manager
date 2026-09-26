@@ -1,3 +1,4 @@
+import { createProjectSettingsRepository } from "../fixtures/services/projectRestore.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
@@ -46,7 +47,6 @@ describe("Persistence failure state integration", () => {
   beforeEach(async () => {
     localStorageFixture = createLocalStorageFixture({
       initialData: { sto_keybind_manager: root },
-      quotaError: true,
     });
     storage = new StorageService({ eventBus, version: "1.0.0" });
     coordinator = new DataCoordinator({
@@ -55,11 +55,17 @@ describe("Persistence failure state integration", () => {
       i18n: { t: (key) => key },
     });
 
-    storage.init();
-    await coordinator.init();
-    preferences = new PreferencesService({ eventBus, storage });
+    preferences = new PreferencesService({
+      eventBus,
+      settingsRepository: createProjectSettingsRepository(),
+    });
     preferences.init();
     await preferences.initialStateReady;
+    storage.init();
+    await coordinator.init();
+    vi.spyOn(localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("quota exceeded", "QuotaExceededError");
+    });
   });
 
   afterEach(() => {
@@ -97,11 +103,12 @@ describe("Persistence failure state integration", () => {
     eventBus.on("preferences:saved", saved);
     eventBus.on("preferences:changed", changed);
     const before = preferences.getCurrentState();
+    const beforeDisk = localStorage.getItem("sto_keybind_settings");
 
     await expect(preferences.setSetting("theme", "dark")).resolves.toBe(false);
 
     expect(preferences.getCurrentState()).toEqual(before);
-    expect(localStorage.getItem("sto_keybind_settings")).toBeNull();
+    expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeDisk);
     expect(storage.getAllData().settings).toEqual(root.settings);
     expect(saved).not.toHaveBeenCalled();
     expect(changed).not.toHaveBeenCalled();

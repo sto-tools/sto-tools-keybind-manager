@@ -70,6 +70,8 @@ describe("project restore no-replay boundary", () => {
       storage,
     });
     projectManager = new ProjectManagementService({
+      importProjectWithinPreferencesTransition: (...args) =>
+        importer.importProjectWithinPreferencesTransition(...args),
       eventBus: eventBusFixture.eventBus,
       storage,
       i18n: { t: (key) => key },
@@ -147,7 +149,10 @@ describe("project restore no-replay boundary", () => {
     sync.init();
 
     const restore = vi.spyOn(projectManager, "restoreFromProjectContent");
-    const importProject = vi.spyOn(importer, "importProjectFile");
+    const importProject = vi.spyOn(
+      importer,
+      "importProjectWithinPreferencesTransition",
+    );
 
     sync.stagePendingSyncDecision("import", null);
     await sync.applyPendingSyncDecision();

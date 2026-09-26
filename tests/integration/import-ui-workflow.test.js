@@ -6,6 +6,7 @@ import DataCoordinator from "../../src/js/components/services/DataCoordinator.js
 import ImportService from "../../src/js/components/services/ImportService.js";
 import ModalManagerService from "../../src/js/components/services/ModalManagerService.js";
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
+import { createProjectSettingsRepository } from "../fixtures/services/projectRestore.js";
 import StorageService from "../../src/js/components/services/StorageService.js";
 import ImportUI from "../../src/js/components/ui/ImportUI.js";
 import { STOCommandParser } from "../../src/js/lib/STOCommandParser.js";
@@ -100,7 +101,7 @@ describe("ImportUI workflow integration", () => {
     });
     preferences = new PreferencesService({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      settingsRepository: createProjectSettingsRepository(),
       i18n: i18nFixture.i18n,
     });
     new STOCommandParser(eventBusFixture.eventBus);

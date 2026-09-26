@@ -5,7 +5,13 @@ import {
   isPreferencesActivationSource,
   materializePreferenceSettingsMutation,
   materializeSyncFolderSettingsMutation,
+  preferencesActivationFailure,
 } from "./preferencesMutationBoundary.js";
+import {
+  materializeCanonicalPreferences,
+  materializeSettingsLoadResult,
+  materializeSettingsClearResult,
+} from "./preferencesRepositoryBoundary.js";
 import {
   isSettingsRecord,
   sanitizeStoredSettings,
@@ -20,29 +26,53 @@ import {
 /** @typedef {import('../../types/events/base.js').SettingsRecord} SettingsRecord */
 /** @typedef {import('../../types/rpc/parameters-preferences.js').PreferencesActivationSource} PreferencesActivationSource */
 /** @typedef {import('../../types/rpc/parameters-preferences.js').SyncFolderSettingsMutation} SyncFolderSettingsMutation */
+/** @typedef {(patch: unknown) => Promise<import('../../types/storage-contracts.js').SettingsWriteResult>} PersistImportedPreferences */
 
-/** @param {unknown} error */
-function getPreferencesActivationFailureReason(error) {
-  try {
-    const reason = error instanceof Error ? error.message : String(error);
-    return reason || "unknown_error";
-  } catch {
-    return "unknown_error";
-  }
-}
-
-/** @param {unknown} error @returns {import('../../types/rpc/parameters-preferences.js').PreferencesActivationFailure} */
-export function preferencesActivationFailure(error) {
-  const reason = getPreferencesActivationFailureReason(error);
-  return Object.freeze({
-    success: false,
-    error:
-      reason === "operation_cancelled"
-        ? "operation_cancelled"
-        : "preferences_activation_failed",
-    params: Object.freeze({ reason }),
-    retryable: true,
+/** @param {import('./PreferencesService.js').default} owner */
+export function savePreferenceSettings(owner) {
+  const generation = owner._readyMutationGeneration();
+  const publication = owner._enqueueMutation(async () => {
+    owner._assertCurrentLifecycle(generation);
+    if (!owner.settingsRepository) return { ok: false, settlement: null };
+    const settings = owner.getSettings();
+    const persisted = owner.persistSettings(settings);
+    if (persisted?.status !== "committed")
+      return { ok: false, settlement: null };
+    owner._assertCurrentLifecycle(generation);
+    const changes = collectPreferenceChanges(settings, persisted.value);
+    let language = null;
+    if (Object.keys(changes).length > 0) {
+      const activateLanguage = needsLanguageActivation(
+        !Object.is(settings.language, persisted.value.language),
+        owner._languageActivationDirty,
+        owner.i18n?.language,
+        persisted.value.language,
+      );
+      const prepared = owner._prepareSettingsTransition(persisted.value);
+      owner._assertCurrentLifecycle(generation);
+      const state = owner._adoptPreparedTransition(prepared);
+      const activation = await owner._applyAndPublishTransition(
+        state,
+        "settings-replaced",
+        { generation, localizeCommands: activateLanguage },
+      );
+      owner._languageActivationDirty = activation.languageActivationFailed;
+      if (activateLanguage && !activation.languageActivationFailed)
+        language = persisted.value.language;
+    }
+    return publishPreferencesTransitionReceipts(
+      owner,
+      generation,
+      persisted.value,
+      Object.keys(changes).length > 0
+        ? { changes, settings: owner.getSettings() }
+        : null,
+      language,
+    );
   });
+  return settlePreferencesMutation(publication, () =>
+    owner._assertCurrentLifecycle(generation),
+  );
 }
 
 /**
@@ -51,7 +81,6 @@ export function preferencesActivationFailure(error) {
  * @param {unknown} value
  */
 export function commitPreferenceSetting(owner, key, value) {
-  const generation = owner._readyMutationGeneration();
   /** @type {Record<string, unknown>} */
   const intent = {};
   Object.defineProperty(intent, key, {
@@ -62,7 +91,10 @@ export function commitPreferenceSetting(owner, key, value) {
   });
   const detachedIntent = materializePreferenceSettingsMutation(intent);
   if (!detachedIntent) throw invalidMutationError({ key, value });
+  if (sanitizeStoredSettingsPatch(detachedIntent).repaired)
+    throw invalidMutationError({ key, value });
   const detachedValue = Reflect.get(detachedIntent, key);
+  const generation = owner._readyMutationGeneration();
   const publication = owner._enqueueMutation(async () => {
     owner._assertCurrentLifecycle(generation);
     const languageChanged =
@@ -76,7 +108,7 @@ export function commitPreferenceSetting(owner, key, value) {
     });
     const decoded = sanitizeStoredSettingsPatch(candidate);
     if (decoded.repaired) throw invalidMutationError({ key, value });
-    const nextSettings = /** @type {PreferencesSettings} */ (decoded.value);
+    let nextSettings = /** @type {PreferencesSettings} */ (decoded.value);
     const activateLanguage = needsLanguageActivation(
       languageChanged,
       owner._languageActivationDirty,
@@ -87,12 +119,16 @@ export function commitPreferenceSetting(owner, key, value) {
       key,
       value: detachedValue,
     });
-    const prepared = owner._prepareSettingsTransition(nextSettings);
+    let prepared = owner._prepareSettingsTransition(nextSettings);
     owner._assertCurrentLifecycle(generation);
-    if (!owner.persistSettings(prepared.settings)) {
+    const persisted = owner.persistSettings(prepared.settings);
+    if (persisted?.status !== "committed") {
       return { ok: false, settlement: null };
     }
 
+    owner._assertCurrentLifecycle(generation);
+    nextSettings = persisted.value;
+    prepared = owner._prepareSettingsTransition(nextSettings);
     owner._assertCurrentLifecycle(generation);
     const nextState = owner._adoptPreparedTransition(prepared);
     const activation = await owner._applyAndPublishTransition(
@@ -125,7 +161,6 @@ export function commitPreferenceSetting(owner, key, value) {
  * @param {SettingsRecord} newSettings
  */
 export function replacePreferenceSettings(owner, newSettings) {
-  const generation = owner._readyMutationGeneration();
   const materialized = materializePreferenceSettingsMutation(newSettings);
   if (!materialized) {
     throw new TypeError("Invalid preferences settings payload");
@@ -135,10 +170,11 @@ export function replacePreferenceSettings(owner, newSettings) {
     throw new TypeError("Invalid preferences settings payload");
   }
   const detachedSettings = decoded.value;
+  const generation = owner._readyMutationGeneration();
   const publication = owner._enqueueMutation(async () => {
     owner._assertCurrentLifecycle(generation);
     const oldSettings = owner.getSettings();
-    const nextSettings = sanitizeStoredSettings(
+    let nextSettings = sanitizeStoredSettings(
       detachedSettings,
       owner.defaultSettings,
     );
@@ -155,12 +191,16 @@ export function replacePreferenceSettings(owner, newSettings) {
     console.log("[PreferencesService] setSettings", {
       changed: Object.keys(detachedSettings),
     });
-    const prepared = owner._prepareSettingsTransition(nextSettings);
+    let prepared = owner._prepareSettingsTransition(nextSettings);
     owner._assertCurrentLifecycle(generation);
-    if (!owner.persistSettings(prepared.settings)) {
+    const persisted = owner.persistSettings(prepared.settings);
+    if (persisted?.status !== "committed") {
       return { ok: false, settlement: null };
     }
 
+    owner._assertCurrentLifecycle(generation);
+    nextSettings = persisted.value;
+    prepared = owner._prepareSettingsTransition(nextSettings);
     owner._assertCurrentLifecycle(generation);
     const nextState = owner._adoptPreparedTransition(prepared);
     const activation = await owner._applyAndPublishTransition(
@@ -212,10 +252,13 @@ export function persistSyncFolderPreferenceSettings(owner, mutation) {
       owner.defaultSettings,
     );
     const prepared = owner._prepareSettingsTransition(nextSettings);
-    if (!owner.persistSettings(prepared.settings)) return false;
+    const persisted = owner.persistSettings(prepared.settings);
+    if (persisted?.status !== "committed") return false;
 
     owner._assertCurrentLifecycle(generation);
-    const nextState = owner._adoptPreparedTransition(prepared);
+    const accepted = owner._prepareSettingsTransition(persisted.value);
+    owner._assertCurrentLifecycle(generation);
+    const nextState = owner._adoptPreparedTransition(accepted);
     owner._currentStateSnapshot = nextState;
     owner._publishState("sync-folder-staged", nextState);
     owner._assertCurrentLifecycle(generation);
@@ -236,28 +279,52 @@ export function persistSyncFolderPreferenceSettings(owner, mutation) {
  * @param {import('./PreferencesService.js').default} owner
  * @param {PreferencesActivationSource} source
  * @param {number} generation
+ * @param {import('../../types/data-contracts.js').CanonicalSettings} [stagedSettings]
  * @returns {Promise<import('../../types/rpc/parameters-preferences.js').PreferencesActivationResult>}
  */
 async function activatePersistedPreferencesWithinMutation(
   owner,
   source,
   generation,
+  stagedSettings,
 ) {
   owner._assertCurrentLifecycle(generation);
-  if (!owner.storage) throw new Error("preferences_storage_unavailable");
+  if (!owner.settingsRepository)
+    throw new Error("preferences_storage_unavailable");
 
+  /** @type {PreferencesSettings | null} */
+  let nextSettings = null;
   if (source === "application-reset") {
+    const removal = materializeSettingsClearResult(
+      owner.settingsRepository.clear(),
+    );
     if (
-      typeof owner.storage.clearSettings !== "function" ||
-      owner.storage.clearSettings() !== true
+      removal?.status !== "cleared" ||
+      removal.removal?.status !== "acknowledged"
     ) {
       throw new Error("preferences_settings_clear_failed");
     }
     owner._assertCurrentLifecycle(generation);
+    const defaults = materializeCanonicalPreferences(owner.defaultSettings);
+    if (!defaults) throw new Error("invalid_preferences_defaults");
+    const persisted = owner.persistSettings(defaults);
+    owner._assertCurrentLifecycle(generation);
+    if (persisted?.status !== "committed")
+      throw new Error("preferences_settings_verification_failed");
+    nextSettings = persisted.value;
+  } else if (stagedSettings !== undefined) {
+    nextSettings = materializeCanonicalPreferences(stagedSettings);
+  } else {
+    const loaded = materializeSettingsLoadResult(
+      owner.settingsRepository.load(),
+    );
+    owner._assertCurrentLifecycle(generation);
+    if (loaded?.status !== "current")
+      throw new Error("preferences_settings_read_failed");
+    nextSettings = materializeCanonicalPreferences(loaded.value);
   }
-
-  const stored = owner.storage.getSettings();
-  const nextSettings = sanitizeStoredSettings(stored, owner.defaultSettings);
+  if (!nextSettings)
+    throw new Error("preferences_settings_verification_failed");
   const oldSettings = owner.getSettings();
   const changes = collectPreferenceChanges(oldSettings, nextSettings);
   const changed = Object.keys(changes).length > 0;
@@ -348,7 +415,8 @@ export async function activatePersistedPreferences(owner, source) {
  * @param {PreferencesActivationSource} source
  * @param {(
  *   activatePersistedSettings: () => Promise<import('../../types/rpc/parameters-preferences.js').PreferencesActivationResult>,
- *   assertTransitionActive: () => void
+ *   assertTransitionActive: () => void,
+ *   persistImportedSettings: PersistImportedPreferences
  * ) => Result | Promise<Result>} operation
  * @returns {Promise<Result>}
  */
@@ -362,42 +430,149 @@ export function runExternalPreferencesActivation(owner, source, operation) {
   const generation = owner._readyMutationGeneration();
   return owner._enqueueMutation(async () => {
     let transactionActive = true;
+    let acceptingCapabilities = true;
     const assertTransitionActive = () => {
       if (!transactionActive) throw new Error("operation_cancelled");
       owner._assertCurrentLifecycle(generation);
     };
+    const assertCapabilityAvailable = () => {
+      if (!acceptingCapabilities) throw new Error("operation_cancelled");
+      assertTransitionActive();
+    };
     assertTransitionActive();
     let activationUsed = false;
+    let persistenceUsed = false;
+    /** @type {import('../../types/storage-contracts.js').SettingsWriteResult | null} */
+    let stagedReceipt = null;
+    /** @type {Promise<import('../../types/storage-contracts.js').SettingsWriteResult> | null} */
+    let persistencePromise = null;
     /** @type {Promise<import('../../types/rpc/parameters-preferences.js').PreferencesActivationResult> | null} */
     let activationPromise = null;
     const activatePersistedSettings = () => {
       try {
-        assertTransitionActive();
+        assertCapabilityAvailable();
         if (activationUsed) {
           throw new Error("preferences_activation_already_used");
         }
         activationUsed = true;
-        activationPromise = activatePersistedPreferencesWithinMutation(
-          owner,
-          source,
-          generation,
-        ).catch((error) => preferencesActivationFailure(error));
+        activationPromise = (async () => {
+          if (persistencePromise) await persistencePromise;
+          assertTransitionActive();
+          if (persistenceUsed && stagedReceipt?.status !== "committed") {
+            throw new Error("preferences_settings_verification_failed");
+          }
+          return activatePersistedPreferencesWithinMutation(
+            owner,
+            source,
+            generation,
+            stagedReceipt?.status === "committed"
+              ? stagedReceipt.value
+              : undefined,
+          );
+        })().catch((error) => preferencesActivationFailure(error));
         return activationPromise;
       } catch (error) {
         return Promise.resolve(preferencesActivationFailure(error));
       }
     };
+    /** @type {PersistImportedPreferences} */
+    const persistImportedSettings = (patch) => {
+      const detached = materializePreferenceSettingsMutation(patch);
+      const decoded = detached ? sanitizeStoredSettingsPatch(detached) : null;
+      try {
+        assertCapabilityAvailable();
+        if (source !== "project-restore" || persistenceUsed || activationUsed) {
+          throw new Error("preferences_import_persistence_unavailable");
+        }
+        persistenceUsed = true;
+        if (!decoded || decoded.repaired) {
+          stagedReceipt = {
+            status: "rejected",
+            error: "invalid_data",
+            write: { status: "not_attempted" },
+            verification: { status: "not_attempted" },
+          };
+          persistencePromise = Promise.resolve(structuredClone(stagedReceipt));
+          return persistencePromise;
+        }
+        persistencePromise = Promise.resolve().then(() => {
+          assertTransitionActive();
+          const current = materializeCanonicalPreferences(owner.getSettings());
+          if (!current) throw new Error("invalid_preferences_state");
+          const merged = { ...current, ...decoded.value };
+          const version = current.version || decoded.value.version;
+          if (version === undefined) delete merged.version;
+          else merged.version = version;
+          if (current.firstRun === undefined) delete merged.firstRun;
+          else merged.firstRun = current.firstRun;
+          const candidate = materializeCanonicalPreferences(merged);
+          if (!candidate) {
+            return /** @type {import('../../types/storage-contracts.js').SettingsWriteResult} */ ({
+              status: "rejected",
+              error: "invalid_data",
+              write: { status: "not_attempted" },
+              verification: { status: "not_attempted" },
+            });
+          }
+          // Plan before persistence so malformed snapshots cannot fail only
+          // after a durable write. The staged value is deliberately not adopted.
+          owner._prepareSettingsTransition(candidate);
+          assertTransitionActive();
+          let persisted;
+          try {
+            persisted = owner.persistSettings(candidate);
+          } catch {
+            // A throwing storage capability may already have written. Return
+            // that uncertainty as a receipt so the workflow can retain its
+            // earlier acknowledged profile stages instead of losing them when
+            // the lease drains this promise.
+            persisted = null;
+          }
+          assertTransitionActive();
+          stagedReceipt = persisted ?? {
+            status: "write_failed",
+            error: "storage_write_failed",
+            write: {
+              status: "indeterminate",
+              error: "storage_write_failed",
+              category: "unknown",
+            },
+            verification: { status: "not_attempted" },
+          };
+          return structuredClone(stagedReceipt);
+        });
+        void persistencePromise.catch(() => undefined);
+        return persistencePromise;
+      } catch (error) {
+        return Promise.reject(error);
+      }
+    };
+    const settleInFlight = async () => {
+      const settlements = await Promise.allSettled([
+        persistencePromise,
+        activationPromise,
+      ]);
+      for (const settlement of settlements) {
+        if (settlement.status === "rejected") throw settlement.reason;
+      }
+    };
     try {
       const result = await operation(
         activatePersistedSettings,
-        assertTransitionActive,
+        assertCapabilityAvailable,
+        persistImportedSettings,
       );
-      if (activationPromise) await activationPromise;
+      acceptingCapabilities = false;
+      await settleInFlight();
       assertTransitionActive();
       return result;
     } finally {
-      if (activationPromise) await activationPromise;
-      transactionActive = false;
+      acceptingCapabilities = false;
+      try {
+        await settleInFlight();
+      } finally {
+        transactionActive = false;
+      }
     }
   });
 }

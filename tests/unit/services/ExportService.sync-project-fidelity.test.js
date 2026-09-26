@@ -1,3 +1,4 @@
+import { createImportPreferencesOwner } from "../../fixtures/services/projectRestore.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -7,7 +8,10 @@ import ExportService from "../../../src/js/components/services/ExportService.js"
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
-import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
+import {
+  createDataCoordinatorState,
+  createPreferencesStateChange,
+} from "../../fixtures/core/componentState.js";
 
 const goldenProject = JSON.parse(
   readFileSync(
@@ -77,6 +81,10 @@ describe("ExportService sync project fidelity", () => {
     });
     services.push(exporter);
     exporter.init();
+    fixture.eventBus.emit(
+      "preferences:state-changed",
+      createPreferencesStateChange(goldenProject.data.settings),
+    );
 
     return { fixture, exporter };
   }
@@ -99,7 +107,7 @@ describe("ExportService sync project fidelity", () => {
     expect(project.data.settings).not.toEqual(staleRootSettings);
     expect(project.data.profiles).toEqual(goldenProject.data.profiles);
     expect(project.data.currentProfile).toBe(goldenProject.data.currentProfile);
-    expect(fixture.storage.getSettings).toHaveBeenCalled();
+    expect(fixture.settingsRepository.load).not.toHaveBeenCalled();
   });
 
   it("captures one project artifact before asynchronous projection work", async () => {
@@ -107,9 +115,12 @@ describe("ExportService sync project fidelity", () => {
     const generateAliasFile = exporter.generateAliasFile.bind(exporter);
     vi.spyOn(exporter, "generateAliasFile").mockImplementation(
       async (profile) => {
-        fixture.storage.saveSettings(
-          { ...goldenProject.data.settings, theme: "changed-during-sync" },
-          { replace: true },
+        fixture.eventBus.emit(
+          "preferences:state-changed",
+          createPreferencesStateChange(
+            { ...goldenProject.data.settings, theme: "dark" },
+            { revision: 2 },
+          ),
         );
         return await generateAliasFile(profile);
       },
@@ -120,7 +131,18 @@ describe("ExportService sync project fidelity", () => {
     expect(
       JSON.parse(await fixture.fsReadText("project.json")).data.settings,
     ).toEqual(goldenProject.data.settings);
-    expect(fixture.storage.getSettings().theme).toBe("changed-during-sync");
+    expect(exporter.cache.preferencesState.settings.theme).toBe("dark");
+  });
+
+  it("fails closed without a ready accepted Preferences snapshot before filesystem writes", async () => {
+    const { fixture, exporter } = createSource();
+    exporter.cache.preferencesState = null;
+    await expect(exporter.syncToFolder(fixture.rootDir)).rejects.toThrow(
+      "Preferences state is unavailable",
+    );
+    expect(await fixture.fsExists("project.json")).toBe(false);
+    expect(fixture.settingsRepository.load).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
   });
 
   it("projects each synced profile's VFX aliases without cross-contamination or a VFX responder", async () => {
@@ -348,7 +370,11 @@ describe("ExportService sync project fidelity", () => {
     });
     fixtures.push(destination);
 
+    const preferences = await createImportPreferencesOwner(destination);
+    services.push(preferences);
     const importer = new ImportService({
+      runPreferencesTransition: (source, operation) =>
+        preferences.runExternalActivationTransition(source, operation),
       eventBus: destination.eventBus,
       storage: destination.storage,
     });
@@ -368,7 +394,7 @@ describe("ExportService sync project fidelity", () => {
     expect(destination.storage.getAllData().currentProfile).toBe(
       goldenProject.data.currentProfile,
     );
-    expect(destination.storage.getSettings()).toEqual(
+    expect(destination.settingsRepository.load().value).toEqual(
       goldenProject.data.settings,
     );
   });

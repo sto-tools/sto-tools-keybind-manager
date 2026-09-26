@@ -48,6 +48,7 @@ describe("preferences startup architecture ratchets", () => {
     );
 
     expect(preferences).toContain("commitPreferenceSetting(this, key, value)");
+    expect(preferences).toContain("savePreferenceSettings(this)");
     expect(preferences).toContain(
       "replacePreferenceSettings(this, newSettings)",
     );

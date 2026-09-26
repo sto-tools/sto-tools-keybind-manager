@@ -1,3 +1,4 @@
+import { createProjectSettingsRepository } from "../fixtures/services/projectRestore.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
@@ -27,6 +28,7 @@ describe("project import authoritative owner chain", () => {
   let eventBusFixture;
   let localStorageFixture;
   let storage;
+  let settingsRepository;
   let coordinator;
   let importer;
   let projectManager;
@@ -73,14 +75,17 @@ describe("project import authoritative owner chain", () => {
         preferencesI18n.language = language;
       }),
     };
+    settingsRepository = createProjectSettingsRepository();
     preferences = new PreferencesService({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      settingsRepository,
       i18n: preferencesI18n,
       localizeCommands: () => {},
       applyTranslations: () => {},
     });
     projectManager = new ProjectManagementService({
+      importProjectWithinPreferencesTransition: (...args) =>
+        importer.importProjectWithinPreferencesTransition(...args),
       eventBus: eventBusFixture.eventBus,
       storage,
       ui: { showToast: vi.fn() },
@@ -89,9 +94,10 @@ describe("project import authoritative owner chain", () => {
         preferences.runExternalActivationTransition(source, operation),
     });
 
+    preferences.init();
+    await preferences.initialStateReady;
     storage.init();
     coordinator.init();
-    preferences.init();
     await vi.waitFor(() => {
       expect(coordinator.getCurrentState().ready).toBe(true);
     });
@@ -180,7 +186,7 @@ describe("project import authoritative owner chain", () => {
         imported: { name: "Imported" },
       },
     });
-    expect(storage.getSettings()).toMatchObject({
+    expect(settingsRepository.load().value).toMatchObject({
       theme: "light",
       language: "de",
       version: "destination-version",
@@ -206,6 +212,8 @@ describe("project import authoritative owner chain", () => {
     const realEventBusFixture = await createRealEventBusFixture();
     const showToast = vi.fn();
     const chooserOwner = new ProjectManagementService({
+      importProjectWithinPreferencesTransition: (...args) =>
+        importer.importProjectWithinPreferencesTransition(...args),
       eventBus: realEventBusFixture.eventBus,
       storage,
       ui: { showToast },
@@ -235,7 +243,7 @@ describe("project import authoritative owner chain", () => {
     );
     const busEmit = vi.spyOn(realEventBusFixture.eventBus, "emit");
     const beforeRoot = localStorage.getItem(storage.storageKey);
-    const beforeSettings = localStorage.getItem(storage.settingsKey);
+    const beforeSettings = localStorage.getItem("sto_keybind_settings");
     const beforeState = coordinator.getCurrentState();
 
     try {
@@ -289,7 +297,7 @@ describe("project import authoritative owner chain", () => {
       expect(showToast).toHaveBeenCalledOnce();
       expect(showToast).toHaveBeenCalledWith("backup_restore_failed", "error");
       expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
-      expect(localStorage.getItem(storage.settingsKey)).toBe(beforeSettings);
+      expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeSettings);
       expect(coordinator.getCurrentState()).toBe(beforeState);
     } finally {
       headerMenu.destroy();
@@ -344,6 +352,7 @@ describe("project import authoritative owner chain", () => {
 
   it("keeps acknowledged mundane settings after final-root failure and activates them on restart", async () => {
     preferences = await assertMundaneSettingsFinalRootFailure({
+      settingsRepository,
       storage,
       coordinator,
       eventBus: eventBusFixture.eventBus,
@@ -399,6 +408,7 @@ describe("project import authoritative owner chain", () => {
 
   it("retries only durable activation after a sync import reload failure", async () => {
     sync = await assertSyncRetriesOnlyDurableActivation({
+      settingsRepository,
       eventBusFixture,
       storage,
       coordinator,

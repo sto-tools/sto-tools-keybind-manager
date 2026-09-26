@@ -816,6 +816,7 @@
   "profile_name_is_required": "Profile name is required",
   "failed_to_save_profile": "Failed to save profile: {{error}}",
   "storage_write_failed": "Storage write failed",
+  "preferences_activation_failed": "Your settings could not be activated. Please reload to try again.",
   "no_profile_selected_to_delete": "No profile selected to delete",
   "no_keybinds_to_export": "No keybinds to export",
   "no_aliases_to_export": "No aliases to export",

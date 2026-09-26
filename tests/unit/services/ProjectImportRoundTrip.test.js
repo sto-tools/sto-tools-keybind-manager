@@ -1,3 +1,8 @@
+import { createImportPreferencesOwner } from "../../fixtures/services/projectRestore.js";
+import {
+  createPreferencesStateChange,
+  createPreferencesState,
+} from "../../fixtures/core/componentState.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import ProjectManagementService from "../../../src/js/components/services/ProjectManagementService.js";
@@ -63,24 +68,32 @@ describe("project backup and import profile contract", () => {
       currentProfile: "canonical-profile",
       settings: { theme: "default" },
     });
-    source.storage.saveSettings({
+    const sourceSettings = createPreferencesState({
       theme: "light",
       language: "en",
       autoSave: false,
       compactView: true,
-    });
+    }).settings;
 
     const producer = new ProjectManagementService({
       eventBus: source.eventBus,
       storage: source.storage,
       i18n: { t: (key) => key },
     });
+    const preferences = await createImportPreferencesOwner(destination);
+    services.push(preferences);
     const consumer = new ImportService({
+      runPreferencesTransition: (source, operation) =>
+        preferences.runExternalActivationTransition(source, operation),
       eventBus: destination.eventBus,
       storage: destination.storage,
     });
     services.push(producer, consumer);
     producer.init();
+    source.eventBus.emit(
+      "preferences:state-changed",
+      createPreferencesStateChange(sourceSettings),
+    );
     consumer.init();
 
     /** @type {string[]} */
@@ -111,7 +124,7 @@ describe("project backup and import profile contract", () => {
     );
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("mock-object-url");
     expect(projectData.data.currentProfile).toBe("canonical-profile");
-    expect(projectData.data.settings).toEqual({
+    expect(projectData.data.settings).toMatchObject({
       theme: "light",
       language: "en",
       autoSave: false,
@@ -128,7 +141,7 @@ describe("project backup and import profile contract", () => {
     expect(destination.storage.getAllData().currentProfile).toBe(
       "canonical-profile",
     );
-    expect(destination.storage.getSettings()).toMatchObject(
+    expect(destination.settingsRepository.load().value).toMatchObject(
       projectData.data.settings,
     );
   });
@@ -148,6 +161,10 @@ describe("project backup and import profile contract", () => {
     });
     services.push(producer);
     producer.init();
+    fixture.eventBus.emit(
+      "preferences:state-changed",
+      createPreferencesStateChange(),
+    );
     vi.spyOn(console, "error").mockImplementation(() => {});
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
@@ -171,5 +188,28 @@ describe("project backup and import profile contract", () => {
     );
     expect(URL.createObjectURL).not.toHaveBeenCalled();
     expect(click).not.toHaveBeenCalled();
+  });
+
+  it("does not export embedded or persisted fallback settings before the accepted owner is ready", async () => {
+    const fixture = createServiceFixture();
+    fixtures.push(fixture);
+    const producer = new ProjectManagementService({
+      eventBus: fixture.eventBus,
+      storage: fixture.storage,
+      i18n: { t: (key) => key },
+    });
+    services.push(producer);
+    producer.init();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    await expect(producer.backupApplicationState()).resolves.toEqual({
+      success: false,
+      error: "Preferences state is unavailable",
+    });
+    expect(click).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.load).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
   });
 });

@@ -143,4 +143,60 @@ describe("preferences state snapshots", () => {
       }),
     ).toThrow("Invalid preferences state snapshot");
   });
+
+  it("accepts initializing to blocked once at revision zero without reopening equal revisions", () => {
+    const settings = createPreferencesState().settings;
+    const initializing = createPreferencesStateSnapshot(settings, {
+      authorityEpoch: 50,
+      ready: false,
+      revision: 0,
+    });
+    const blocked = createPreferencesStateSnapshot(settings, {
+      authorityEpoch: 50,
+      ready: false,
+      revision: 0,
+      blockReason: "storage_read_failed",
+    });
+    const adopted = adoptPreferencesStateSnapshot(
+      structuredClone(blocked),
+      initializing,
+    );
+    expect(adopted).toEqual(blocked);
+    expect(adoptPreferencesStateSnapshot(blocked, adopted)).toBeNull();
+    expect(adoptPreferencesStateSnapshot(initializing, adopted)).toBeNull();
+    const anotherFailure = createPreferencesStateSnapshot(settings, {
+      authorityEpoch: 50,
+      ready: false,
+      revision: 0,
+      blockReason: "verification_failed",
+    });
+    expect(adoptPreferencesStateSnapshot(anotherFailure, adopted)).toBeNull();
+    const ready = createPreferencesStateSnapshot(settings, {
+      authorityEpoch: 50,
+      ready: true,
+      revision: 1,
+    });
+    expect(adoptPreferencesStateSnapshot(ready, adopted)).toBe(ready);
+    expect(adoptPreferencesStateSnapshot(blocked, ready)).toBeNull();
+  });
+
+  it("rejects missing or contradictory readiness metadata and accessor fields", () => {
+    const ready = createPreferencesState();
+    const getter = vi.fn(() => "ready");
+    const hostile = { ...ready };
+    Object.defineProperty(hostile, "readiness", {
+      enumerable: true,
+      get: getter,
+    });
+    for (const input of [
+      { authorityEpoch: 1, ready: true, revision: 1, settings: ready.settings },
+      { ...ready, blocked: true },
+      { ...ready, durability: "unverified" },
+      { ...ready, readiness: "initializing" },
+      { ...ready, blockReason: "storage_read_failed" },
+      hostile,
+    ])
+      expect(isPreferencesStateSnapshot(input)).toBe(false);
+    expect(getter).not.toHaveBeenCalled();
+  });
 });

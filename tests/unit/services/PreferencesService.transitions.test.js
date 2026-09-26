@@ -23,7 +23,7 @@ describe("PreferencesService transition activation", () => {
     localizeCommands = vi.fn();
     applyTranslations = vi.fn();
     service = new PreferencesService({
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
       eventBus: fixture.eventBus,
       i18n: /** @type {any} */ (i18n),
       localizeCommands,
@@ -46,7 +46,7 @@ describe("PreferencesService transition activation", () => {
     localizeCommands.mockClear();
     applyTranslations.mockClear();
     i18n.changeLanguage.mockClear();
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
     fixture.eventBusFixture.clearEventHistory();
   }
 
@@ -75,10 +75,13 @@ describe("PreferencesService transition activation", () => {
     };
     const startupLocalize = vi.fn();
     const startupTranslations = vi.fn();
-    fixture.storage.getSettings.mockReturnValueOnce({ language: "de" });
+    fixture.settingsRepository.load.mockReturnValueOnce({
+      status: "current",
+      value: { ...service.defaultSettings, language: "de" },
+    });
     fixture.eventBusFixture.clearEventHistory();
     service = new PreferencesService({
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
       eventBus: fixture.eventBus,
       i18n: /** @type {any} */ (failingI18n),
       localizeCommands: startupLocalize,
@@ -197,9 +200,9 @@ describe("PreferencesService transition activation", () => {
       const before = service.getCurrentState();
       const failure = new Error("settings unavailable");
       if (failureMode === "false") {
-        fixture.storage.saveSettings.mockReturnValueOnce(false);
+        fixture.settingsRepository.replace.mockReturnValueOnce(false);
       } else {
-        fixture.storage.saveSettings.mockImplementationOnce(() => {
+        fixture.settingsRepository.replace.mockImplementationOnce(() => {
           throw failure;
         });
       }
@@ -229,7 +232,7 @@ describe("PreferencesService transition activation", () => {
       "Invalid preferences state snapshot",
     );
 
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     expect(service.getCurrentState()).toBe(before);
     expect(service.getSettings()).toEqual(before.settings);
     expect(
@@ -394,13 +397,13 @@ describe("PreferencesService transition activation", () => {
     const languageMutation = service.setSetting("language", "de");
     await vi.waitFor(() => expect(i18n.changeLanguage).toHaveBeenCalledOnce());
     const themeMutation = service.setSetting("theme", "dark");
-    expect(fixture.storage.saveSettings).toHaveBeenCalledOnce();
+    expect(fixture.settingsRepository.replace).toHaveBeenCalledOnce();
 
     releaseLanguage();
     await expect(languageMutation).resolves.toBe(true);
     await expect(themeMutation).resolves.toBe(true);
 
-    expect(fixture.storage.saveSettings).toHaveBeenCalledTimes(2);
+    expect(fixture.settingsRepository.replace).toHaveBeenCalledTimes(2);
     expect(service.getCurrentState()).toMatchObject({
       revision: 3,
       settings: { language: "de", theme: "dark" },
@@ -420,14 +423,14 @@ describe("PreferencesService transition activation", () => {
         throw new Error("language capability unavailable");
       },
     });
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
     fixture.eventBusFixture.clearEventHistory();
 
     await expect(service.setSettings({ theme: "default" })).rejects.toThrow(
       "language capability unavailable",
     );
 
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     expect(service.getCurrentState()).toBe(before);
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:state-changed"),

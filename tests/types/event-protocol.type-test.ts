@@ -205,6 +205,7 @@ type PreferencesStateReasonsAreClosed = Expect<
   Equal<
     PreferencesStateChangeReason,
     | "startup-loaded"
+    | "startup-blocked"
     | "setting-committed"
     | "settings-replaced"
     | "sync-folder-staged"
@@ -212,6 +213,35 @@ type PreferencesStateReasonsAreClosed = Expect<
     | "settings-reset"
   >
 >;
+
+const blockedPreferences = {
+  ...createPreferencesState(),
+  ready: false as const,
+  blocked: true as const,
+  readiness: "blocked" as const,
+  durability: "unverified" as const,
+  blockReason: "storage_read_failed" as const,
+  revision: 0,
+};
+eventBus.emit("preferences:state-changed", {
+  reason: "startup-blocked",
+  state: blockedPreferences,
+});
+// @ts-expect-error A blocked snapshot cannot simultaneously claim readiness.
+eventBus.emit("preferences:state-changed", {
+  reason: "startup-blocked",
+  state: { ...blockedPreferences, ready: true },
+});
+// @ts-expect-error A blocked snapshot cannot claim verified durability.
+eventBus.emit("preferences:state-changed", {
+  reason: "startup-blocked",
+  state: { ...blockedPreferences, durability: "verified" },
+});
+// @ts-expect-error Startup block reasons remain closed protocol data.
+eventBus.emit("preferences:state-changed", {
+  reason: "startup-blocked",
+  state: { ...blockedPreferences, blockReason: "unknown" },
+});
 type KeyBrowserStateEventIsRegisteredExactly = Expect<
   Equal<EventPayload<"key-browser:state-changed">, KeyBrowserViewStateSnapshot>
 >;

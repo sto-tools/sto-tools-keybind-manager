@@ -116,13 +116,14 @@ function decodeRestoreRequest(payload) {
  * for mix-in compatibility while the codebase migrates to service instances.
  */
 export default class ProjectManagementService extends ComponentBase {
-  /** @param {{ storage?: import('./serviceTypes.js').Storage | null, ui?: import('./serviceTypes.js').ToastUI | null, eventBus?: import('./serviceTypes.js').EventBus | null, i18n?: import('./serviceTypes.js').I18n | null, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null }} [options] */
+  /** @param {{ storage?: import('./serviceTypes.js').Storage | null, ui?: import('./serviceTypes.js').ToastUI | null, eventBus?: import('./serviceTypes.js').EventBus | null, i18n?: import('./serviceTypes.js').I18n | null, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null, importProjectWithinPreferencesTransition?: import('./ImportService.js').default['importProjectWithinPreferencesTransition'] | null }} [options] */
   constructor({
     storage = null,
     ui = null,
     eventBus = null,
     i18n = null,
     runPreferencesTransition = null,
+    importProjectWithinPreferencesTransition = null,
   } = {}) {
     super(eventBus);
     this.componentName = "ProjectManagementService";
@@ -131,6 +132,8 @@ export default class ProjectManagementService extends ComponentBase {
     this.ui = ui;
     this.i18n = i18n;
     this.runPreferencesTransition = runPreferencesTransition;
+    this.importProjectWithinPreferencesTransition =
+      importProjectWithinPreferencesTransition;
     this._restoreLifecycleGeneration = 0;
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
@@ -184,12 +187,14 @@ export default class ProjectManagementService extends ComponentBase {
         throw new Error("Project management dependencies are unavailable");
       }
       const data = this.storage.getAllData();
+      const preferences = this.cache.preferencesState;
+      if (!preferences?.ready)
+        throw new Error("Preferences state is unavailable");
       const exported = new Date().toISOString();
-      const jsonContent = serializeProjectArtifact(
-        data,
-        this.storage.getSettings(),
-        { version: stoData.settings.version, exported },
-      );
+      const jsonContent = serializeProjectArtifact(data, preferences.settings, {
+        version: stoData.settings.version,
+        exported,
+      });
       const blob = new Blob([jsonContent], { type: "application/json" });
       const url = URL.createObjectURL(blob);
 
@@ -371,7 +376,11 @@ export default class ProjectManagementService extends ComponentBase {
     try {
       return await this.runPreferencesTransition(
         "project-restore",
-        (activatePersistedSettings, assertPreferencesTransition) => {
+        (
+          activatePersistedSettings,
+          assertPreferencesTransition,
+          persistImportedSettings,
+        ) => {
           const assertRestoreActive = () => {
             assertPreferencesTransition?.();
             if (
@@ -390,6 +399,7 @@ export default class ProjectManagementService extends ComponentBase {
             () => {
               importDispatched = true;
             },
+            persistImportedSettings,
           );
         },
       );
@@ -413,6 +423,7 @@ export default class ProjectManagementService extends ComponentBase {
    * @param {() => Promise<import('../../types/rpc/parameters-preferences.js').PreferencesActivationResult>} activatePersistedSettings
    * @param {() => void} assertRestoreActive
    * @param {() => void} markImportDispatched
+   * @param {import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences} persistImportedSettings
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'project:restore-from-content'>>}
    */
   async _restoreWithinPreferencesTransition(
@@ -421,21 +432,32 @@ export default class ProjectManagementService extends ComponentBase {
     activatePersistedSettings,
     assertRestoreActive,
     markImportDispatched,
+    persistImportedSettings,
   ) {
     assertRestoreActive();
     // ImportService owns parsing, validation, and durable storage writes.
-    const importResponderAvailable =
-      this.eventBus?.hasListeners("rpc:import:project-file") === true;
+    if (!this.importProjectWithinPreferencesTransition) {
+      return {
+        success: false,
+        error: "project_restore_import_failed",
+        params: { reason: "project_import_action_unavailable" },
+        durable: false,
+      };
+    }
     let result;
     try {
       markImportDispatched();
-      result = await this.request("import:project-file", { content: text }, 0);
+      result = await this.importProjectWithinPreferencesTransition(
+        text,
+        {},
+        persistImportedSettings,
+      );
     } catch (error) {
       return {
         success: false,
         error: "project_restore_import_failed",
         params: { reason: getErrorMessage(error) },
-        durable: importResponderAvailable ? "indeterminate" : false,
+        durable: "indeterminate",
       };
     }
     if (isProjectImportFailure(result)) {

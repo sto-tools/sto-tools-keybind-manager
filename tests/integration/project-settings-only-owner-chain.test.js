@@ -1,3 +1,4 @@
+import { createProjectSettingsRepository } from "../fixtures/services/projectRestore.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
@@ -37,6 +38,7 @@ describe("settings-only project restore owner chain", () => {
   let eventBusFixture;
   let localStorageFixture;
   let storage;
+  let settingsRepository;
   let coordinator;
   let importer;
   let preferences;
@@ -81,14 +83,17 @@ describe("settings-only project restore owner chain", () => {
         preferencesI18n.language = language;
       }),
     };
+    settingsRepository = createProjectSettingsRepository();
     preferences = new PreferencesService({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      settingsRepository,
       i18n: preferencesI18n,
       localizeCommands: vi.fn(),
       applyTranslations: vi.fn(),
     });
     projectManager = new ProjectManagementService({
+      importProjectWithinPreferencesTransition: (...args) =>
+        importer.importProjectWithinPreferencesTransition(...args),
       eventBus: eventBusFixture.eventBus,
       storage,
       i18n: { t: (key) => key },
@@ -96,9 +101,10 @@ describe("settings-only project restore owner chain", () => {
         preferences.runExternalActivationTransition(source, operation),
     });
 
+    preferences.init();
+    await preferences.initialStateReady;
     storage.init();
     coordinator.init();
-    preferences.init();
     await coordinator.initialStateReady;
     await preferences.initialStateReady;
     storage.setPreferencesTransitionRunner((source, operation) =>
@@ -185,7 +191,7 @@ describe("settings-only project restore owner chain", () => {
       await languageBlocked;
       preferencesI18n.language = language;
     });
-    const saveSettings = vi.spyOn(storage, "saveSettings");
+    const saveSettings = vi.spyOn(settingsRepository, "replace");
 
     const firstMutation = preferences.setSetting("language", "fr");
     await vi.waitFor(() => {
@@ -199,12 +205,12 @@ describe("settings-only project restore owner chain", () => {
 
     await Promise.resolve();
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(JSON.parse(localStorage.getItem(storage.settingsKey))).toMatchObject(
-      {
-        theme: "dark",
-        language: "fr",
-      },
-    );
+    expect(
+      JSON.parse(localStorage.getItem("sto_keybind_settings")),
+    ).toMatchObject({
+      theme: "dark",
+      language: "fr",
+    });
 
     releaseLanguage();
     await expect(firstMutation).resolves.toBe(true);
@@ -216,14 +222,14 @@ describe("settings-only project restore owner chain", () => {
     });
 
     expect(saveSettings).toHaveBeenCalledTimes(3);
-    expect(JSON.parse(localStorage.getItem(storage.settingsKey))).toMatchObject(
-      {
-        theme: "light",
-        language: "de",
-        compactView: true,
-        "plugin:layout": { density: "compact" },
-      },
-    );
+    expect(
+      JSON.parse(localStorage.getItem("sto_keybind_settings")),
+    ).toMatchObject({
+      theme: "light",
+      language: "de",
+      compactView: true,
+      "plugin:layout": { density: "compact" },
+    });
     expect(preferences.getCurrentState()).toMatchObject({
       ready: true,
       settings: {

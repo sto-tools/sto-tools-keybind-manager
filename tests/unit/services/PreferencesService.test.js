@@ -23,7 +23,7 @@ describe("PreferencesService", () => {
     localizeCommands = vi.fn();
     applyTranslations = vi.fn();
     service = new PreferencesService({
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
       eventBus: fixture.eventBus,
       localizeCommands,
       applyTranslations,
@@ -32,7 +32,7 @@ describe("PreferencesService", () => {
     await service.initialStateReady;
     localizeCommands.mockClear();
     applyTranslations.mockClear();
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
     fixture.eventBusFixture.clearEventHistory();
   });
 
@@ -63,14 +63,12 @@ describe("PreferencesService", () => {
   });
 
   it("setSetting persists to storage and emits preferences:changed", async () => {
-    const spySave = fixture.storage.saveSettings;
+    const spySave = fixture.settingsRepository.replace;
     const before = service.getCurrentState();
     await expect(service.setSetting("theme", "dark")).resolves.toBe(true);
 
     expect(service.getSetting("theme")).toBe("dark");
-    expect(spySave).toHaveBeenCalledWith(service.getSettings(), {
-      replace: true,
-    });
+    expect(spySave).toHaveBeenCalledWith(service.getSettings());
     fixture.eventBusFixture.expectEvent("preferences:changed", {
       key: "theme",
       value: "dark",
@@ -90,7 +88,7 @@ describe("PreferencesService", () => {
   it("rejects a wrong-typed known setting RPC before side effects", async () => {
     const before = service.getSettings();
     const applySettings = vi.spyOn(service, "applySettings");
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
     fixture.eventBusFixture.clearEventHistory();
 
     await expect(
@@ -103,7 +101,7 @@ describe("PreferencesService", () => {
     );
 
     expect(service.getSettings()).toEqual(before);
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     expect(applySettings).not.toHaveBeenCalled();
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:changed"),
@@ -111,7 +109,7 @@ describe("PreferencesService", () => {
   });
 
   it("accepts valid known setting values through the RPC", async () => {
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
     fixture.eventBusFixture.clearEventHistory();
 
     await fixture.eventBus.request("preferences:set-setting", {
@@ -120,7 +118,7 @@ describe("PreferencesService", () => {
     });
 
     expect(service.getSetting("autoSave")).toBe(false);
-    expect(fixture.storage.saveSettings).toHaveBeenCalledTimes(1);
+    expect(fixture.settingsRepository.replace).toHaveBeenCalledTimes(1);
     fixture.eventBusFixture.expectEvent("preferences:changed", {
       key: "autoSave",
       value: false,
@@ -156,7 +154,7 @@ describe("PreferencesService", () => {
   it("rejects an invalid bulk mutation atomically", async () => {
     const before = service.getSettings();
     const applySettings = vi.spyOn(service, "applySettings");
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
     fixture.eventBusFixture.clearEventHistory();
 
     await expect(
@@ -168,7 +166,7 @@ describe("PreferencesService", () => {
     ).rejects.toThrow("Invalid preferences settings payload");
 
     expect(service.getSettings()).toEqual(before);
-    expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
+    expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     expect(applySettings).not.toHaveBeenCalled();
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:changed"),
@@ -177,7 +175,7 @@ describe("PreferencesService", () => {
 
   it("accepts valid bulk values and preserves extension settings", async () => {
     const extensionValue = { density: "compact" };
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
     fixture.eventBusFixture.clearEventHistory();
 
     await fixture.eventBus.request("preferences:set-settings", {
@@ -193,7 +191,7 @@ describe("PreferencesService", () => {
       syncFolderName: "Keybinds",
       "plugin:layout": extensionValue,
     });
-    expect(fixture.storage.saveSettings).toHaveBeenCalledTimes(1);
+    expect(fixture.settingsRepository.replace).toHaveBeenCalledTimes(1);
     fixture.eventBusFixture.expectEvent("preferences:changed", {
       changes: {
         theme: "default",
@@ -206,7 +204,7 @@ describe("PreferencesService", () => {
     });
   });
 
-  it("publishes complete defaults when starting without storage", async () => {
+  it("publishes only blocked defaults when starting without a repository", async () => {
     const serviceWithoutStorage = new PreferencesService({
       eventBus: fixture.eventBus,
       localizeCommands: vi.fn(),
@@ -216,51 +214,56 @@ describe("PreferencesService", () => {
     try {
       fixture.eventBusFixture.clearEventHistory();
       serviceWithoutStorage.init();
-      const ready = await serviceWithoutStorage.initialStateReady;
-
-      const [loaded] =
-        fixture.eventBusFixture.getEventsOfType("preferences:loaded");
-      expect(loaded.data).toEqual({
+      await expect(serviceWithoutStorage.initialStateReady).rejects.toThrow(
+        "storage_read_failed",
+      );
+      expect(
+        fixture.eventBusFixture.getEventsOfType("preferences:loaded"),
+      ).toHaveLength(0);
+      expect(serviceWithoutStorage.getCurrentState()).toMatchObject({
+        ready: false,
+        blocked: true,
+        readiness: "blocked",
+        durability: "unverified",
+        blockReason: "storage_read_failed",
+        revision: 0,
         settings: serviceWithoutStorage.defaultSettings,
       });
-      expect(loaded.data.settings).not.toBe(serviceWithoutStorage.settings);
-      expect(Object.keys(loaded.data.settings)).toHaveLength(15);
-      expect(ready).toBe(serviceWithoutStorage.getCurrentState());
-      expect(ready).toMatchObject({ ready: true, revision: 1 });
-
-      loaded.data.settings.theme = "changed-outside-service";
       expect(serviceWithoutStorage.getSetting("theme")).toBe("default");
     } finally {
       if (!serviceWithoutStorage.destroyed) serviceWithoutStorage.destroy();
     }
   });
 
-  it("starts a replacement with complete defaults when storage cannot be read", async () => {
+  it("blocks a replacement without writing when storage cannot be read", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const replacement = new PreferencesService({
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
       eventBus: fixture.eventBus,
       localizeCommands: vi.fn(),
       applyTranslations: vi.fn(),
     });
     try {
-      fixture.storage.getSettings.mockImplementationOnce(() => {
+      fixture.settingsRepository.load.mockImplementationOnce(() => {
         throw new Error("settings unavailable");
       });
       fixture.eventBusFixture.clearEventHistory();
+      fixture.settingsRepository.replace.mockClear();
 
       replacement.init();
-      await replacement.initialStateReady;
-
-      expect(errorSpy).toHaveBeenCalledWith(
-        "[PreferencesService] loadSettings failed",
-        expect.any(Error),
+      await expect(replacement.initialStateReady).rejects.toThrow(
+        "storage_read_failed",
       );
+      expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
       expect(replacement.getSettings()).toEqual(replacement.defaultSettings);
-      const [loaded] =
-        fixture.eventBusFixture.getEventsOfType("preferences:loaded");
-      expect(loaded.data).toEqual({ settings: replacement.defaultSettings });
-      expect(loaded.data.settings).not.toBe(replacement.settings);
+      expect(
+        fixture.eventBusFixture.getEventsOfType("preferences:loaded"),
+      ).toHaveLength(0);
+      expect(replacement.getCurrentState()).toMatchObject({
+        ready: false,
+        blocked: true,
+        revision: 0,
+      });
     } finally {
       if (!replacement.destroyed) replacement.destroy();
       errorSpy.mockRestore();
@@ -305,12 +308,12 @@ describe("PreferencesService", () => {
 
   it("does not announce a change when the canonical bulk state is unchanged", async () => {
     const current = service.getSettings();
-    fixture.storage.saveSettings.mockClear();
+    fixture.settingsRepository.replace.mockClear();
     fixture.eventBusFixture.clearEventHistory();
 
     await expect(service.setSettings(current)).resolves.toBe(true);
 
-    expect(fixture.storage.saveSettings).toHaveBeenCalledTimes(1);
+    expect(fixture.settingsRepository.replace).toHaveBeenCalledTimes(1);
     expect(
       fixture.eventBusFixture.getEventsOfType("preferences:changed"),
     ).toHaveLength(0);
@@ -318,17 +321,20 @@ describe("PreferencesService", () => {
 
   it("defaults invalid stored known values and preserves stored extensions", async () => {
     const extensionValue = { density: "compact" };
-    fixture.storage.getSettings.mockReturnValue({
-      theme: "light",
-      autoSave: "yes",
-      maxUndoSteps: null,
-      syncFolderName: 42,
-      syncFolderPath: "/keybinds",
-      "plugin:layout": extensionValue,
-    });
+    fixture.storageFixture.localStorage.setItem(
+      "sto_keybind_settings",
+      JSON.stringify({
+        theme: "light",
+        autoSave: "yes",
+        maxUndoSteps: null,
+        syncFolderName: 42,
+        syncFolderPath: "/keybinds",
+        "plugin:layout": extensionValue,
+      }),
+    );
 
     const replacement = new PreferencesService({
-      storage: fixture.storage,
+      settingsRepository: fixture.settingsRepository,
       eventBus: fixture.eventBus,
       localizeCommands: vi.fn(),
       applyTranslations: vi.fn(),
@@ -362,10 +368,15 @@ describe("PreferencesService", () => {
     async (topic, payload) => {
       const before = service.getSetting("autoSave");
       const order = [];
-      fixture.storage.saveSettings.mockImplementation((settings) => {
+      fixture.settingsRepository.replace.mockImplementation((settings) => {
         expect(settings.autoSave).toBe(false);
         order.push(`write:${service.getSetting("autoSave")}`);
-        return true;
+        return {
+          status: "committed",
+          value: structuredClone(settings),
+          write: { status: "acknowledged" },
+          verification: { status: "verified" },
+        };
       });
       fixture.eventBus.on("preferences:saved", ({ settings }) => {
         expect(settings.autoSave).toBe(false);
@@ -396,7 +407,7 @@ describe("PreferencesService", () => {
     async (topic, payload) => {
       const before = structuredClone(service.getCurrentState());
       const applySettings = vi.spyOn(service, "applySettings");
-      fixture.storage.saveSettings.mockReturnValueOnce(false);
+      fixture.settingsRepository.replace.mockReturnValueOnce(false);
       fixture.eventBusFixture.clearEventHistory();
 
       const result = await fixture.eventBus.request(topic, payload);
@@ -428,7 +439,7 @@ describe("PreferencesService", () => {
     async (topic, payload) => {
       const before = structuredClone(service.getCurrentState());
       const applySettings = vi.spyOn(service, "applySettings");
-      fixture.storage.saveSettings.mockImplementationOnce(() => {
+      fixture.settingsRepository.replace.mockImplementationOnce(() => {
         throw new Error("settings unavailable");
       });
       fixture.eventBusFixture.clearEventHistory();
