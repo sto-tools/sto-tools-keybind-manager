@@ -4,7 +4,7 @@ import DataCoordinator from "../../src/js/components/services/DataCoordinator.js
 import ExportService from "../../src/js/components/services/ExportService.js";
 import ImportService from "../../src/js/components/services/ImportService.js";
 import StorageService from "../../src/js/components/services/StorageService.js";
-import { respond } from "../../src/js/core/requestResponse.js";
+import { respond, request } from "../../src/js/core/requestResponse.js";
 import {
   createEventBusFixture,
   createLocalStorageFixture,
@@ -137,6 +137,68 @@ describe("text export/import round trips", () => {
     eventBusFixture?.destroy();
     localStorageFixture?.destroy();
     vi.restoreAllMocks();
+  });
+
+  it("rejects a stale planned import without overwriting a newer acknowledged owner edit", async () => {
+    detachParser();
+    let enterPlanner;
+    let resumePlanner;
+    const entered = new Promise((resolve) => {
+      enterPlanner = resolve;
+    });
+    const resumed = new Promise((resolve) => {
+      resumePlanner = resolve;
+    });
+    let calls = 0;
+    detachParser = respond(
+      eventBusFixture.eventBus,
+      "parser:parse-command-string",
+      async ({ commandString }) => {
+        if (++calls === 2) {
+          enterPlanner();
+          await resumed;
+        }
+        return { commands: [{ command: commandString }], isMirrored: false };
+      },
+    );
+    const before = coordinator.getCurrentState();
+    const pending = importService.importKeybindFile(
+      'F1 "FireAll"',
+      profileId,
+      "space",
+    );
+    await entered;
+    await expect(
+      request(eventBusFixture.eventBus, "data:update-profile", {
+        profileId,
+        properties: { description: "newer acknowledged edit" },
+      }),
+    ).resolves.toMatchObject({ success: true });
+    const accepted = coordinator.getCurrentState();
+    const rootRaw = localStorage.getItem("sto_keybind_manager");
+    const backupRaw = localStorage.getItem("sto_keybind_manager_backup");
+    const save = vi.spyOn(storage, "saveProfile");
+    eventBusFixture.clearEventHistory();
+    resumePlanner();
+    expect(await pending).toMatchObject({
+      success: false,
+      error: "import_failed",
+    });
+    expect(save).not.toHaveBeenCalled();
+    expect(coordinator.getCurrentState()).toBe(accepted);
+    expect(accepted.revision).toBe(before.revision + 1);
+    expect(accepted.profiles[profileId].description).toBe(
+      "newer acknowledged edit",
+    );
+    expect(accepted.profiles[profileId].builds.space.keys).not.toHaveProperty(
+      "F1",
+    );
+    expect(localStorage.getItem("sto_keybind_manager")).toBe(rootRaw);
+    expect(localStorage.getItem("sto_keybind_manager_backup")).toBe(backupRaw);
+    expect(eventBusFixture.getEventsOfType("data:state-changed")).toHaveLength(
+      0,
+    );
+    expect(eventBusFixture.getEventsOfType("profile:updated")).toHaveLength(0);
   });
 
   it("round-trips exported empty keybinds and punctuation aliases through authoritative storage", async () => {

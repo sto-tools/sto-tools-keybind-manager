@@ -8,6 +8,7 @@ const mockI18n = { t: (k) => k };
 function baseProfile() {
   return {
     id: "profile1",
+    name: "Profile 1",
     builds: {
       space: {
         keys: {
@@ -57,6 +58,27 @@ describe("CommandChainService", () => {
   afterEach(() => {
     fixture.destroy();
   });
+
+  it.each([false, true])(
+    "retains an acknowledged clear without stale effects after teardown (reinit=%s)",
+    async (reinitialize) => {
+      let acknowledge;
+      service.request = vi.fn(
+        () =>
+          new Promise((resolve) => {
+            acknowledge = resolve;
+          }),
+      );
+      const changed = vi.fn();
+      eventBus.on("chain-data-changed", changed);
+      const pending = service.clearCommandChain("F1");
+      service.destroy();
+      if (reinitialize) service.init();
+      acknowledge({ success: true, profile: baseProfile() });
+      await expect(pending).resolves.toBe(true);
+      expect(changed).not.toHaveBeenCalled();
+    },
+  );
 
   it("should emit chain-data-changed when key-selected", async () => {
     const handler = vi.fn();
@@ -185,6 +207,10 @@ describe("CommandChainService", () => {
       expect(requestSpy).toHaveBeenCalledTimes(1);
       expect(requestSpy).toHaveBeenCalledWith("data:update-profile", {
         profileId: "profile1",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           builds: { space: { keys: { F1: [] } } },
         },
@@ -208,6 +234,10 @@ describe("CommandChainService", () => {
       null,
       {
         profileId: "profile1",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           aliases: { engage: { commands: [] } },
         },
@@ -220,6 +250,10 @@ describe("CommandChainService", () => {
       "Weapons",
       {
         profileId: "profile1",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           bindsets: { Weapons: { space: { keys: { F1: [] } } } },
         },
@@ -232,6 +266,10 @@ describe("CommandChainService", () => {
       "Engineering",
       {
         profileId: "profile1",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           bindsets: { Engineering: { ground: { keys: { F2: [] } } } },
         },
@@ -250,7 +288,7 @@ describe("CommandChainService", () => {
       });
       const requestSpy = vi
         .spyOn(service, "request")
-        .mockResolvedValue({ success: true });
+        .mockResolvedValue({ success: true, profile: baseProfile() });
       const changed = vi.fn();
       eventBus.on("chain-data-changed", changed);
 

@@ -1,3 +1,4 @@
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 // Test to verify Activity Tracking metadata handling in ImportService
 // Tests that stabilization metadata is correctly set based on TrayExec-generating activities (13, 26, 95)
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -25,6 +26,7 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
       storage: fixture.storage,
     });
     importService.init();
+    importService._cacheDataState(createDataCoordinatorState());
     respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
 
     // Register responder for parser on the fixture event bus
@@ -82,6 +84,7 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
 
       // Mock storage to return a test profile
       fixture.storage.getProfile = vi.fn().mockReturnValue({
+        name: "Test Profile",
         builds: {
           space: { keys: {}, aliases: {} },
           ground: { keys: {}, aliases: {} },
@@ -164,6 +167,7 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
 
       // Mock storage to return a test profile
       fixture.storage.getProfile = vi.fn().mockReturnValue({
+        name: "Test Profile",
         builds: {
           space: { keys: {}, aliases: {} },
           ground: { keys: {}, aliases: {} },
@@ -238,6 +242,7 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
 
       // Mock storage to return a test profile
       fixture.storage.getProfile = vi.fn().mockReturnValue({
+        name: "Test Profile",
         builds: {
           space: { keys: {}, aliases: {} },
           ground: { keys: {}, aliases: {} },
@@ -303,6 +308,7 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
 
       // Mock storage to return a test profile
       fixture.storage.getProfile = vi.fn().mockReturnValue({
+        name: "Test Profile",
         builds: {
           space: { keys: {}, aliases: {} },
           ground: { keys: {}, aliases: {} },

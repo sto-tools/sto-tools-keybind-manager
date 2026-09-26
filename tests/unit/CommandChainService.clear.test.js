@@ -47,6 +47,7 @@ describe("CommandChainService command-chain:clear event", () => {
       storage: fixture.storage,
     });
     await dataCoordinator.init();
+    await dataCoordinator.initialStateReady;
 
     chainService = new CommandChainService({ eventBus });
     await chainService.init();
@@ -63,6 +64,8 @@ describe("CommandChainService command-chain:clear event", () => {
   });
 
   afterEach(() => {
+    chainService.destroy();
+    dataCoordinator.destroy();
     fixture.destroy();
   });
 

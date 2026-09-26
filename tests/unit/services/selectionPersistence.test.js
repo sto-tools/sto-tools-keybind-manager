@@ -108,6 +108,103 @@ describe("selection persistence controller", () => {
     await expect(profileAResult).resolves.toBe(true);
   });
 
+  it("admits a later write from canonical publication while retaining exact reply settlement", async () => {
+    const firstWrite = createDeferred();
+    const secondWrite = createDeferred();
+    const preconditions = [
+      { authorityEpoch: 1, revision: 1 },
+      { authorityEpoch: 1, revision: 2 },
+    ];
+    const write = vi
+      .fn()
+      .mockImplementationOnce((_profileId, _selections, _epoch, dispatched) => {
+        dispatched(preconditions[0]);
+        return firstWrite.promise;
+      })
+      .mockImplementationOnce((_profileId, _selections, _epoch, dispatched) => {
+        dispatched(preconditions[1]);
+        return secondWrite.promise;
+      });
+    const controller = createSelectionPersistenceController({
+      write,
+      captureAuthorityEpoch: () => 1,
+    });
+    controller.reset("profile-a", { space: "S0" });
+
+    const firstResult = controller.persist("profile-a", "space", "S1");
+    const secondResult = controller.persist("profile-a", "space", "S2");
+    await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+
+    controller.acceptAuthorityState({
+      ready: true,
+      authorityEpoch: 1,
+      revision: 2,
+      profiles: { "profile-a": { selections: { space: "S1" } } },
+    });
+    await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+
+    let admitted = false;
+    void controller.whenAdmitted().then(() => {
+      admitted = true;
+    });
+    let settled = false;
+    void controller.whenSettled().then(() => {
+      settled = true;
+    });
+    controller.acceptAuthorityState({
+      ready: true,
+      authorityEpoch: 1,
+      revision: 3,
+      profiles: { "profile-a": { selections: { space: "S2" } } },
+    });
+    await vi.waitFor(() => expect(admitted).toBe(true));
+    expect(settled).toBe(false);
+
+    secondWrite.resolve();
+    await expect(secondResult).resolves.toBe(true);
+    expect(settled).toBe(false);
+    expect(controller.snapshot("profile-a")).toEqual({ space: "S2" });
+
+    firstWrite.resolve();
+    await expect(firstResult).resolves.toBe(false);
+    await controller.whenSettled();
+    expect(settled).toBe(true);
+    expect(controller.snapshot("profile-a")).toEqual({ space: "S2" });
+  });
+
+  it("does not repair a write whose canonical publication already released admission", async () => {
+    const reply = createDeferred();
+    const write = vi.fn((_profileId, _selections, _epoch, dispatched) => {
+      dispatched({ authorityEpoch: 1, revision: 1 });
+      return reply.promise;
+    });
+    const controller = createSelectionPersistenceController({
+      write,
+      captureAuthorityEpoch: () => 1,
+    });
+    controller.reset("profile-a", { space: "S0" });
+
+    const staleResult = controller.persist("profile-a", "space", "S1");
+    await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    controller.acceptAuthorityState({
+      ready: true,
+      authorityEpoch: 1,
+      revision: 2,
+      profiles: { "profile-a": { selections: { space: "S1" } } },
+    });
+    await controller.whenAdmitted();
+
+    controller.reset("profile-a", { space: "Imported" });
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(controller.snapshot("profile-a")).toEqual({ space: "Imported" });
+
+    reply.resolve();
+    await expect(staleResult).resolves.toBe(false);
+    await controller.whenSettled();
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(controller.snapshot("profile-a")).toEqual({ space: "Imported" });
+  });
+
   it("replaces staged state when a fresh profile seed is supplied", async () => {
     const write = vi.fn().mockResolvedValue(undefined);
     const onCommit = vi.fn();

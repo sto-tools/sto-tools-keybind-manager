@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import KeyService from "../../../src/js/components/services/KeyService.js";
 import { createServiceFixture } from "../../fixtures/index.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
+import { applyProfileOperations } from "../../../src/js/components/services/profileOperations.js";
 
 describe("KeyService Structured Response Tests", () => {
   let fixture, service, profileUpdatePayloads;
@@ -11,6 +13,19 @@ describe("KeyService Structured Response Tests", () => {
 
     // Set up request handlers on the fixture's eventBus
     const eventBus = fixture.eventBus;
+    let revision = 0;
+    const publish = (profile) =>
+      eventBus.emit("data:state-changed", {
+        reason: "test-commit",
+        state: createDataCoordinatorState({
+          authorityEpoch: 70,
+          revision: ++revision,
+          currentProfile: "test-profile",
+          currentEnvironment: "space",
+          currentProfileData: profile,
+          profiles: { "test-profile": profile },
+        }),
+      });
 
     // Mock DataCoordinator profile switching
     eventBus.on("rpc:data:switch-profile", ({ replyTopic, payload }) => {
@@ -35,6 +50,7 @@ describe("KeyService Structured Response Tests", () => {
         profile: testProfile,
         environment: "space",
       });
+      publish(testProfile);
 
       // Respond to the request
       eventBus.emit(replyTopic, {
@@ -45,53 +61,13 @@ describe("KeyService Structured Response Tests", () => {
     eventBus.on("rpc:data:update-profile", ({ replyTopic, payload }) => {
       profileUpdatePayloads.push(payload);
       // Mock the data update - return success
-      const { add, delete: deleteOp, updates } = payload;
-      if (updates?.modify?.bindsets) {
-        const modifications = updates.modify.bindsets;
-        service.cache.profile.bindsets = service.cache.profile.bindsets || {};
-        Object.entries(modifications).forEach(([bindsetName, envData]) => {
-          if (!service.cache.profile.bindsets[bindsetName]) {
-            service.cache.profile.bindsets[bindsetName] = {
-              space: { keys: {} },
-              ground: { keys: {} },
-            };
-          }
-          Object.entries(envData).forEach(([env, data]) => {
-            if (!service.cache.profile.bindsets[bindsetName][env]) {
-              service.cache.profile.bindsets[bindsetName][env] = { keys: {} };
-            }
-            const targetKeys =
-              service.cache.profile.bindsets[bindsetName][env].keys;
-            Object.entries(data.keys || {}).forEach(([key, value]) => {
-              if (value === null) delete targetKeys[key];
-              else targetKeys[key] = value;
-            });
-          });
-        });
-        eventBus.emit(replyTopic, { data: { success: true } });
-        return;
-      }
-      if (add || deleteOp) {
-        // Update the service cache to simulate what DataCoordinator would do
-        if (add && add.builds && add.builds.space && add.builds.space.keys) {
-          Object.assign(service.cache.keys, add.builds.space.keys);
-        }
-        if (
-          deleteOp &&
-          deleteOp.builds &&
-          deleteOp.builds.space &&
-          deleteOp.builds.space.keys
-        ) {
-          deleteOp.builds.space.keys.forEach(
-            (key) => delete service.cache.keys[key],
-          );
-        }
-        eventBus.emit(replyTopic, { data: { success: true } });
-        return;
-      }
-      eventBus.emit(replyTopic, {
-        data: { success: false, error: "invalid_operation" },
-      });
+      expect(payload.precondition).toEqual({ authorityEpoch: 70, revision });
+      const base = structuredClone(service.cache.profile);
+      delete base.keys;
+      base.builds.space.keys = structuredClone(service.cache.keys);
+      const profile = applyProfileOperations(base, payload.updates || payload);
+      publish(profile);
+      eventBus.emit(replyTopic, { data: { success: true, profile } });
     });
 
     eventBus.on("rpc:selection:select-key", ({ replyTopic }) => {

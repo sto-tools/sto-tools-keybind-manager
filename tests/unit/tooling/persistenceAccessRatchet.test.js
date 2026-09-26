@@ -121,7 +121,7 @@ describe("persistence access architecture ratchet", () => {
       expect(targetTranche, key).toMatch(/^\d+(?:-\d+)?$/);
     }
     expect(dispositionTotals).toEqual({
-      owner: 11,
+      owner: 16,
       workflow: 9,
       projection: 7,
       compatibility: 12,
@@ -148,10 +148,10 @@ describe("persistence access architecture ratchet", () => {
     }
 
     expect(storageTotals).toEqual(expectedStorageServiceCallsByMethod);
-    expect(classTotals).toEqual({ external: 25, helper: 6, internal: 9 });
+    expect(classTotals).toEqual({ external: 30, helper: 6, internal: 9 });
     expect(
       Object.values(storageTotals).reduce((sum, count) => sum + count, 0),
-    ).toBe(40);
+    ).toBe(45);
   });
 
   it("activates one settings adapter in bootstrap while the project adapter stays unused", () => {

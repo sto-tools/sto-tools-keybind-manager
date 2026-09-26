@@ -57,7 +57,8 @@ export const unusedRepositoryScalarWrites = Object.freeze({
 // hide an unregistered persistence access.
 export const expectedNamedMethodCalls = Object.freeze({
   "components/services/BindsetService.js|this|getProfile": 4,
-  "components/services/DataCoordinator.js|this.storage|getAllData": 9,
+  "components/services/DataCoordinator.js|this.storage|getAllData": 8,
+  "components/services/dataCoordinatorProfileActions.js|owner.storage|getAllData": 6,
   "components/services/ExportService.js|this.storage|getProfile": 1,
   "components/services/ImportService.js|this.storage|getProfile": 3,
   "components/services/PreferencesService.js|this|getSettings": 1,
@@ -86,6 +87,8 @@ export const expectedNamedMethodCalls = Object.freeze({
 
 export const storageServiceCallClass = Object.freeze({
   "components/services/DataCoordinator.js|this.storage|getAllData": "external",
+  "components/services/dataCoordinatorProfileActions.js|owner.storage|getAllData":
+    "external",
   "components/services/ExportService.js|this.storage|getProfile": "external",
   "components/services/ImportService.js|this.storage|getProfile": "external",
   "components/services/ProjectManagementService.js|this.storage|getAllData":
@@ -114,7 +117,7 @@ export const storageServiceCallClass = Object.freeze({
 });
 
 export const expectedStorageServiceCallsByMethod = Object.freeze({
-  getAllData: 21,
+  getAllData: 26,
   saveAllData: 6,
   getProfile: 8,
   saveProfile: 2,
@@ -297,15 +300,25 @@ export const expectedIndexedDbCallsites = Object.freeze({
 });
 
 export const storageCallsiteDispositions = Object.freeze({
-  "components/services/DataCoordinator.js|deleteProfile|this.storage|getAllData":
-    [2, "owner", "4"],
-  "components/services/DataCoordinator.js|createDefaultProfilesFromData|this.storage|getAllData":
-    [2, "owner", "4"],
-  "components/services/DataCoordinator.js|createFallbackProfiles|this.storage|getAllData":
-    [2, "owner", "4"],
-  "components/services/DataCoordinator.js|normalizeAllProfiles|this.storage|getAllData":
+  "components/services/DataCoordinator.js|_updateProfile|this.storage|getAllData":
     [1, "owner", "4"],
-  "components/services/DataCoordinator.js|reloadState|this.storage|getAllData":
+  "components/services/dataCoordinatorProfileActions.js|executeProfileSwitch|owner.storage|getAllData":
+    [1, "owner", "4"],
+  "components/services/dataCoordinatorProfileActions.js|executeProfileCreate|owner.storage|getAllData":
+    [1, "owner", "4"],
+  "components/services/dataCoordinatorProfileActions.js|executeProfileClone|owner.storage|getAllData":
+    [1, "owner", "4"],
+  "components/services/dataCoordinatorProfileActions.js|executeProfileRename|owner.storage|getAllData":
+    [1, "owner", "4"],
+  "components/services/dataCoordinatorProfileActions.js|executeProfileDelete|owner.storage|getAllData":
+    [2, "owner", "4"],
+  "components/services/DataCoordinator.js|_createDefaultProfilesFromData|this.storage|getAllData":
+    [2, "owner", "4"],
+  "components/services/DataCoordinator.js|_createFallbackProfiles|this.storage|getAllData":
+    [2, "owner", "4"],
+  "components/services/DataCoordinator.js|_normalizeAllProfiles|this.storage|getAllData":
+    [1, "owner", "4"],
+  "components/services/DataCoordinator.js|_reloadState|this.storage|getAllData":
     [2, "owner", "4"],
   "components/services/dataCoordinatorInitialState.js|loadInitialCoordinatorState|coordinator.storage|getAllData":
     [2, "owner", "4"],

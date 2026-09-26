@@ -1,4 +1,9 @@
 import ComponentBase from "../ComponentBase.js";
+import {
+  materializeMutationRequest,
+  requireMutationIdentifier,
+  requireProfileUpdateResult,
+} from "./mutationRequestBoundary.js";
 import { syncSelectionBindset } from "./selectionBindset.js";
 import {
   adoptCoordinatorSelectionState,
@@ -9,7 +14,12 @@ import {
   handleSelectedKeyDeleted,
 } from "./selectionDeletion.js";
 import { createSelectionIntentTracker } from "./selectionIntent.js";
-import { createSelectionPersistenceController } from "./selectionPersistence.js";
+import {
+  createSelectionPersistenceController,
+  createSelectionPersistenceAuthority,
+  selectionRequest,
+  internalSelectionOptions,
+} from "./selectionPersistence.js";
 import { profileUpdateChangesSelectionAuthority } from "./selectionProfileUpdate.js";
 import { reconcileFailedSelection } from "./selectionReconciliation.js";
 import { selectionExists } from "./selectionRestoration.js";
@@ -49,11 +59,8 @@ export default class SelectionService extends ComponentBase {
   constructor({ eventBus } = {}) {
     super(eventBus);
     this.componentName = "SelectionService";
-
     /** @type {{ isEditing?: boolean, editIndex?: number, existingCommand?: unknown } | null} */
     this.editingContext = null;
-
-    // Environment-specific cached selections for persistence
     /** @type {CachedSelections} */
     this.cachedSelections = {
       space: null, // Last selected key in space environment
@@ -64,10 +71,8 @@ export default class SelectionService extends ComponentBase {
     /** @type {number | null} */
     this._selectionAuthorityEpoch = null;
     this._selectionAuthorityReady = false;
-    // Store detach functions for cleanup
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
-    // Track last-deleted items to avoid re-selecting them during auto-selection
     /** @type {string | null} */
     this._lastDeletedKey = null;
     /** @type {string | null} */
@@ -78,30 +83,76 @@ export default class SelectionService extends ComponentBase {
       onError: logSelectionTransitionError,
     });
     this.selectionIntents = createSelectionIntentTracker();
-    this.selectionPersistence = createSelectionPersistenceController({
-      write: (profileId, selections) =>
-        this.request("data:update-profile", {
-          profileId,
-          updates: { properties: { selections } },
-          updateSource: "SelectionService",
-        }),
-      onCommit: (profileId, selections) => {
-        if (this.destroyed || this.cache.currentProfile !== profileId) return;
-        for (const [environment, selection] of Object.entries(selections)) {
-          this.setCachedSelection(environment, selection);
-        }
-        if (this.cache.profile)
-          this.cache.profile.selections = { ...selections };
-      },
-      onError: (error) =>
-        console.warn(
-          "[SelectionService] Failed to persist selection to profile:",
-          error,
-        ),
-    });
+    this._createSelectionPersistence = (initialQueue = Promise.resolve()) => {
+      /** @type {ReturnType<typeof createSelectionPersistenceController> | null} */
+      let controller = null;
+      const authority = createSelectionPersistenceAuthority(
+        this.eventBus,
+        () => this.cache.dataState,
+        (state) => controller?.acceptAuthorityState(state),
+      );
+      controller = createSelectionPersistenceController({
+        initialQueue,
+        captureAuthorityEpoch: () => authority.captureAuthorityEpoch(),
+        write: async (profileId, selections, authorityEpoch, dispatched) => {
+          const input = materializeMutationRequest({ profileId, selections }, [
+            "profileId",
+            "selections",
+          ]);
+          const acceptedProfileId = requireMutationIdentifier(input.profileId);
+          const precondition = authority.precondition(authorityEpoch);
+          dispatched?.(precondition);
+          const result = await this.request("data:update-profile", {
+            profileId: acceptedProfileId,
+            updates: {
+              properties: {
+                selections: /** @type {Record<string, string|null>} */ (
+                  input.selections
+                ),
+              },
+            },
+            updateSource: "SelectionService",
+            precondition,
+          });
+          return requireProfileUpdateResult(result);
+        },
+        onCommit: (profileId, selections) => {
+          if (
+            this.destroyed ||
+            this.selectionPersistence !== controller ||
+            this.cache.currentProfile !== profileId
+          )
+            return;
+          for (const [environment, selection] of Object.entries(selections)) {
+            this.setCachedSelection(environment, selection);
+          }
+        },
+        onError: (error) =>
+          console.warn(
+            "[SelectionService] Failed to persist selection to profile:",
+            error,
+          ),
+      });
+      return { authority, controller };
+    };
+    const persistence = this._createSelectionPersistence();
+    this.selectionPersistenceAuthority = persistence.authority;
+    this.selectionPersistence = persistence.controller;
+    this._selectionPersistenceDisposed = false;
+    this.selectionPersistenceAdmitted = Promise.resolve();
+    this.selectionPersistenceSettled = Promise.resolve();
   }
 
   onInit() {
+    if (this._selectionPersistenceDisposed) {
+      const persistence = this._createSelectionPersistence(
+        this.selectionPersistenceAdmitted,
+      );
+      this.selectionPersistenceAuthority = persistence.authority;
+      this.selectionPersistence = persistence.controller;
+      this._selectionPersistenceDisposed = false;
+      this.replaceCachedSelections(this.cache.profile);
+    }
     this.selectionEnvironment = this.cache.currentEnvironment || "space";
     this.setupEventListeners();
     this.setupRequestHandlers();
@@ -137,7 +188,6 @@ export default class SelectionService extends ComponentBase {
     return this.cachedSelections[environment];
   }
 
-  // Set up event listeners for integration with other services
   setupEventListeners() {
     this.addEventListener("data:state-changed", ({ state }) => {
       if (shouldAdoptLiveCoordinatorState(this, state)) {
@@ -145,8 +195,6 @@ export default class SelectionService extends ComponentBase {
       }
     });
 
-    // ComponentBase automatically handles profile and environment caching
-    // We only need to listen for these events to update our specific business logic
     this.addEventListener("profile:updated", ({ profileId, profile }) => {
       if (profileId && profileId === this.cache.currentProfile) {
         this.updateCacheFromProfile(profile);
@@ -155,8 +203,6 @@ export default class SelectionService extends ComponentBase {
         this.selectionIntents.clear();
         this.replaceCachedSelections(profile);
 
-        // After import operations (especially overwrite_all), validate current selection
-        // Auto-select if current selection is no longer valid
         void this.validateCurrentSelectionAfterUpdate();
         this.broadcastState();
       }
@@ -166,7 +212,6 @@ export default class SelectionService extends ComponentBase {
       handleProfileSelectionSwitch(this, payload);
     });
 
-    // Listen for environment changes
     this.addEventListener("environment:changed", async (data) => {
       const env = data.environment;
       const previousEnv = this.selectionEnvironment;
@@ -176,64 +221,72 @@ export default class SelectionService extends ComponentBase {
       }
     });
 
-    // Listen for alias deletions to handle auto-selection when selected alias is deleted
     this.addEventListener("alias-deleted", ({ name }) =>
       handleSelectedAliasDeleted(this, name),
     );
 
-    // Listen for key deletions to handle auto-selection when selected key is deleted
     this.addEventListener("key-deleted", ({ keyName }) =>
       handleSelectedKeyDeleted(this, keyName),
     );
   }
 
-  // Set up request/response handlers for external API
   setupRequestHandlers() {
     this._responseDetachFunctions.push(
-      // Core selection operations
-
-      this.respond(
-        "selection:select-alias",
-        ({ aliasName, skipPersistence, isAuto, forceEmit }) => {
-          /** @type {SelectionOptions} */
-          const options = {};
-          if (skipPersistence === true) options.skipPersistence = true;
-          if (isAuto === true) options.isAuto = true;
-          if (forceEmit === true) options.forceEmit = true;
-          return this.selectAlias(aliasName, options);
-        },
+      this.respond("selection:select-alias", (payload) => {
+        const { aliasName, skipPersistence, isAuto, forceEmit } =
+          selectionRequest(payload, "alias");
+        /** @type {SelectionOptions} */
+        const options = {};
+        if (skipPersistence === true) options.skipPersistence = true;
+        if (isAuto === true) options.isAuto = true;
+        if (forceEmit === true) options.forceEmit = true;
+        return this.selectAlias(aliasName, options);
+      }),
+      this.respond("key:select", (payload) => {
+        const { keyName, environment, bindset } = selectionRequest(
+          payload,
+          "key",
+          true,
+        );
+        return this.selectKey(keyName, environment, { bindset });
+      }),
+      this.respond("alias:select", (payload) =>
+        this.selectAlias(selectionRequest(payload, "alias", true).aliasName),
       ),
-      // Legacy compatibility handlers
-      this.respond("key:select", ({ keyName, environment, bindset }) =>
-        this.selectKey(keyName, environment, { bindset }),
-      ),
-      this.respond("alias:select", ({ aliasName }) =>
-        this.selectAlias(aliasName),
-      ),
-      this.respond(
-        "selection:select-key",
-        ({
+      this.respond("selection:select-key", (payload) => {
+        const {
           keyName,
           environment,
           bindset,
           skipPersistence,
           isAuto,
           forceEmit,
-        }) => {
-          /** @type {SelectionOptions} */
-          const options = { bindset };
-          if (skipPersistence === true) options.skipPersistence = true;
-          if (isAuto === true) options.isAuto = true;
-          if (forceEmit === true) options.forceEmit = true;
-          return this.selectKey(keyName, environment, options);
-        },
-      ),
+        } = selectionRequest(payload, "key");
+        /** @type {SelectionOptions} */
+        const options = { bindset };
+        if (skipPersistence === true) options.skipPersistence = true;
+        if (isAuto === true) options.isAuto = true;
+        if (forceEmit === true) options.forceEmit = true;
+        return this.selectKey(keyName, environment, options);
+      }),
     );
   }
 
-  // Select a key in the specified environment
   /** @param {string | null} keyName @param {string | null} [environment] @param {SelectionOptions} [options] */
   async selectKey(keyName, environment = null, options = {}) {
+    options = internalSelectionOptions(options);
+    const input = selectionRequest(
+      {
+        keyName,
+        ...(environment === null ? {} : { environment }),
+        bindset: options.bindset,
+        skipPersistence: options.skipPersistence,
+        isAuto: options.isAuto,
+        forceEmit: options.forceEmit,
+      },
+      "key",
+    );
+    keyName = input.keyName;
     const isCurrent = options.isCurrent || this.selectionTransitions.begin();
     if (!isCurrent()) return keyName;
     const env = environment || this.selectionEnvironment;
@@ -312,6 +365,16 @@ export default class SelectionService extends ComponentBase {
   // Select an alias
   /** @param {string | null} aliasName @param {SelectionOptions} [options] */
   async selectAlias(aliasName, options = {}) {
+    options = internalSelectionOptions(options);
+    aliasName = selectionRequest(
+      {
+        aliasName,
+        skipPersistence: options.skipPersistence,
+        isAuto: options.isAuto,
+        forceEmit: options.forceEmit,
+      },
+      "alias",
+    ).aliasName;
     const isCurrent = options.isCurrent || this.selectionTransitions.begin();
     if (!isCurrent()) return aliasName;
     const isAuto = options.isAuto === true;
@@ -502,6 +565,17 @@ export default class SelectionService extends ComponentBase {
     this.selectionTransitions.invalidate();
     this.selectionIntents.clear();
     this.selectionPersistence.dispose();
+    this._selectionPersistenceDisposed = true;
+    this.selectionPersistenceAdmitted = Promise.all([
+      this.selectionPersistenceAdmitted,
+      this.selectionPersistence.whenAdmitted(),
+    ]).then(() => undefined);
+    this.selectionPersistenceSettled = Promise.all([
+      this.selectionPersistenceSettled,
+      this.selectionPersistenceAuthority.drain(
+        this.selectionPersistence.whenSettled(),
+      ),
+    ]).then(() => undefined);
 
     if (this._responseDetachFunctions) {
       this._responseDetachFunctions.forEach((detach) => {

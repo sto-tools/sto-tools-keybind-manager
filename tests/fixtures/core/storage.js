@@ -123,6 +123,7 @@ export function createStorageFixture(options = {}) {
 
   // Mock StorageService interface
   const mockStorageService = {
+    version: "1.0.0",
     getAllData: vi.fn(() => {
       const data = mockLocalStorage.getItem("sto_keybind_manager");
       if (data) {

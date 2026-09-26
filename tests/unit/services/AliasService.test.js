@@ -59,6 +59,9 @@ describe("AliasService", () => {
     // Set up mock profile data
     mockProfile = {
       id: "test-profile",
+      name: "Test Profile",
+      currentEnvironment: "space",
+      builds: { space: { keys: {} }, ground: { keys: {} } },
       aliases: {
         ExistingAlias: {
           description: "Test alias",
@@ -76,9 +79,10 @@ describe("AliasService", () => {
     // Initialize service with mock data
     await service.init();
 
-    service.cache.currentProfile = "test-profile";
-    service.cache.aliases = mockProfile.aliases;
-    service.cache.profile = mockProfile;
+    service._cacheDataState(
+      createDataCoordinatorState({ currentProfileData: mockProfile }),
+    );
+    service.request.mockResolvedValue({ success: true, profile: mockProfile });
   });
 
   describe("Initialization", () => {
@@ -130,7 +134,10 @@ describe("AliasService", () => {
 
   describe("Alias Creation", () => {
     it("should create a new alias with valid name and description", async () => {
-      service.request.mockResolvedValue({ success: true });
+      service.request.mockResolvedValue({
+        success: true,
+        profile: mockProfile,
+      });
 
       const result = await service.addAlias("NewAlias", "Test description");
 
@@ -139,17 +146,10 @@ describe("AliasService", () => {
       expect(result.data.name).toBe("NewAlias");
       expect(service.request).toHaveBeenNthCalledWith(
         1,
-        "selection:select-alias",
-        {
-          aliasName: "NewAlias",
-          skipPersistence: true,
-        },
-      );
-      expect(service.request).toHaveBeenNthCalledWith(
-        2,
         "data:update-profile",
         {
           profileId: "test-profile",
+          precondition: { authorityEpoch: 1, revision: 1 },
           add: {
             aliases: {
               NewAlias: {
@@ -161,26 +161,30 @@ describe("AliasService", () => {
           },
         },
       );
+      expect(service.request).toHaveBeenNthCalledWith(
+        2,
+        "selection:select-alias",
+        {
+          aliasName: "NewAlias",
+          skipPersistence: true,
+        },
+      );
     });
 
     it("should create alias with empty description if not provided", async () => {
-      service.request.mockResolvedValue({ success: true });
+      service.request.mockResolvedValue({
+        success: true,
+        profile: mockProfile,
+      });
 
       await service.addAlias("MinimalAlias");
 
       expect(service.request).toHaveBeenNthCalledWith(
         1,
-        "selection:select-alias",
-        {
-          aliasName: "MinimalAlias",
-          skipPersistence: true,
-        },
-      );
-      expect(service.request).toHaveBeenNthCalledWith(
-        2,
         "data:update-profile",
         {
           profileId: "test-profile",
+          precondition: { authorityEpoch: 1, revision: 1 },
           add: {
             aliases: {
               MinimalAlias: {
@@ -190,6 +194,14 @@ describe("AliasService", () => {
               },
             },
           },
+        },
+      );
+      expect(service.request).toHaveBeenNthCalledWith(
+        2,
+        "selection:select-alias",
+        {
+          aliasName: "MinimalAlias",
+          skipPersistence: true,
         },
       );
     });
@@ -219,9 +231,7 @@ describe("AliasService", () => {
 
     it("should handle creation errors gracefully", async () => {
       service.isValidAliasName = vi.fn().mockResolvedValue(true);
-      service.request
-        .mockResolvedValueOnce({ success: true }) // selection:select-alias
-        .mockRejectedValueOnce(new Error("Network error")); // data:update-profile
+      service.request.mockRejectedValueOnce(new Error("Network error"));
 
       const result = await service.addAlias("FailAlias");
 
@@ -232,7 +242,10 @@ describe("AliasService", () => {
 
   describe("Alias Deletion", () => {
     it("should delete an existing alias", async () => {
-      service.request.mockResolvedValueOnce({ success: true });
+      service.request.mockResolvedValueOnce({
+        success: true,
+        profile: mockProfile,
+      });
 
       const result = await service.deleteAlias("ExistingAlias");
 
@@ -241,6 +254,7 @@ describe("AliasService", () => {
       expect(result.data.name).toBe("ExistingAlias");
       expect(service.request).toHaveBeenCalledWith("data:update-profile", {
         profileId: "test-profile",
+        precondition: { authorityEpoch: 1, revision: 1 },
         delete: {
           aliases: ["ExistingAlias"],
         },
@@ -273,7 +287,10 @@ describe("AliasService", () => {
   describe("Alias Duplication", () => {
     it("should duplicate alias with specific name", async () => {
       service.isValidAliasName = vi.fn().mockResolvedValue(true);
-      service.request.mockResolvedValueOnce({ success: true });
+      service.request.mockResolvedValueOnce({
+        success: true,
+        profile: mockProfile,
+      });
 
       const result = await service.duplicateAliasWithName(
         "ExistingAlias",
@@ -286,6 +303,7 @@ describe("AliasService", () => {
       expect(result.data.to).toBe("CustomCopy");
       expect(service.request).toHaveBeenCalledWith("data:update-profile", {
         profileId: "test-profile",
+        precondition: { authorityEpoch: 1, revision: 1 },
         add: {
           aliases: {
             CustomCopy: {
@@ -365,7 +383,7 @@ describe("AliasService", () => {
   });
 
   describe("Cache Management", () => {
-    it("should update cache from profile data", () => {
+    it("updates cache only from an accepted profile snapshot", () => {
       const newProfile = {
         id: "new-profile",
         aliases: {
@@ -377,18 +395,27 @@ describe("AliasService", () => {
         },
       };
 
-      service.updateCacheFromProfile(newProfile);
+      service._cacheDataState(
+        createDataCoordinatorState({
+          currentProfileData: newProfile,
+          revision: 2,
+        }),
+      );
 
       expect(service.cache.aliases).toEqual(newProfile.aliases);
-      expect(service.cache.profile).toEqual(newProfile);
+      expect(service.cache.profile).toMatchObject(newProfile);
     });
 
-    it("should handle null profile gracefully", () => {
-      const originalCache = { ...service.cache };
-
-      service.updateCacheFromProfile(null);
-
-      expect(service.cache).toEqual(originalCache);
+    it("accepts an explicit null profile without retaining predecessor aliases", () => {
+      service._cacheDataState(
+        createDataCoordinatorState({
+          currentProfile: null,
+          currentProfileData: null,
+          revision: 2,
+        }),
+      );
+      expect(service.cache.currentProfile).toBeNull();
+      expect(service.cache.aliases).toEqual({});
     });
   });
 
@@ -421,7 +448,7 @@ describe("AliasService", () => {
       expect(service.cache.currentProfile).toBe("new-profile-id");
     });
 
-    it("should update cache when profile:updated event is received", () => {
+    it("legacy notifications cannot replace the accepted owner snapshot", () => {
       const newProfileData = {
         aliases: {
           UpdatedAlias: { description: "Updated", commands: [], type: "alias" },
@@ -429,21 +456,28 @@ describe("AliasService", () => {
       };
 
       // Simulate profile:updated event
-      service.updateCacheFromProfile = vi.fn();
+      const accepted = service.cache.dataState;
       harness.eventBus.emit("profile:updated", {
         profileId: "test-profile",
         profile: newProfileData,
       });
 
-      expect(service.updateCacheFromProfile).toHaveBeenCalledWith(
-        newProfileData,
+      expect(service.cache.dataState).toBe(accepted);
+      expect(service.cache.dataState.profiles["test-profile"].aliases).toEqual(
+        mockProfile.aliases,
       );
     });
   });
 
   describe("Error Handling", () => {
     it("should handle missing current profile gracefully", async () => {
-      service.cache.currentProfile = null;
+      service._cacheDataState(
+        createDataCoordinatorState({
+          currentProfile: null,
+          currentProfileData: null,
+          revision: 2,
+        }),
+      );
 
       const result = await service.addAlias("TestAlias");
 
@@ -465,12 +499,16 @@ describe("AliasService", () => {
   describe("Integration with DataCoordinator", () => {
     it("should use explicit operations API for all profile updates", async () => {
       service.isValidAliasName = vi.fn().mockResolvedValue(true);
-      service.request.mockResolvedValueOnce({ success: true });
+      service.request.mockResolvedValueOnce({
+        success: true,
+        profile: mockProfile,
+      });
 
       await service.addAlias("TestAlias", "Test description");
 
       expect(service.request).toHaveBeenCalledWith("data:update-profile", {
         profileId: "test-profile",
+        precondition: { authorityEpoch: 1, revision: 1 },
         add: {
           aliases: {
             TestAlias: {
@@ -484,7 +522,10 @@ describe("AliasService", () => {
     });
 
     it("should maintain consistency with alias data format", async () => {
-      service.request.mockResolvedValueOnce({ success: true });
+      service.request.mockResolvedValueOnce({
+        success: true,
+        profile: mockProfile,
+      });
 
       await service.addAlias("NewAlias");
 

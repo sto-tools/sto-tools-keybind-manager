@@ -88,7 +88,9 @@ describe("CommandService mutation planner facade", () => {
       displayName: "Rich event input",
       metadata: { source: "test" },
     };
-    service.request = vi.fn().mockResolvedValue({ success: true });
+    service.request = vi
+      .fn()
+      .mockResolvedValue({ success: true, profile: structuredClone(profile) });
     const added = vi.fn();
     fixture.eventBus.on("command-added", added);
 
@@ -97,6 +99,10 @@ describe("CommandService mutation planner facade", () => {
     expect(service.request).toHaveBeenCalledOnce();
     expect(service.request).toHaveBeenCalledWith("data:update-profile", {
       profileId: "captain",
+      precondition: {
+        authorityEpoch: expect.any(Number),
+        revision: expect.any(Number),
+      },
       modify: {
         builds: { space: { keys: { F1: ["One", "Two", "Three"] } } },
       },
@@ -122,7 +128,9 @@ describe("CommandService mutation planner facade", () => {
       index: 0,
       originalEntry: "One",
     });
-    service.request = vi.fn().mockResolvedValue({ success: true });
+    service.request = vi
+      .fn()
+      .mockResolvedValue({ success: true, profile: structuredClone(profile) });
     const edited = vi.fn();
     fixture.eventBus.on("command-edited", edited);
 
@@ -132,6 +140,10 @@ describe("CommandService mutation planner facade", () => {
 
     expect(service.request).toHaveBeenCalledWith("data:update-profile", {
       profileId: "captain",
+      precondition: {
+        authorityEpoch: expect.any(Number),
+        revision: expect.any(Number),
+      },
       modify: {
         builds: { space: { keys: { F1: ["Changed", "Two"] } } },
       },
@@ -151,6 +163,10 @@ describe("CommandService mutation planner facade", () => {
       invoke: (current) => current.deleteCommand("F1", 0),
       expectedRequest: {
         profileId: "captain",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: { builds: { space: { keys: { F1: ["Two"] } } } },
       },
       topic: "command-deleted",
@@ -161,6 +177,10 @@ describe("CommandService mutation planner facade", () => {
       invoke: (current) => current.moveCommand("F1", 0, 1),
       expectedRequest: {
         profileId: "captain",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           builds: { space: { keys: { F1: ["Two", "One"] } } },
         },
@@ -176,7 +196,10 @@ describe("CommandService mutation planner facade", () => {
   ])(
     "persists and publishes the exact planned $label result",
     async ({ invoke, expectedRequest, topic, event }) => {
-      service.request = vi.fn().mockResolvedValue({ success: true });
+      service.request = vi.fn().mockResolvedValue({
+        success: true,
+        profile: structuredClone(profile),
+      });
       const listener = vi.fn();
       fixture.eventBus.on(topic, listener);
 
@@ -200,12 +223,18 @@ describe("CommandService mutation planner facade", () => {
         aliases: {},
       },
     });
-    service.request = vi.fn().mockResolvedValue({ success: true });
+    service.request = vi
+      .fn()
+      .mockResolvedValue({ success: true, profile: structuredClone(profile) });
 
     await expect(service.addCommand("F1", "Three")).resolves.toBe(true);
 
     expect(service.request).toHaveBeenCalledWith("data:update-profile", {
       profileId: "captain",
+      precondition: {
+        authorityEpoch: expect.any(Number),
+        revision: expect.any(Number),
+      },
       modify: {
         builds: { space: { keys: { F1: ["One", "Two", "Three"] } } },
       },

@@ -290,7 +290,7 @@ describe("keybind text profile import planning", () => {
     ]);
   });
 
-  it("constructs the historical missing-profile draft and detaches every input", async () => {
+  it("constructs a complete missing-profile draft and detaches every input", async () => {
     const parsed = {
       keybinds: {
         toString: { raw: "SafeCommand", commands: ["SafeCommand"] },
@@ -302,6 +302,7 @@ describe("keybind text profile import planning", () => {
 
     const result = await planKeybindTextImport({
       profile: null,
+      profileId: "new_keybind_profile",
       parsed,
       environment: "ground",
       strategy: "merge_keep",
@@ -309,10 +310,17 @@ describe("keybind text profile import planning", () => {
     });
 
     expect(result.nextProfile).toEqual({
+      name: "new_keybind_profile",
+      currentEnvironment: "ground",
       builds: {
         space: { keys: {} },
         ground: { keys: { toString: ["SafeCommand"] } },
       },
+      aliases: {},
+      bindsets: {},
+      keybindMetadata: { space: {}, ground: {} },
+      aliasMetadata: {},
+      bindsetMetadata: {},
     });
     expect(
       Object.hasOwn(result.nextProfile.builds.ground.keys, "toString"),

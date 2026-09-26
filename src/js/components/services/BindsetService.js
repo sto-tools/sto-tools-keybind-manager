@@ -1,5 +1,23 @@
 import ComponentBase from "../ComponentBase.js";
 import { getSnapshotProfile } from "./dataState.js";
+import {
+  materializeMutationRequest,
+  requireMutationIdentifier,
+  requireProfileUpdateResult,
+} from "./mutationRequestBoundary.js";
+import { captureProfileMutationContext } from "./profileMutationContext.js";
+
+/** @param {unknown} input @param {readonly string[]} fields */
+function bindsetRequest(input, fields) {
+  const value = materializeMutationRequest(
+    input === undefined ? {} : input,
+    fields,
+  );
+  for (const field of fields)
+    if (value[field] !== undefined)
+      requireMutationIdentifier(value[field], { allowEmpty: true });
+  return /** @type {Record<string, string | undefined>} */ (value);
+}
 
 export default class BindsetService extends ComponentBase {
   /** @param {{ eventBus?: import('./serviceTypes.js').EventBus }} [options] */
@@ -18,38 +36,25 @@ export default class BindsetService extends ComponentBase {
     if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
 
     this._responseDetachFunctions.push(
-      this.respond(
-        "bindset:create",
-        ({ name } = /** @type {{ name?: string }} */ ({})) =>
-          this.createBindset(name),
+      this.respond("bindset:create", (payload) =>
+        this.createBindset(bindsetRequest(payload, ["name"]).name),
       ),
-      this.respond(
-        "bindset:clone",
-        (
-          {
-            sourceBindset,
-            targetBindset,
-          } = /** @type {{ sourceBindset?: string, targetBindset?: string }} */ ({}),
-        ) => this.cloneBindset(sourceBindset, targetBindset),
+      this.respond("bindset:clone", (payload) => {
+        const input = bindsetRequest(payload, [
+          "sourceBindset",
+          "targetBindset",
+        ]);
+        return this.cloneBindset(input.sourceBindset, input.targetBindset);
+      }),
+      this.respond("bindset:rename", (payload) => {
+        const input = bindsetRequest(payload, ["oldName", "newName"]);
+        return this.renameBindset(input.oldName, input.newName);
+      }),
+      this.respond("bindset:delete", (payload) =>
+        this.deleteBindset(bindsetRequest(payload, ["name"]).name),
       ),
-      this.respond(
-        "bindset:rename",
-        (
-          {
-            oldName,
-            newName,
-          } = /** @type {{ oldName?: string, newName?: string }} */ ({}),
-        ) => this.renameBindset(oldName, newName),
-      ),
-      this.respond(
-        "bindset:delete",
-        ({ name } = /** @type {{ name?: string }} */ ({})) =>
-          this.deleteBindset(name),
-      ),
-      this.respond(
-        "bindset:delete-with-keys",
-        ({ name } = /** @type {{ name?: string }} */ ({})) =>
-          this.deleteBindset(name, true),
+      this.respond("bindset:delete-with-keys", (payload) =>
+        this.deleteBindset(bindsetRequest(payload, ["name"]).name, true),
       ),
     );
   }
@@ -170,6 +175,11 @@ export default class BindsetService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/bindsets.js').BindsetUpdateResult<'invalid_name' | 'no_profile' | 'name_exists'>>}
    */
   async createBindset(name) {
+    try {
+      bindsetRequest({ name }, ["name"]);
+    } catch {
+      return { success: false, error: "invalid_name" };
+    }
     if (!name || name === "Primary Bindset")
       return { success: false, error: "invalid_name" };
     const profile = this.getProfile();
@@ -204,8 +214,9 @@ export default class BindsetService extends ComponentBase {
     const res = await this.request("data:update-profile", {
       profileId,
       updates,
+      precondition: captureProfileMutationContext(this, 0).precondition,
     });
-    return res;
+    return requireProfileUpdateResult(res);
   }
 
   /**
@@ -214,6 +225,14 @@ export default class BindsetService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/bindsets.js').BindsetUpdateResult<'invalid_name' | 'no_profile' | 'name_exists' | 'source_not_found'>>}
    */
   async cloneBindset(sourceBindset, targetBindset) {
+    try {
+      bindsetRequest({ sourceBindset, targetBindset }, [
+        "sourceBindset",
+        "targetBindset",
+      ]);
+    } catch {
+      return { success: false, error: "invalid_name" };
+    }
     if (!sourceBindset || !targetBindset)
       return { success: false, error: "invalid_name" };
     if (targetBindset === "Primary Bindset")
@@ -270,8 +289,9 @@ export default class BindsetService extends ComponentBase {
     const res = await this.request("data:update-profile", {
       profileId,
       updates,
+      precondition: captureProfileMutationContext(this, 0).precondition,
     });
-    return res;
+    return requireProfileUpdateResult(res);
   }
 
   /**
@@ -280,6 +300,11 @@ export default class BindsetService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/bindsets.js').BindsetUpdateResult<'invalid_name' | 'no_profile' | 'not_found' | 'name_exists'>>}
    */
   async renameBindset(oldName, newName) {
+    try {
+      bindsetRequest({ oldName, newName }, ["oldName", "newName"]);
+    } catch {
+      return { success: false, error: "invalid_name" };
+    }
     if (
       !oldName ||
       !newName ||
@@ -323,8 +348,9 @@ export default class BindsetService extends ComponentBase {
     const res = await this.request("data:update-profile", {
       profileId,
       updates,
+      precondition: captureProfileMutationContext(this, 0).precondition,
     });
-    return res;
+    return requireProfileUpdateResult(res);
   }
 
   /**
@@ -344,6 +370,12 @@ export default class BindsetService extends ComponentBase {
    * @param {boolean} [force]
    */
   async deleteBindset(name, force = false) {
+    try {
+      bindsetRequest({ name }, ["name"]);
+      if (typeof force !== "boolean") throw new TypeError();
+    } catch {
+      return { success: false, error: "invalid_name" };
+    }
     if (!name || name === "Primary Bindset")
       return { success: false, error: "invalid_name" };
     const profile = this.getProfile();
@@ -372,7 +404,8 @@ export default class BindsetService extends ComponentBase {
     const res = await this.request("data:update-profile", {
       profileId,
       updates,
+      precondition: captureProfileMutationContext(this, 0).precondition,
     });
-    return res;
+    return requireProfileUpdateResult(res);
   }
 }

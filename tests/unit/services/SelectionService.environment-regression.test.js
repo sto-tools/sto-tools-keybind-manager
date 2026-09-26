@@ -1,3 +1,7 @@
+import {
+  seedSelectionMutationOwner,
+  selectionMutationReceipt,
+} from "../../fixtures/services/selectionMutationOwner.js";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createServiceFixture } from "../../fixtures/services/harness.js";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
@@ -9,6 +13,7 @@ describe("SelectionService Environment Regression", () => {
   beforeEach(async () => {
     harness = createServiceFixture();
     selectionService = new SelectionService({ eventBus: harness.eventBus });
+    seedSelectionMutationOwner(selectionService);
     await selectionService.init();
 
     selectionService.cache.currentProfile = "test-profile";
@@ -32,9 +37,9 @@ describe("SelectionService Environment Regression", () => {
           ...selectionService.cache.profile.selections,
           ...selections,
         };
-        return { success: true };
+        return selectionMutationReceipt();
       }
-      return { success: true };
+      return selectionMutationReceipt();
     });
   });
 

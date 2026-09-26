@@ -1,4 +1,21 @@
 import ComponentBase from "../ComponentBase.js";
+import {
+  materializeMutationRequest,
+  requireMutationIdentifier,
+  requireProfileUpdateResult,
+} from "./mutationRequestBoundary.js";
+import {
+  captureProfileMutationContext,
+  canPublishProfileMutation,
+} from "./profileMutationContext.js";
+
+/** @param {unknown} payload */
+function bindsetSelectorRequest(payload) {
+  const input = materializeMutationRequest(payload, ["bindset"]);
+  return input.bindset === undefined
+    ? undefined
+    : requireMutationIdentifier(input.bindset, { allowEmpty: true });
+}
 import { selectedKeyFromPayload } from "../../core/eventPayloads.js";
 
 export default class BindsetSelectorService extends ComponentBase {
@@ -6,6 +23,7 @@ export default class BindsetSelectorService extends ComponentBase {
   constructor({ eventBus } = {}) {
     super(eventBus);
     this.componentName = "BindsetSelectorService";
+    this._mutationGeneration = 0;
 
     /** @type {Map<string, boolean>} */
     this.keyBindsetMembership = new Map(); // bindset -> has key boolean
@@ -42,19 +60,20 @@ export default class BindsetSelectorService extends ComponentBase {
     if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
 
     this._responseDetachFunctions.push(
-      this.respond("bindset-selector:add-key-to-bindset", ({ bindset }) =>
-        this.addKeyToBindset(bindset),
+      this.respond("bindset-selector:add-key-to-bindset", (payload) =>
+        this.addKeyToBindset(bindsetSelectorRequest(payload)),
       ),
-      this.respond("bindset-selector:remove-key-from-bindset", ({ bindset }) =>
-        this.removeKeyFromBindset(bindset),
+      this.respond("bindset-selector:remove-key-from-bindset", (payload) =>
+        this.removeKeyFromBindset(bindsetSelectorRequest(payload)),
       ),
-      this.respond("bindset-selector:set-active-bindset", ({ bindset }) =>
-        this.setActiveBindset(bindset),
+      this.respond("bindset-selector:set-active-bindset", (payload) =>
+        this.setActiveBindset(bindsetSelectorRequest(payload)),
       ),
     );
   }
 
   onDestroy() {
+    this._mutationGeneration = (this._mutationGeneration || 0) + 1;
     this._listenersSetup = false;
     this._responseDetachFunctions.forEach((detach) => detach());
     this._responseDetachFunctions = [];
@@ -291,15 +310,25 @@ export default class BindsetSelectorService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/bindsets.js').BindsetUpdateResult<'invalid_operation' | 'no_profile' | 'add_failed'>>}
    */
   async addKeyToBindset(bindsetName) {
+    try {
+      bindsetSelectorRequest({ bindset: bindsetName });
+    } catch {
+      return { success: false, error: "invalid_operation" };
+    }
     if (
-      !this.cache.selectedKey ||
       !bindsetName ||
-      bindsetName === "Primary Bindset"
+      bindsetName === "Primary Bindset" ||
+      !this.cache.selectedKey
     ) {
       return { success: false, error: "invalid_operation" };
     }
 
     try {
+      const context = captureProfileMutationContext(
+        this,
+        this._mutationGeneration || 0,
+      );
+      const selectedKey = this.cache.selectedKey;
       // Add empty command chain to the bindset using cached profile data
       const profile = this.cache.profile;
       if (!profile || !profile.id) {
@@ -323,9 +352,17 @@ export default class BindsetSelectorService extends ComponentBase {
       const result = await this.request("data:update-profile", {
         profileId: profile.id,
         updates,
+        precondition: context.precondition,
       });
-
-      if (result?.success) {
+      const accepted = requireProfileUpdateResult(result);
+      if (
+        canPublishProfileMutation(
+          this,
+          context,
+          this._mutationGeneration || 0,
+        ) &&
+        this.cache.selectedKey === selectedKey
+      ) {
         this.keyBindsetMembership.set(bindsetName, true);
 
         // CRITICAL FIX: Switch to the bindset IMMEDIATELY before any events can fire
@@ -347,7 +384,7 @@ export default class BindsetSelectorService extends ComponentBase {
         );
       }
 
-      return result;
+      return accepted;
     } catch (error) {
       console.error(
         "[BindsetSelectorService] Error adding key to bindset:",
@@ -362,15 +399,25 @@ export default class BindsetSelectorService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/bindsets.js').BindsetUpdateResult<'invalid_operation' | 'no_profile' | 'remove_failed'>>}
    */
   async removeKeyFromBindset(bindsetName) {
+    try {
+      bindsetSelectorRequest({ bindset: bindsetName });
+    } catch {
+      return { success: false, error: "invalid_operation" };
+    }
     if (
-      !this.cache.selectedKey ||
       !bindsetName ||
-      bindsetName === "Primary Bindset"
+      bindsetName === "Primary Bindset" ||
+      !this.cache.selectedKey
     ) {
       return { success: false, error: "invalid_operation" };
     }
 
     try {
+      const context = captureProfileMutationContext(
+        this,
+        this._mutationGeneration || 0,
+      );
+      const selectedKey = this.cache.selectedKey;
       // Remove key from bindset using cached profile data
       const profile = this.cache.profile;
       if (!profile || !profile.id) {
@@ -394,9 +441,17 @@ export default class BindsetSelectorService extends ComponentBase {
       const result = await this.request("data:update-profile", {
         profileId: profile.id,
         updates,
+        precondition: context.precondition,
       });
-
-      if (result?.success) {
+      const accepted = requireProfileUpdateResult(result);
+      if (
+        canPublishProfileMutation(
+          this,
+          context,
+          this._mutationGeneration || 0,
+        ) &&
+        this.cache.selectedKey === selectedKey
+      ) {
         this.keyBindsetMembership.set(bindsetName, false);
 
         this.emit("bindset-selector:key-removed", {
@@ -409,7 +464,7 @@ export default class BindsetSelectorService extends ComponentBase {
         }
       }
 
-      return result;
+      return accepted;
     } catch (error) {
       console.error(
         "[BindsetSelectorService] Error removing key from bindset:",

@@ -99,6 +99,10 @@ describe("CommandChainService bindset stabilization action", () => {
       expect(result.success).toBe(true);
       expect(service.request).toHaveBeenCalledWith("data:update-profile", {
         profileId: "test_profile",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           keybindMetadata: {
             space: {
@@ -116,6 +120,10 @@ describe("CommandChainService bindset stabilization action", () => {
       expect(result.success).toBe(true);
       expect(service.request).toHaveBeenCalledWith("data:update-profile", {
         profileId: "test_profile",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           keybindMetadata: {
             space: {
@@ -132,6 +140,10 @@ describe("CommandChainService bindset stabilization action", () => {
       expect(result.success).toBe(true);
       expect(service.request).toHaveBeenCalledWith("data:update-profile", {
         profileId: "test_profile",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           bindsetMetadata: {
             "Custom Bindset": {
@@ -150,6 +162,10 @@ describe("CommandChainService bindset stabilization action", () => {
       expect(result.success).toBe(true);
       expect(service.request).toHaveBeenCalledWith("data:update-profile", {
         profileId: "test_profile",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           keybindMetadata: {
             space: {
@@ -166,6 +182,10 @@ describe("CommandChainService bindset stabilization action", () => {
       expect(result.success).toBe(true);
       expect(service.request).toHaveBeenCalledWith("data:update-profile", {
         profileId: "test_profile",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           bindsetMetadata: {
             "Custom Bindset": {
@@ -203,6 +223,10 @@ describe("CommandChainService bindset stabilization action", () => {
       expect(result.success).toBe(true);
       expect(service.request).toHaveBeenCalledWith("data:update-profile", {
         profileId: "test_profile",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           aliasMetadata: {
             NewAlias: { stabilizeExecutionOrder: true },

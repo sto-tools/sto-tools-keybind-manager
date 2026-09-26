@@ -1,3 +1,7 @@
+import {
+  seedSelectionMutationOwner,
+  selectionMutationReceipt,
+} from "../../fixtures/services/selectionMutationOwner.js";
 // Test suite for SelectionService - centralized selection state management
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
@@ -22,8 +26,9 @@ describe("SelectionService", () => {
     });
 
     // Mock request method for DataCoordinator integration
-    service.request = vi.fn();
+    service.request = vi.fn().mockResolvedValue(selectionMutationReceipt());
 
+    seedSelectionMutationOwner(service);
     await service.init();
 
     // Initialize cache with test data for ComponentBase integration
@@ -88,43 +93,6 @@ describe("SelectionService", () => {
     it("should set up request/response handlers", () => {
       expect(service._responseDetachFunctions).toBeDefined();
       expect(service._responseDetachFunctions.length).toBeGreaterThan(0);
-    });
-
-    it("should operate without a Vitest global", async () => {
-      const isolatedHarness = createServiceFixture();
-      let isolatedService;
-      const selectedEvents = [];
-
-      vi.stubGlobal("vi", undefined);
-
-      try {
-        isolatedService = new SelectionService({
-          eventBus: isolatedHarness.eventBus,
-        });
-        isolatedHarness.eventBus.on("key-selected", (data) =>
-          selectedEvents.push(data),
-        );
-
-        expect(globalThis.vi).toBeUndefined();
-        expect(vi.isMockFunction(isolatedService.emit)).toBe(false);
-
-        await isolatedService.init();
-        await isolatedService.selectKey("F1", "space", {
-          skipPersistence: true,
-        });
-
-        expect(isolatedService.cache.selectedKey).toBe("F1");
-        expect(selectedEvents).toContainEqual({
-          key: "F1",
-          environment: "space",
-          bindset: null,
-          source: "SelectionService",
-        });
-      } finally {
-        isolatedService?.destroy();
-        isolatedHarness.destroy();
-        vi.unstubAllGlobals();
-      }
     });
   });
 

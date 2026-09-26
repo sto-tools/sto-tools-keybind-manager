@@ -1,4 +1,14 @@
 import ComponentBase from "../ComponentBase.js";
+import {
+  materializeMutationRequest,
+  requireMutationString,
+  requireProfileUpdateResult,
+} from "./mutationRequestBoundary.js";
+import {
+  captureProfileMutationContext,
+  assertProfileMutationContext,
+  canPublishProfileMutation,
+} from "./profileMutationContext.js";
 import defaultVFXEffects from "../../data/vfxEffects.js";
 import { formatAliasLine } from "../../lib/STOFormatter.js";
 import { getSnapshotProfile } from "./dataState.js";
@@ -32,6 +42,7 @@ export default class VFXManagerService extends ComponentBase {
     this.showPlayerSay = false;
 
     this._vfxInitialized = false;
+    this._mutationGeneration = 0;
     this._vfxDataAuthorityEpoch = 0;
     this._vfxDataRevision = -1;
     /** @type {string | null} */
@@ -39,6 +50,7 @@ export default class VFXManagerService extends ComponentBase {
   }
 
   onInit() {
+    this._mutationGeneration += 1;
     if (this._vfxInitialized) {
       console.log(`[${this.componentName}] Already initialized`);
       return;
@@ -50,6 +62,7 @@ export default class VFXManagerService extends ComponentBase {
   }
 
   onDestroy() {
+    this._mutationGeneration += 1;
     this._vfxInitialized = false;
     this._vfxDataAuthorityEpoch = 0;
     this._vfxDataRevision = -1;
@@ -303,33 +316,50 @@ export default class VFXManagerService extends ComponentBase {
       this.selectedEffects,
     );
     console.log(`[${this.componentName}] Show player say:`, this.showPlayerSay);
-    console.log(
-      `[${this.componentName}] Current profile:`,
-      this.cache.currentProfile,
-    );
-
-    const snapshot = this.cache.dataState;
-    const profileId = snapshot?.ready ? snapshot.currentProfile : null;
-    const profile = getSnapshotProfile(snapshot);
-
-    // Save to current profile via DataCoordinator
-    if (profileId && profile) {
-      try {
-        const vertigoSettings = {
+    let vertigoSettings;
+    try {
+      vertigoSettings = materializeMutationRequest(
+        {
           selectedEffects: {
             space: Array.from(this.selectedEffects.space),
             ground: Array.from(this.selectedEffects.ground),
           },
           showPlayerSay: this.showPlayerSay,
-        };
+        },
+        ["selectedEffects", "showPlayerSay"],
+      );
+      if (typeof vertigoSettings.showPlayerSay !== "boolean")
+        throw new TypeError("invalid_mutation_request");
+      for (const effect of [
+        ...this.selectedEffects.space,
+        ...this.selectedEffects.ground,
+      ])
+        requireMutationString(effect);
+    } catch {
+      return;
+    }
+    let context;
+    try {
+      context = captureProfileMutationContext(this, this._mutationGeneration);
+    } catch {
+      return;
+    }
+    const profileId = context.profileId;
+    const profile = getSnapshotProfile(this.cache.dataState);
 
-        await this.request("data:update-profile", {
+    // Save to current profile via DataCoordinator
+    if (profileId && profile) {
+      try {
+        assertProfileMutationContext(this, context, this._mutationGeneration);
+        const result = await this.request("data:update-profile", {
           profileId,
+          precondition: context.precondition,
           properties: {
             vertigoSettings,
           },
           updateSource: "VFXManagerService",
         });
+        requireProfileUpdateResult(result);
 
         console.log(
           `[${this.componentName}] VFX settings saved to profile: ${profileId}`,
@@ -339,12 +369,15 @@ export default class VFXManagerService extends ComponentBase {
           `[${this.componentName}] ERROR: Failed to update profile:`,
           error,
         );
+        return;
       }
     } else {
       console.error(`[${this.componentName}] ERROR: No current profile set`);
+      return;
     }
 
-    this.emit("modal:hide", { modalId: "vertigoModal" });
+    if (canPublishProfileMutation(this, context, this._mutationGeneration))
+      this.emit("modal:hide", { modalId: "vertigoModal" });
   }
 
   // Get current state for late-join support

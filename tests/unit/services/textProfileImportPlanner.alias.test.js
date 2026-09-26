@@ -184,7 +184,7 @@ describe("alias text profile import planning", () => {
     },
   );
 
-  it("constructs the historical missing-profile draft and uses safe own writes", async () => {
+  it("constructs a complete missing-profile draft and uses safe own writes", async () => {
     const parsed = {
       aliases: Object.fromEntries([
         ["toString", { commands: "One", description: undefined }],
@@ -195,16 +195,24 @@ describe("alias text profile import planning", () => {
 
     const result = await planAliasTextImport({
       profile: null,
+      profileId: "new_alias_profile",
       parsed,
       strategy: "merge_keep",
       optimizeCommand: async (command) => command,
     });
 
     expect(result.nextProfile).toEqual({
+      name: "new_alias_profile",
+      currentEnvironment: "space",
+      builds: { space: { keys: {} }, ground: { keys: {} } },
       aliases: {
         toString: { commands: ["One"], description: "" },
         valueOf: { commands: [], description: "Empty" },
       },
+      bindsets: {},
+      keybindMetadata: { space: {}, ground: {} },
+      aliasMetadata: {},
+      bindsetMetadata: {},
     });
     expect(Object.hasOwn(result.nextProfile.aliases, "toString")).toBe(true);
     expect(Object.hasOwn(result.nextProfile.aliases, "valueOf")).toBe(true);

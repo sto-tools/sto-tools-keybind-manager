@@ -88,20 +88,28 @@ describe("DataCoordinator normalization facade", () => {
       "storage:save-all",
       "[DataCoordinator] Migrated 1 profiles",
     ]);
-    expect(profiles.legacy).toMatchObject({
+    // Public normalization now detaches its request before queue/owner access.
+    // The durable draft, not the caller-owned input, receives normalization.
+    const persisted = fixture.storage.saveAllData.mock.calls[0][0].profiles;
+    expect(persisted.legacy).toMatchObject({
       migrationVersion: "2.1.1",
       lastModified: normalizedAt,
       builds: { space: { keys: { F1: ["FireAll"] } } },
     });
-    expect(profiles.legacy.aliases).not.toHaveProperty(
+    expect(persisted.legacy.aliases).not.toHaveProperty(
       "dynFxSetFXExclusionList_Space",
     );
+    expect(profiles.legacy).not.toHaveProperty("migrationVersion");
+    expect(profiles.legacy.builds.space.keys.F1).toEqual([
+      { command: "FireAll" },
+    ]);
   });
 
   it("returns before any storage or normalization effect for a current version", async () => {
     const { coordinator, fixture } = createCoordinator();
     const profiles = {
       current: {
+        name: "Current",
         migrationVersion: "2.1.1",
         builds: {
           space: { keys: { F1: [{ command: "MustRemainRich" }] } },
@@ -193,10 +201,10 @@ describe("DataCoordinator normalization facade", () => {
     ]);
     expect(logSpy).toHaveBeenCalledTimes(3);
     expect(isoSpy).toHaveBeenCalledTimes(1);
-    expect(profiles.future).not.toBe(sourceProfile);
-    expect(profiles.future).toEqual(
+    expect(profiles.future).toBe(sourceProfile);
+    expect(
       fixture.storage.saveAllData.mock.calls[0][0].profiles.future,
-    );
+    ).not.toBe(sourceProfile);
     expect(sourceProfile.migrationVersion).toBe("9.0.0");
     expect(sourceProfile).not.toHaveProperty("lastModified");
   });

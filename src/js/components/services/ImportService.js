@@ -2,11 +2,21 @@
 // Uses STOCommandParser for parsing, handles application logic
 import ComponentBase from "../ComponentBase.js";
 import {
+  captureProfileMutationContext as captureContext,
+  assertProfileMutationContext,
+} from "./profileMutationContext.js";
+import {
   normalizeToStringArray,
   normalizeToOptimizedString,
 } from "../../lib/commandDisplayAdapter.js";
 import { KBFParser } from "../../lib/KBFParser.js";
-import { commitImportedProfile } from "./importProfileCommit.js";
+import {
+  commitImportedProfile,
+  materializeProfileImportInput,
+  dispatchProfileImportRequest,
+  appendImportDiagnostics,
+  resolveImportBindsetsEnabled,
+} from "./importProfileCommit.js";
 import {
   importProjectToStorage,
   importProjectWithPreferencesTransition,
@@ -62,6 +72,7 @@ export default class ImportService extends ComponentBase {
     this.kbfParser = new KBFParser({ eventBus });
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
+    this._mutationGeneration = 0;
   }
 
   /** @param {string} key @param {Record<string, unknown>} [options] */
@@ -74,45 +85,14 @@ export default class ImportService extends ComponentBase {
 
     // Import operations
     this._responseDetachFunctions.push(
-      this.respond(
-        "import:keybind-file",
-        ({ content, profileId, environment, options = {}, strategy }) =>
-          this.importKeybindFile(content, profileId, environment, {
-            ...options,
-            strategy: resolveImportStrategy(strategy),
-          }),
+      this.respond("import:keybind-file", (payload) =>
+        dispatchProfileImportRequest(this, "keybind", payload),
       ),
-      this.respond(
-        "import:alias-file",
-        ({ content, profileId, options = {}, strategy }) =>
-          this.importAliasFile(content, profileId, {
-            ...options,
-            strategy: resolveImportStrategy(strategy),
-          }),
+      this.respond("import:alias-file", (payload) =>
+        dispatchProfileImportRequest(this, "alias", payload),
       ),
-      this.respond(
-        "import:kbf-file",
-        ({
-          content,
-          profileId,
-          environment,
-          options = {},
-          strategy,
-          configuration,
-        }) =>
-          this.importKBFFile(
-            content,
-            profileId,
-            environment,
-            {
-              ...(options ?? {}),
-              strategy: VALID_STRATEGIES.includes(strategy || "")
-                ? strategy
-                : /** @type {{ strategy?: string }} */ (options ?? {})
-                    .strategy || "merge_keep",
-            },
-            configuration,
-          ),
+      this.respond("import:kbf-file", (payload) =>
+        dispatchProfileImportRequest(this, "kbf", payload),
       ),
       this.respond("import:project-file", ({ content, options = {} }) =>
         this.importProjectFile(content, options),
@@ -159,9 +139,18 @@ export default class ImportService extends ComponentBase {
     content,
     profileId,
     environment = undefined,
-    { strategy = "merge_keep" } = {},
+    options = {},
   ) {
     try {
+      const input = materializeProfileImportInput(
+        { content, profileId, environment, options },
+        "keybind",
+      );
+      const { strategy } = input;
+      profileId = input.profileId;
+      environment = input.environment;
+      content = input.content;
+      const generation = this._mutationGeneration;
       const parsed = await this.parseKeybindFile(content);
       if (parsed.failure) return keybindTextFailureResult(parsed.failure);
       const keyCount = Object.keys(parsed.keybinds).length;
@@ -198,8 +187,11 @@ export default class ImportService extends ComponentBase {
       }
 
       const env = environment; // Environment is already validated above
+      const context = captureContext(this, generation, profileId);
+      assertProfileMutationContext(this, context, this._mutationGeneration);
       const plan = await planKeybindTextImport({
         profile: this.storage.getProfile(profileId),
+        profileId,
         parsed,
         environment: env,
         strategy,
@@ -214,7 +206,13 @@ export default class ImportService extends ComponentBase {
         },
       });
 
-      await commitImportedProfile(this, profileId, plan.nextProfile, env);
+      await commitImportedProfile(
+        this,
+        profileId,
+        plan.nextProfile,
+        env,
+        context,
+      );
 
       const { nextProfile: _committedProfile, ...result } = plan;
       void _committedProfile;
@@ -235,8 +233,16 @@ export default class ImportService extends ComponentBase {
    * @param {{ strategy?: string }} [options]
    * @returns {Promise<import('../../types/rpc/aliases.js').AliasImportResult>}
    */
-  async importAliasFile(content, profileId, { strategy = "merge_keep" } = {}) {
+  async importAliasFile(content, profileId, options = {}) {
     try {
+      const input = materializeProfileImportInput(
+        { content, profileId, options },
+        "alias",
+      );
+      const { strategy } = input;
+      profileId = input.profileId;
+      content = input.content;
+      const generation = this._mutationGeneration;
       const parsed = await this.parseAliasFile(content);
       if (parsed.failure) return aliasTextFailureResult(parsed.failure);
       // Count only non-generated aliases (exclude sto_kb_ prefix)
@@ -253,8 +259,11 @@ export default class ImportService extends ComponentBase {
         return { success: false, error: "no_active_profile" };
       }
 
+      const context = captureContext(this, generation, profileId);
+      assertProfileMutationContext(this, context, this._mutationGeneration);
       const plan = await planAliasTextImport({
         profile: this.storage.getProfile(profileId),
+        profileId,
         parsed,
         strategy,
         optimizeCommand: (command) =>
@@ -263,7 +272,13 @@ export default class ImportService extends ComponentBase {
           }),
       });
 
-      await commitImportedProfile(this, profileId, plan.nextProfile);
+      await commitImportedProfile(
+        this,
+        profileId,
+        plan.nextProfile,
+        undefined,
+        context,
+      );
 
       const { nextProfile: _committedProfile, ...result } = plan;
       void _committedProfile;
@@ -279,22 +294,38 @@ export default class ImportService extends ComponentBase {
 
   // Import KBF file content
   /**
-   * @param {string} content
+   * @param {unknown} content
    * @param {string | null | undefined} profileId
    * @param {string | undefined} environment
    * @param {{ strategy?: string }} [options]
-   * @param {import('./serviceTypes.js').KBFImportConfiguration | null | undefined} configuration
+   * @param {unknown} configuration
    * @returns {Promise<import('../../types/rpc/import-export.js').KBFImportResult>}
    */
   async importKBFFile(
     content,
     profileId,
     environment,
-    { strategy = "merge_keep" } = {},
+    options = {},
     configuration = null,
   ) {
+    /** @type {string[]} */
     const errors = [];
     const warnings = [];
+
+    let strategy;
+    try {
+      const input = materializeProfileImportInput(
+        { content, profileId, environment, options, configuration },
+        "kbf",
+      );
+      strategy = input.strategy;
+      profileId = input.profileId;
+      environment = input.environment;
+      configuration = input.configuration;
+      content = input.content;
+    } catch {
+      return { success: false, error: "invalid_kbf_file_content" };
+    }
 
     // Basic validation
     if (!content || typeof content !== "string") {
@@ -338,6 +369,7 @@ export default class ImportService extends ComponentBase {
     const targetEnvironment = /** @type {'space' | 'ground'} */ (environment);
 
     const canonicalStrategy = resolveImportStrategy(strategy);
+    const generation = this._mutationGeneration;
 
     try {
       // Basic format validation
@@ -353,9 +385,8 @@ export default class ImportService extends ComponentBase {
       }
 
       // Collect validation warnings
-      if (validationResult.warnings) {
+      if (validationResult.warnings)
         warnings.push(...validationResult.warnings);
-      }
 
       // Parse KBF file synchronously like other imports
       const rawParseResult = await this.kbfParser.parseFile(content, {
@@ -373,20 +404,7 @@ export default class ImportService extends ComponentBase {
       const parseResult = decodedParseResult.value;
 
       // Check for parsing errors and collect warnings
-      if (parseResult.errors) {
-        errors.push(
-          ...parseResult.errors.map((err) =>
-            typeof err === "string" ? err : err.message || String(err),
-          ),
-        );
-      }
-      if (parseResult.warnings) {
-        warnings.push(
-          ...parseResult.warnings.map((warn) =>
-            typeof warn === "string" ? warn : warn.message || String(warn),
-          ),
-        );
-      }
+      appendImportDiagnostics(errors, warnings, parseResult);
 
       const decodedConfiguration = decodeKBFImportConfiguration(
         configuration,
@@ -415,6 +433,8 @@ export default class ImportService extends ComponentBase {
       }
 
       // Get existing profile
+      const context = captureContext(this, generation, profileId);
+      assertProfileMutationContext(this, context, this._mutationGeneration);
       let profile = this.storage.getProfile(profileId);
       if (!profile) {
         return {
@@ -428,16 +448,10 @@ export default class ImportService extends ComponentBase {
       // PreferencesService publishes a complete settings snapshot during
       // startup and through the late-join handshake. Keep imports safe if this
       // service is ever invoked before either path has hydrated its cache.
-      const configuredBindsetsEnabled = this.cache.preferences.bindsetsEnabled;
-      const bindsetsEnabled =
-        typeof configuredBindsetsEnabled === "boolean"
-          ? configuredBindsetsEnabled
-          : true;
-      if (typeof configuredBindsetsEnabled !== "boolean") {
-        warnings.push(
-          "Could not retrieve bindsets preference, defaulting to enabled",
-        );
-      }
+      const bindsetsEnabled = resolveImportBindsetsEnabled(
+        this.cache.preferences.bindsetsEnabled,
+        warnings,
+      );
 
       const plan = planKBFImport({
         profile,
@@ -454,6 +468,7 @@ export default class ImportService extends ComponentBase {
         profileId,
         plan.nextProfile,
         targetEnvironment,
+        context,
       );
       const { nextProfile: _committedProfile, ...result } = plan;
       void _committedProfile;
@@ -517,6 +532,7 @@ export default class ImportService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/import-export.js').KBFParseForUiResult>}
    */
   async parseKBFFile(content, environment) {
+    /** @type {string[]} */
     const errors = [];
     const warnings = [];
 
@@ -558,9 +574,8 @@ export default class ImportService extends ComponentBase {
       }
 
       // Collect validation warnings
-      if (validationResult.warnings) {
+      if (validationResult.warnings)
         warnings.push(...validationResult.warnings);
-      }
 
       // Parse KBF file to extract bindset information without importing
       const rawParseResult = await this.kbfParser.parseFile(content, {
@@ -579,20 +594,7 @@ export default class ImportService extends ComponentBase {
       const parseResult = decodedParseResult.value;
 
       // Check for parsing errors and collect warnings
-      if (parseResult.errors) {
-        errors.push(
-          ...parseResult.errors.map((err) =>
-            typeof err === "string" ? err : err.message || String(err),
-          ),
-        );
-      }
-      if (parseResult.warnings) {
-        warnings.push(
-          ...parseResult.warnings.map((warn) =>
-            typeof warn === "string" ? warn : warn.message || String(warn),
-          ),
-        );
-      }
+      appendImportDiagnostics(errors, warnings, parseResult);
 
       // Fail fast on fundamental structural corruption
       if (parseResult.stats.totalBindsets === 0) {
@@ -623,10 +625,12 @@ export default class ImportService extends ComponentBase {
   }
 
   onInit() {
+    this._mutationGeneration += 1;
     this.setupRequestHandlers();
   }
 
   onDestroy() {
+    this._mutationGeneration += 1;
     this._responseDetachFunctions.splice(0).forEach((detach) => detach());
   }
 }

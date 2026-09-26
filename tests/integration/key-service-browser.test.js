@@ -3,6 +3,7 @@ import { createRealServiceFixture } from "../fixtures";
 import KeyService from "../../src/js/components/services/KeyService.js";
 import KeyBrowserService from "../../src/js/components/services/KeyBrowserService.js";
 import { respond } from "../../src/js/core/requestResponse.js";
+import { createDataCoordinatorState } from "../fixtures/core/componentState.js";
 
 /** Helper to clone deep */
 const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
@@ -22,6 +23,7 @@ describe("Integration: KeyService ↔ KeyBrowserService", () => {
     // Base profile with two keys
     profile = {
       id: "testProfile",
+      name: "Test Profile",
       builds: {
         space: {
           keys: {
@@ -33,6 +35,7 @@ describe("Integration: KeyService ↔ KeyBrowserService", () => {
       },
       aliases: {},
     };
+    let revision = 1;
 
     // Stub DataCoordinator update-profile handler – mutates in-memory profile and emits broadcast
     detachUpdateProfile = respond(
@@ -53,33 +56,40 @@ describe("Integration: KeyService ↔ KeyBrowserService", () => {
           }
         }
 
-        // Emit profile:updated broadcast
+        revision += 1;
+        eventBus.emit("data:state-changed", {
+          reason: "profile-updated",
+          state: createDataCoordinatorState({
+            authorityEpoch: 1,
+            revision,
+            currentProfile: profile.id,
+            currentEnvironment: "space",
+            currentProfileData: deepClone(profile),
+          }),
+        });
         eventBus.emit("profile:updated", {
           profileId: profile.id,
           profile: deepClone(profile),
         });
-        return { success: true };
+        return { success: true, profile: deepClone(profile) };
       },
     );
 
     // Instantiate services
     keyService = new KeyService({ eventBus, ui: { showToast: vi.fn() } });
     await keyService.init();
-    // Mimic DataCoordinator profile switch so ComponentBase caches the profile
-    eventBus.emit("profile:switched", {
-      profileId: profile.id,
-      profile: deepClone(profile),
-      environment: "space",
-    });
-
     keyBrowserService = new KeyBrowserService({ eventBus });
     await keyBrowserService.init();
 
-    // seed browser cache via profile:switched
-    eventBus.emit("profile:switched", {
-      profileId: profile.id,
-      profile: deepClone(profile),
-      environment: "space",
+    eventBus.emit("data:state-changed", {
+      reason: "initial-load",
+      state: createDataCoordinatorState({
+        authorityEpoch: 1,
+        revision,
+        currentProfile: profile.id,
+        currentEnvironment: "space",
+        currentProfileData: deepClone(profile),
+      }),
     });
   });
 
@@ -92,7 +102,7 @@ describe("Integration: KeyService ↔ KeyBrowserService", () => {
     const result = await keyService.deleteKey("F2");
     expect(result).toEqual({ success: true, key: "F2", environment: "space" });
 
-    // Wait a tick for profile:updated broadcast handling
+    // Wait a tick for canonical state broadcast handling
     await new Promise((r) => setTimeout(r, 0));
 
     const keys = keyBrowserService.getKeys();

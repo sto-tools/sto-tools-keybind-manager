@@ -3,7 +3,6 @@ import { normalizeProfile } from "../../lib/profileNormalizer.js";
 import persist from "./storageWrites.js";
 import {
   createDataStateSnapshot,
-  createVirtualProfile,
   nextDataStateAuthorityEpoch,
 } from "./dataState.js";
 import builtInDefaultProfiles, {
@@ -16,16 +15,39 @@ import {
   initializeDataCoordinatorState,
 } from "./dataCoordinatorInitialState.js";
 import {
-  createClonedProfileDraft,
   createDefaultProfileDraft,
-  createEmptyProfileDraft,
   createFallbackProfileDraft,
-  generateProfileId,
   planProfileBatch,
 } from "./profileConstruction.js";
+import {
+  executeProfileSwitch,
+  executeProfileCreate,
+  executeProfileClone,
+  executeProfileRename,
+  executeProfileDelete,
+} from "./dataCoordinatorProfileActions.js";
 import { planProfileNormalizations } from "./profileNormalizationPlan.js";
 import { applyProfileOperations } from "./profileOperations.js";
 import { profileStateChange } from "./dataStateChange.js";
+import {
+  materializeMutationRequest,
+  requireMutationString,
+} from "./mutationRequestBoundary.js";
+import {
+  materializeProfileUpdateRequest,
+  materializeProfileMap,
+  requireProfileIdentifier,
+  validateProfileCreation,
+  validateProfileCloneName,
+  validatePlannedProfileRoot,
+  validatePlannedProjectRoot,
+} from "./dataCoordinatorMutationBoundary.js";
+import {
+  assertDataCoordinatorPrecondition,
+  enqueueDataCoordinatorMutation,
+  isCurrentDataCoordinatorOwner,
+  recordDataCoordinatorPublication,
+} from "./dataCoordinatorMutationQueue.js";
 import {
   publishCurrentCoordinatorProfile,
   publishDataCoordinatorState,
@@ -159,6 +181,7 @@ export default class DataCoordinator extends ComponentBase {
     this._lifecycleGeneration = 0;
     /** @type {Promise<void>} */
     this.initialStateReady = Promise.resolve();
+    this._initialStateCommitted = Promise.resolve();
     this._initialStateTail = Promise.resolve();
     this.initialStateSettled = this._initialStateTail;
     this._stateReady = false;
@@ -216,8 +239,9 @@ export default class DataCoordinator extends ComponentBase {
     });
 
     // Listen for load default data events
-    this.addEventListener("data:load-default", () => {
-      this.handleLoadDefaultData();
+    this.addEventListener("data:load-default", (payload) => {
+      if (payload !== null) throw new TypeError("invalid_mutation_request");
+      return this.handleLoadDefaultData();
     });
   }
 
@@ -232,7 +256,11 @@ export default class DataCoordinator extends ComponentBase {
 
   /** @param {number} generation */
   _isCurrentOperation(generation) {
-    return !this.destroyed && generation === this._lifecycleGeneration;
+    return (
+      !this.destroyed &&
+      generation === this._lifecycleGeneration &&
+      isCurrentDataCoordinatorOwner(this)
+    );
   }
 
   /** @param {number} generation */
@@ -292,81 +320,10 @@ export default class DataCoordinator extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:switch-profile'>>}
    */
   async switchProfile(profileId) {
-    if (profileId === this.state.currentProfile) {
-      // Build current profile data manually since getCurrentProfile() was removed
-      let currentProfile = null;
-      if (
-        this.state.currentProfile &&
-        hasOwn(this.state.profiles, this.state.currentProfile)
-      ) {
-        const profile = this.state.profiles[this.state.currentProfile];
-        currentProfile = createVirtualProfile(
-          this.state.currentProfile,
-          profile,
-          this.state.currentEnvironment,
-        );
-      }
-
-      return {
-        success: true,
-        switched: false,
-        message: this.i18n.t("already_on_profile"),
-        profile: currentProfile,
-      };
-    }
-
-    const profile = hasOwn(this.state.profiles, profileId)
-      ? this.state.profiles[profileId]
-      : null;
-    if (!profile) {
-      throw new Error(`Profile ${profileId} not found`);
-    }
-
-    const oldProfileId = this.state.currentProfile;
-    const operation = this._captureOperationGeneration();
-
-    // Persist current profile change
-    await persist.currentProfile(this.storage, profileId, this.i18n);
-    this._assertCurrentOperation(operation);
-
-    this.state.currentProfile = profileId;
-    this.state.currentEnvironment = profile.currentEnvironment || "space";
-
-    // Update metadata
-    this.state.metadata.lastModified = new Date().toISOString();
-
-    // Build virtual profile for response
-    const virtualProfile = createVirtualProfile(
-      profileId,
-      profile,
-      this.state.currentEnvironment,
+    const safeId = requireProfileIdentifier(profileId);
+    return enqueueDataCoordinatorMutation(this, () =>
+      executeProfileSwitch(this, safeId),
     );
-
-    this._publishState("profile-switched");
-
-    // Broadcast profile switch synchronously
-    this.emit(
-      "profile:switched",
-      {
-        fromProfile: oldProfileId,
-        toProfile: profileId,
-        profileId: profileId,
-        profile: structuredClone(virtualProfile),
-        environment: this.state.currentEnvironment,
-        timestamp: Date.now(),
-      },
-      { synchronous: true },
-    );
-
-    return {
-      success: true,
-      switched: true,
-      profile: virtualProfile,
-      message: this.i18n.t("switched_to_profile", {
-        name: profile.name,
-        environment: this.state.currentEnvironment,
-      }),
-    };
   }
 
   /**
@@ -379,53 +336,22 @@ export default class DataCoordinator extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:create-profile'>>}
    */
   async createProfile(name, description = "", mode = "space") {
-    if (!name || !name.trim()) {
-      const message = this.i18n.t("profile_name_is_required");
-      throw new Error(message);
-    }
-
-    const profileId = generateProfileId(name);
-
-    // Check if profile already exists
-    if (hasOwn(this.state.profiles, profileId)) {
-      const message = this.i18n.t("profile_already_exists");
-      throw new Error(message);
-    }
-
-    const profile = createEmptyProfileDraft(name, description, mode, {
-      created: new Date().toISOString(),
-      lastModified: new Date().toISOString(),
+    const request = materializeMutationRequest({ name, description, mode }, [
+      "name",
+      "description",
+      "mode",
+    ]);
+    const safeName = requireMutationString(request.name, { allowEmpty: true });
+    if (!safeName.trim())
+      throw new Error(this.i18n.t("profile_name_is_required"));
+    const safeDescription = requireMutationString(request.description, {
+      allowEmpty: true,
     });
-    const operation = this._captureOperationGeneration();
-
-    try {
-      // Save to storage
-      const persistedProfile = await persist.profile(
-        this.storage,
-        profileId,
-        profile,
-        this.i18n,
-      );
-      this._assertCurrentOperation(operation);
-
-      // Update cache
-      this.state.profiles[profileId] = persistedProfile;
-      this.state.metadata.lastModified = new Date().toISOString();
-
-      this._publishState("profile-created");
-
-      return {
-        success: true,
-        profileId,
-        profile: structuredClone(persistedProfile),
-        message: this.i18n.t("profile_created", { name }),
-      };
-    } catch (error) {
-      const message = this.i18n.t("failed_to_create_profile", {
-        error: errMsg(error),
-      });
-      throw new Error(message);
-    }
+    const safeMode = requireMutationString(request.mode, { allowEmpty: true });
+    validateProfileCreation(safeName, safeMode);
+    return enqueueDataCoordinatorMutation(this, () =>
+      executeProfileCreate(this, safeName, safeDescription, safeMode),
+    );
   }
 
   /**
@@ -437,64 +363,15 @@ export default class DataCoordinator extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:clone-profile'>>}
    */
   async cloneProfile(sourceId, newName) {
-    if (!sourceId || !newName || !newName.trim()) {
-      const message = this.i18n.t("source_profile_and_new_name_required");
-      throw new Error(message);
-    }
-
-    const sourceProfile = hasOwn(this.state.profiles, sourceId)
-      ? this.state.profiles[sourceId]
-      : null;
-    if (!sourceProfile) {
-      const message = this.i18n.t("source_profile_not_found");
-      throw new Error(message);
-    }
-
-    const profileId = generateProfileId(newName);
-
-    // Check if profile already exists
-    if (hasOwn(this.state.profiles, profileId)) {
-      const message = this.i18n.t("profile_already_exists");
-      throw new Error(message);
-    }
-
-    const clonedProfile = createClonedProfileDraft(sourceProfile, newName, {
-      created: new Date().toISOString(),
-      lastModified: new Date().toISOString(),
-    });
-    const operation = this._captureOperationGeneration();
-
-    try {
-      // Save to storage
-      const persistedProfile = await persist.profile(
-        this.storage,
-        profileId,
-        clonedProfile,
-        this.i18n,
-      );
-      this._assertCurrentOperation(operation);
-
-      // Update cache
-      this.state.profiles[profileId] = persistedProfile;
-      this.state.metadata.lastModified = new Date().toISOString();
-
-      this._publishState("profile-cloned");
-
-      return {
-        success: true,
-        profileId,
-        profile: structuredClone(persistedProfile),
-        message: this.i18n.t("profile_created_from", {
-          newName,
-          sourceProfile: sourceProfile.name,
-        }),
-      };
-    } catch (error) {
-      const message = this.i18n.t("failed_to_clone_profile", {
-        error: errMsg(error),
-      });
-      throw new Error(message);
-    }
+    materializeMutationRequest({ sourceId, newName }, ["sourceId", "newName"]);
+    const safeId = requireProfileIdentifier(sourceId);
+    const safeName = requireMutationString(newName, { allowEmpty: true });
+    if (!safeName.trim())
+      throw new Error(this.i18n.t("source_profile_and_new_name_required"));
+    validateProfileCloneName(safeName);
+    return enqueueDataCoordinatorMutation(this, () =>
+      executeProfileClone(this, safeId, safeName),
+    );
   }
 
   /**
@@ -507,62 +384,21 @@ export default class DataCoordinator extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:rename-profile'>>}
    */
   async renameProfile(profileId, newName, description = "") {
-    if (!profileId || !newName || !newName.trim()) {
-      const message = this.i18n.t("profile_name_is_required");
-      throw new Error(message);
-    }
-
-    const profile = hasOwn(this.state.profiles, profileId)
-      ? this.state.profiles[profileId]
-      : null;
-    if (!profile) {
-      const message = this.i18n.t("profile_not_found");
-      throw new Error(message);
-    }
-
-    const updatedProfile = {
-      ...profile,
-      name: newName.trim(),
-      description: description.trim(),
-      lastModified: new Date().toISOString(),
-    };
-    const operation = this._captureOperationGeneration();
-
-    try {
-      // Save to storage
-      const persistedProfile = await persist.profile(
-        this.storage,
-        profileId,
-        updatedProfile,
-        this.i18n,
-      );
-      this._assertCurrentOperation(operation);
-
-      // Update cache
-      this.state.profiles[profileId] = persistedProfile;
-      this.state.metadata.lastModified = new Date().toISOString();
-
-      this._publishState("profile-renamed");
-
-      // Broadcast profile update
-      this.emit("profile:updated", {
-        profileId,
-        profile: structuredClone(persistedProfile),
-        changes: { name: newName, description },
-        timestamp: Date.now(),
-      });
-
-      return {
-        success: true,
-        profile: structuredClone(persistedProfile),
-        message: `Profile renamed to "${newName}"`,
-      };
-    } catch (error) {
-      const message = this.i18n.t("failed_to_rename_profile", {
-        error: errMsg(error),
-      });
-      throw new Error(message);
-    }
+    materializeMutationRequest({ profileId, newName, description }, [
+      "profileId",
+      "newName",
+      "description",
+    ]);
+    const safeId = requireProfileIdentifier(profileId);
+    const safeName = requireMutationString(newName, { allowEmpty: true });
+    if (!safeName.trim())
+      throw new Error(this.i18n.t("profile_name_is_required"));
+    const safeDescription = requireMutationString(description, {
+      allowEmpty: true,
+    });
+    return enqueueDataCoordinatorMutation(this, () =>
+      executeProfileRename(this, safeId, safeName, safeDescription),
+    );
   }
 
   /**
@@ -571,112 +407,53 @@ export default class DataCoordinator extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:delete-profile'>>}
    */
   async deleteProfile(profileId) {
-    if (!profileId) {
-      const message = this.i18n.t("profile_id_required");
-      throw new Error(message);
-    }
-
-    const profile = hasOwn(this.state.profiles, profileId)
-      ? this.state.profiles[profileId]
-      : null;
-    if (!profile) {
-      const message = this.i18n.t("profile_not_found");
-      throw new Error(message);
-    }
-
-    const profileCount = Object.keys(this.state.profiles).length;
-    if (profileCount <= 1) {
-      const message = this.i18n.t("cannot_delete_the_last_profile");
-      throw new Error(message);
-    }
-
-    try {
-      const nextProfiles = structuredClone(this.state.profiles);
-      delete nextProfiles[profileId];
-
-      let nextCurrentProfile = this.state.currentProfile;
-      let nextCurrentEnvironment = this.state.currentEnvironment;
-      let switchedProfile = null;
-
-      // If this was the current profile, switch to another
-      if (this.state.currentProfile === profileId) {
-        const remaining = Object.keys(nextProfiles);
-        nextCurrentProfile = remaining[0];
-
-        const newProfile = nextProfiles[nextCurrentProfile];
-        nextCurrentEnvironment = newProfile.currentEnvironment || "space";
-
-        switchedProfile = createVirtualProfile(
-          nextCurrentProfile,
-          newProfile,
-          nextCurrentEnvironment,
-        );
-      }
-
-      // Deletion and replacement-profile selection are one logical durable
-      // commit. A single root write prevents either half from becoming visible
-      // on its own.
-      const nextRoot = structuredClone(this.storage.getAllData());
-      nextRoot.profiles = structuredClone(nextProfiles);
-      nextRoot.currentProfile = nextCurrentProfile;
-      const operation = this._captureOperationGeneration();
-      await persist.all(this.storage, nextRoot, this.i18n);
-      this._assertCurrentOperation(operation);
-
-      const durableRoot = this.storage.getAllData();
-      this.state.profiles = nextProfiles;
-      this.state.currentProfile = nextCurrentProfile;
-      this.state.currentEnvironment = nextCurrentEnvironment;
-      this.state.metadata = {
-        lastModified:
-          durableRoot.lastModified ??
-          nextRoot.lastModified ??
-          new Date().toISOString(),
-        version:
-          durableRoot.version ||
-          nextRoot.version ||
-          this.state.metadata.version,
-      };
-
-      this._publishState("profile-deleted");
-
-      if (switchedProfile && nextCurrentProfile) {
-        // Broadcast profile switch synchronously
-        this.emit(
-          "profile:switched",
-          {
-            fromProfile: profileId,
-            toProfile: nextCurrentProfile,
-            profileId: nextCurrentProfile,
-            profile: structuredClone(switchedProfile),
-            environment: nextCurrentEnvironment,
-            timestamp: Date.now(),
-          },
-          { synchronous: true },
-        );
-      }
-
-      return {
-        success: true,
-        deletedProfile: structuredClone(profile),
-        switchedProfile: structuredClone(switchedProfile),
-        message: this.i18n.t("profile_deleted", { profileName: profile.name }),
-      };
-    } catch (error) {
-      const message = this.i18n.t("failed_to_delete_profile", {
-        error: errMsg(error),
-      });
-      throw new Error(message);
-    }
+    const safeId = requireProfileIdentifier(profileId);
+    return enqueueDataCoordinatorMutation(this, () =>
+      executeProfileDelete(this, safeId),
+    );
   }
 
   /**
    * @param {string} profileId
    * @param {import('./serviceTypes.js').ProfileOperations | null | undefined} updates
-   * @param {{ publishState?: boolean, createIfMissing?: true }} [options]
+   * @param {{ publishState?: boolean, createIfMissing?: true, precondition?: import('../../types/rpc/data.js').ProfileMutationPrecondition }} [options]
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:update-profile'>>}
    */
-  async updateProfile(
+  async updateProfile(profileId, updates, options = {}) {
+    if (!profileId) throw new Error("Profile ID is required");
+    if (updates == null) throw new Error("Updates are required");
+    const safeOptions = materializeMutationRequest(options, [
+      "publishState",
+      "createIfMissing",
+      "precondition",
+    ]);
+    if (
+      safeOptions.publishState !== undefined &&
+      typeof safeOptions.publishState !== "boolean"
+    ) {
+      throw new TypeError("invalid_mutation_request");
+    }
+    const request = materializeProfileUpdateRequest({
+      profileId,
+      updates,
+      createIfMissing: safeOptions.createIfMissing,
+      precondition: safeOptions.precondition,
+    });
+    return enqueueDataCoordinatorMutation(this, () => {
+      assertDataCoordinatorPrecondition(this, request.precondition);
+      return this._updateProfile(request.profileId, request.updates, {
+        publishState: safeOptions.publishState !== false,
+        createIfMissing: request.createIfMissing,
+      });
+    });
+  }
+
+  /** @param {string} profileId
+   * @param {import('./serviceTypes.js').ProfileOperations | null | undefined} updates
+   * @param {{publishState?: boolean, createIfMissing?: true}} [options]
+   * @returns {Promise<import('../../types/rpc/base.js').ProfileUpdateResult>}
+   */
+  async _updateProfile(
     profileId,
     updates,
     { publishState = true, createIfMissing } = {},
@@ -753,6 +530,12 @@ export default class DataCoordinator extends ComponentBase {
         `[${this.componentName}] Saving profile ${profileId} to storage:`,
         updatedProfile,
       );
+      validatePlannedProfileRoot(
+        profileId,
+        updatedProfile,
+        this.storage.getAllData(),
+        { version: this.storage.version },
+      );
       const persistedProfile = await persist.profile(
         this.storage,
         profileId,
@@ -784,15 +567,18 @@ export default class DataCoordinator extends ComponentBase {
         persistableUpdates.modify
       );
 
-      if (touchedCollections) {
+      if (touchedCollections && this._isCurrentOperation(operation)) {
         // Notify other services when aliases / builds changed
-        this.emit("profile:updated", {
-          profileId,
-          profile: structuredClone(persistedProfile),
-          updates: structuredClone(persistableUpdates),
-          updateSource,
-          timestamp: Date.now(),
-        });
+        recordDataCoordinatorPublication(
+          this,
+          this.emit("profile:updated", {
+            profileId,
+            profile: structuredClone(persistedProfile),
+            updates: structuredClone(persistableUpdates),
+            updateSource,
+            timestamp: Date.now(),
+          }),
+        );
       }
 
       return { success: true, profile: structuredClone(persistedProfile) };
@@ -810,6 +596,17 @@ export default class DataCoordinator extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/data.js').EnvironmentUpdateResult>}
    */
   async setEnvironment(environment) {
+    const safeEnvironment = requireMutationString(environment);
+    if (!["space", "ground", "alias"].includes(safeEnvironment)) {
+      throw new Error("Invalid environment");
+    }
+    return enqueueDataCoordinatorMutation(this, () =>
+      this._setEnvironment(safeEnvironment),
+    );
+  }
+
+  /** @param {string} environment @returns {Promise<import('../../types/rpc/data.js').EnvironmentUpdateResult>} */
+  async _setEnvironment(environment) {
     if (!environment || !["space", "ground", "alias"].includes(environment)) {
       throw new Error("Invalid environment");
     }
@@ -820,7 +617,7 @@ export default class DataCoordinator extends ComponentBase {
     // Update profile's current environment if we have one
     if (this.state.currentProfile) {
       const updates = { properties: { currentEnvironment: environment } };
-      await this.updateProfile(this.state.currentProfile, updates, {
+      await this._updateProfile(this.state.currentProfile, updates, {
         publishState: false,
       });
       this._assertCurrentOperation(operation);
@@ -831,16 +628,21 @@ export default class DataCoordinator extends ComponentBase {
     this._publishState("environment-changed");
 
     // Broadcast environment change synchronously after storage operation completes
-    this.emit(
-      "environment:changed",
-      {
-        fromEnvironment: oldEnvironment,
-        toEnvironment: environment,
-        environment: environment,
-        timestamp: Date.now(),
-      },
-      { synchronous: true },
-    );
+    if (this._isCurrentOperation(operation)) {
+      recordDataCoordinatorPublication(
+        this,
+        this.emit(
+          "environment:changed",
+          {
+            fromEnvironment: oldEnvironment,
+            toEnvironment: environment,
+            environment: environment,
+            timestamp: Date.now(),
+          },
+          { synchronous: true },
+        ),
+      );
+    }
 
     return { success: true, environment };
   }
@@ -848,6 +650,17 @@ export default class DataCoordinator extends ComponentBase {
   // Load default data (called explicitly by user via "Load Default Data" button)
   /** @returns {Promise<import('../../types/rpc/data.js').DefaultDataLoadResult>} */
   async loadDefaultData() {
+    try {
+      return await enqueueDataCoordinatorMutation(this, () =>
+        this._loadDefaultData(),
+      );
+    } catch (error) {
+      return { success: false, error: errMsg(error) };
+    }
+  }
+
+  /** @returns {Promise<import('../../types/rpc/data.js').DefaultDataLoadResult>} */
+  async _loadDefaultData() {
     console.log(`[${this.componentName}] Explicitly loading default data...`);
     const operation = this._captureOperationGeneration();
 
@@ -868,7 +681,7 @@ export default class DataCoordinator extends ComponentBase {
       }
 
       // Create default profiles (this will overwrite existing if any)
-      await this.createDefaultProfilesFromData(defaultProfilesData);
+      await this._createDefaultProfilesFromData(defaultProfilesData);
       this._assertCurrentOperation(operation);
 
       console.log(`[${this.componentName}] Successfully loaded default data`);
@@ -892,6 +705,12 @@ export default class DataCoordinator extends ComponentBase {
 
   // Try to create profiles from the built-in static catalog.
   async tryCreateDefaultProfiles() {
+    return enqueueDataCoordinatorMutation(this, () =>
+      this._tryCreateDefaultProfiles(),
+    );
+  }
+
+  async _tryCreateDefaultProfiles() {
     if (!this.needsDefaultProfiles) {
       return;
     }
@@ -911,7 +730,7 @@ export default class DataCoordinator extends ComponentBase {
         console.log(
           `[${this.componentName}] Got built-in default profiles, creating...`,
         );
-        await this.createDefaultProfilesFromData(defaultProfilesData);
+        await this._createDefaultProfilesFromData(defaultProfilesData);
         this._assertCurrentOperation(operation);
         this.needsDefaultProfiles = false;
       } else {
@@ -933,12 +752,23 @@ export default class DataCoordinator extends ComponentBase {
   // Create default profiles from validated static data.
   /** @param {Record<string, import('./serviceTypes.js').ProfileData> | null | undefined} defaultProfilesData */
   async createDefaultProfilesFromData(defaultProfilesData) {
+    const detached =
+      defaultProfilesData == null
+        ? null
+        : materializeProfileMap(defaultProfilesData);
+    return enqueueDataCoordinatorMutation(this, () =>
+      this._createDefaultProfilesFromData(detached),
+    );
+  }
+
+  /** @param {Record<string, import('./serviceTypes.js').ProfileData> | null | undefined} defaultProfilesData */
+  async _createDefaultProfilesFromData(defaultProfilesData) {
     const operation = this._captureOperationGeneration();
     if (!defaultProfilesData || Object.keys(defaultProfilesData).length === 0) {
       console.warn(
         `[${this.componentName}] No default profiles data available, creating minimal fallback`,
       );
-      await this.createFallbackProfiles();
+      await this._createFallbackProfiles();
       this._assertCurrentOperation(operation);
       return;
     }
@@ -970,6 +800,7 @@ export default class DataCoordinator extends ComponentBase {
     nextRoot.profiles = structuredClone(nextProfiles);
     nextRoot.currentProfile = nextCurrentProfile;
     try {
+      validatePlannedProjectRoot(nextRoot, { version: this.storage.version });
       await persist.all(this.storage, nextRoot, this.i18n);
     } catch (error) {
       const message = this.i18n.t("failed_to_save_profile", {
@@ -1022,12 +853,18 @@ export default class DataCoordinator extends ComponentBase {
       );
     }
 
-    await Promise.all(publications);
+    recordDataCoordinatorPublication(this, Promise.all(publications));
     this._assertCurrentOperation(operation);
   }
 
   // Create minimal fallback profiles when built-in definitions are unavailable.
   async createFallbackProfiles() {
+    return enqueueDataCoordinatorMutation(this, () =>
+      this._createFallbackProfiles(),
+    );
+  }
+
+  async _createFallbackProfiles() {
     const operation = this._captureOperationGeneration();
     const fallbackProfile = createFallbackProfileDraft();
     fallbackProfile.created = new Date().toISOString();
@@ -1047,6 +884,7 @@ export default class DataCoordinator extends ComponentBase {
     nextRoot.profiles = structuredClone(nextProfiles);
     nextRoot.currentProfile = nextCurrentProfile;
     try {
+      validatePlannedProjectRoot(nextRoot, { version: this.storage.version });
       await persist.all(this.storage, nextRoot, this.i18n);
     } catch (error) {
       const message = this.i18n.t("failed_to_save_profile", {
@@ -1089,7 +927,7 @@ export default class DataCoordinator extends ComponentBase {
       this._assertCurrentOperation(operation);
     }
 
-    await Promise.all(publications);
+    recordDataCoordinatorPublication(this, Promise.all(publications));
     this._assertCurrentOperation(operation);
   }
 
@@ -1099,10 +937,31 @@ export default class DataCoordinator extends ComponentBase {
    * @param {{ rootData?: any }} [options]
    * @returns {Promise<number>}
    */
-  async normalizeAllProfiles(
-    profiles = this.state.profiles,
-    { rootData } = {},
-  ) {
+  async normalizeAllProfiles(profiles, options = {}) {
+    const safeOptions = materializeMutationRequest(options, ["rootData"]);
+    if (safeOptions.rootData != null) {
+      // Validate the supplied envelope before reading any owner/storage value.
+      // The actual storage version and merged candidate are checked in-queue.
+      validatePlannedProjectRoot(safeOptions.rootData, { version: "1.0.0" });
+    }
+    const detached =
+      profiles === undefined ? undefined : materializeProfileMap(profiles);
+    return enqueueDataCoordinatorMutation(this, async () => {
+      const candidate =
+        /** @type {Record<string, import('./serviceTypes.js').ProfileData>} */ (
+          detached ?? structuredClone(this.state.profiles)
+        );
+      const count = await this._normalizeAllProfiles(candidate, safeOptions);
+      if (profiles === undefined) this.state.profiles = candidate;
+      return count;
+    });
+  }
+
+  /** @param {Record<string, import('./serviceTypes.js').ProfileData>} profiles
+   * @param {{rootData?: any}} [options]
+   * @returns {Promise<number>}
+   */
+  async _normalizeAllProfiles(profiles, { rootData } = {}) {
     const operation = this._captureOperationGeneration();
     const label = `[${this.componentName}]`;
     const { profilesNormalized, normalizedProfiles } =
@@ -1126,6 +985,7 @@ export default class DataCoordinator extends ComponentBase {
     });
 
     try {
+      validatePlannedProjectRoot(nextRoot, { version: this.storage.version });
       await persist.all(this.storage, nextRoot, this.i18n, {
         // StorageService or the import path already captured the exact source
         // root. Keep that evidence through the follow-up normalization write.
@@ -1149,6 +1009,18 @@ export default class DataCoordinator extends ComponentBase {
   // Reload state from storage (used after data import/restore)
   /** @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:reload-state'>>} */
   async reloadState() {
+    try {
+      await this._initialStateCommitted;
+      return await enqueueDataCoordinatorMutation(this, () =>
+        this._reloadState(),
+      );
+    } catch (error) {
+      return { success: false, error: errMsg(error) };
+    }
+  }
+
+  /** @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:reload-state'>>} */
+  async _reloadState() {
     console.log(`[${this.componentName}] Reloading state from storage...`);
     if (!this.initialized || this.destroyed) {
       return { success: false, error: "operation_cancelled" };
@@ -1156,7 +1028,6 @@ export default class DataCoordinator extends ComponentBase {
     const operation = this._captureOperationGeneration();
 
     try {
-      await this.initialStateReady;
       this._assertCurrentOperation(operation);
 
       // Get fresh data from storage
@@ -1166,9 +1037,12 @@ export default class DataCoordinator extends ComponentBase {
       const nextCurrentProfile = allData.currentProfile || null;
 
       // Normalize any newly imported profiles
-      const profilesNormalized = await this.normalizeAllProfiles(nextProfiles, {
-        rootData: allData,
-      });
+      const profilesNormalized = await this._normalizeAllProfiles(
+        nextProfiles,
+        {
+          rootData: allData,
+        },
+      );
       this._assertCurrentOperation(operation);
       const durableRoot =
         profilesNormalized > 0 ? this.storage.getAllData() : allData;
@@ -1207,7 +1081,7 @@ export default class DataCoordinator extends ComponentBase {
       // Invoke every compatibility publication in its historical order before
       // awaiting them together. This preserves event ordering without making
       // one topic's listener latency delay invocation of the next topic.
-      await publicationsSettled;
+      recordDataCoordinatorPublication(this, publicationsSettled);
       this._assertCurrentOperation(operation);
 
       return result;

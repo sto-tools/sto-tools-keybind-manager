@@ -100,13 +100,12 @@ describe("BindsetService replacement ownership", () => {
 
   it("routes a mutation only to the live replacement authority", async () => {
     fixture = createServiceFixture();
-    const updateProfile = vi.fn(async ({ profileId, updates }) => ({
+    const updateProfile = vi.fn(async ({ updates }) => ({
       success: true,
       profile: {
         ...structuredClone(profile),
         bindsets: structuredClone(updates.add.bindsets),
       },
-      profileId,
     }));
     detachUpdateResponder = respond(
       fixture.eventBus,
@@ -162,6 +161,7 @@ describe("BindsetService replacement ownership", () => {
           },
         },
       },
+      precondition: { authorityEpoch: 2, revision: 1 },
     });
 
     replacementService.destroy();

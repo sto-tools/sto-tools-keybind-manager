@@ -1,4 +1,14 @@
 import ComponentBase from "../ComponentBase.js";
+import {
+  materializeMutationRequest,
+  requireMutationString,
+  requireProfileUpdateResult,
+} from "./mutationRequestBoundary.js";
+import {
+  captureProfileMutationContext,
+  assertProfileMutationContext,
+  canPublishProfileMutation,
+} from "./profileMutationContext.js";
 
 /**
  * AliasService – the authoritative service for creating, deleting and duplicating
@@ -17,44 +27,84 @@ export default class AliasService extends ComponentBase {
     this.ui = ui;
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
+    this._mutationGeneration = 0;
   }
 
   setupRequestHandlers() {
     if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
 
     this._responseDetachFunctions.push(
-      this.respond(
-        "alias:add",
-        (
-          {
-            name,
-            description,
-          } = /** @type {{ name?: string, description?: string }} */ ({}),
-        ) => this.addAlias(name, description),
-      ),
-      this.respond(
-        "alias:delete",
-        ({ name } = /** @type {{ name?: string }} */ ({})) =>
-          this.deleteAlias(name),
-      ),
-      this.respond(
-        "alias:duplicate-with-name",
-        (
-          {
-            sourceName,
-            newName,
-          } = /** @type {{ sourceName?: string, newName?: string }} */ ({}),
-        ) => this.duplicateAliasWithName(sourceName, newName),
-      ),
-      this.respond(
-        "alias:validate-name",
-        ({ name } = /** @type {{ name?: string }} */ ({})) =>
-          this.isValidAliasName(name),
-      ),
+      this.respond("alias:add", (payload = {}) => {
+        try {
+          const input = materializeMutationRequest(payload, [
+            "name",
+            "description",
+          ]);
+          return this.addAlias(
+            requireMutationString(input.name, {
+              optional: true,
+              allowEmpty: true,
+            }),
+            requireMutationString(input.description, {
+              optional: true,
+              allowEmpty: true,
+            }),
+          );
+        } catch {
+          return { success: false, error: "invalid_alias_name" };
+        }
+      }),
+      this.respond("alias:delete", (payload = {}) => {
+        try {
+          const input = materializeMutationRequest(payload, ["name"]);
+          return this.deleteAlias(
+            requireMutationString(input.name, {
+              optional: true,
+              allowEmpty: true,
+            }),
+          );
+        } catch {
+          return { success: false, error: "alias_not_found" };
+        }
+      }),
+      this.respond("alias:duplicate-with-name", (payload = {}) => {
+        try {
+          const input = materializeMutationRequest(payload, [
+            "sourceName",
+            "newName",
+          ]);
+          return this.duplicateAliasWithName(
+            requireMutationString(input.sourceName, {
+              optional: true,
+              allowEmpty: true,
+            }),
+            requireMutationString(input.newName, {
+              optional: true,
+              allowEmpty: true,
+            }),
+          );
+        } catch {
+          return { success: false, error: "invalid_alias_name" };
+        }
+      }),
+      this.respond("alias:validate-name", (payload = {}) => {
+        try {
+          const input = materializeMutationRequest(payload, ["name"]);
+          return this.isValidAliasName(
+            requireMutationString(input.name, {
+              optional: true,
+              allowEmpty: true,
+            }),
+          );
+        } catch {
+          return false;
+        }
+      }),
     );
   }
 
   onDestroy() {
+    this._mutationGeneration += 1;
     for (const detach of this._responseDetachFunctions) detach();
     this._responseDetachFunctions = [];
   }
@@ -68,46 +118,8 @@ export default class AliasService extends ComponentBase {
   }
 
   onInit() {
+    this._mutationGeneration += 1;
     this.setupRequestHandlers();
-    this.setupEventListeners();
-  }
-
-  // Event listeners for DataCoordinator integration
-  setupEventListeners() {
-    if (!this.eventBus) return;
-
-    // Listen for profile updates
-    this.addEventListener("profile:updated", ({ profileId, profile }) => {
-      if (profileId === this.serviceCache.currentProfile) {
-        this.updateCacheFromProfile(profile);
-      }
-    });
-
-    this.addEventListener(
-      "profile:switched",
-      ({ profileId, profile, environment }) => {
-        this.serviceCache.currentProfile = profileId || null;
-        this.serviceCache.currentEnvironment = environment || "space";
-
-        this.updateCacheFromProfile(profile);
-      },
-    );
-
-    // Listen for environment changes
-    this.addEventListener("environment:changed", ({ environment }) => {
-      if (environment) {
-        this.serviceCache.currentEnvironment = environment;
-      }
-    });
-  }
-
-  // Update local cache from profile data
-  /** @param {import('./serviceTypes.js').ProfileData | null | undefined} profile */
-  updateCacheFromProfile(profile) {
-    if (!profile) return;
-
-    this.serviceCache.aliases = profile.aliases || {};
-    this.serviceCache.profile = profile;
   }
 
   // Core alias operations now use DataCoordinator
@@ -117,16 +129,30 @@ export default class AliasService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/aliases.js').AliasAddResult>}
    */
   async addAlias(name, description = "") {
+    try {
+      name = requireMutationString(name, { optional: true, allowEmpty: true });
+      description = requireMutationString(description, { allowEmpty: true });
+    } catch {
+      return { success: false, error: "invalid_alias_name" };
+    }
+    const generation = this._mutationGeneration;
     if (!name || !(await this.isValidAliasName(name))) {
       return { success: false, error: "invalid_alias_name", params: { name } };
     }
 
-    if (!this.serviceCache.currentProfile) {
+    let context;
+    try {
+      context = captureProfileMutationContext(this, generation);
+      assertProfileMutationContext(this, context, this._mutationGeneration);
+    } catch {
+      return { success: false, error: "failed_to_add_alias" };
+    }
+    if (!context.profileId) {
       return { success: false, error: "no_profile_selected" };
     }
 
     // Check if alias already exists in cache
-    if (this.serviceCache.aliases[name]) {
+    if (this.cache.dataState?.profiles[context.profileId]?.aliases?.[name]) {
       return {
         success: false,
         error: "alias_already_exists",
@@ -135,15 +161,11 @@ export default class AliasService extends ComponentBase {
     }
 
     try {
-      // Set selection before updating profile so profile:updated refreshes with the new alias
-      await this.request("selection:select-alias", {
-        aliasName: name,
-        skipPersistence: true,
-      });
-
       // Add new alias using explicit operations API
-      await this.request("data:update-profile", {
-        profileId: this.serviceCache.currentProfile,
+      assertProfileMutationContext(this, context, this._mutationGeneration);
+      const result = await this.request("data:update-profile", {
+        profileId: context.profileId,
+        precondition: context.precondition,
         add: {
           aliases: {
             [name]: {
@@ -154,6 +176,21 @@ export default class AliasService extends ComponentBase {
           },
         },
       });
+      requireProfileUpdateResult(result);
+
+      if (canPublishProfileMutation(this, context, this._mutationGeneration)) {
+        try {
+          await this.request("selection:select-alias", {
+            aliasName: name,
+            skipPersistence: true,
+          });
+        } catch (error) {
+          console.warn(
+            "[AliasService] Alias saved but selection presentation failed:",
+            error,
+          );
+        }
+      }
 
       return { success: true, message: "alias_created", data: { name } };
     } catch (error) {
@@ -168,24 +205,40 @@ export default class AliasService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/aliases.js').AliasDeleteResult>}
    */
   async deleteAlias(name) {
-    if (!this.serviceCache.currentProfile) {
+    try {
+      name = requireMutationString(name, { optional: true, allowEmpty: true });
+    } catch {
+      return { success: false, error: "alias_not_found" };
+    }
+    if (!name)
+      return { success: false, error: "alias_not_found", params: { name } };
+    let context;
+    try {
+      context = captureProfileMutationContext(this, this._mutationGeneration);
+    } catch {
+      return { success: false, error: "failed_to_delete_alias" };
+    }
+    if (!context.profileId) {
       return { success: false, error: "no_profile_selected" };
     }
 
-    if (!name || !this.serviceCache.aliases[name]) {
+    if (!this.cache.dataState?.profiles[context.profileId]?.aliases?.[name]) {
       return { success: false, error: "alias_not_found", params: { name } };
     }
 
     try {
       // Delete alias using explicit operations API
-      await this.request("data:update-profile", {
-        profileId: this.serviceCache.currentProfile,
+      assertProfileMutationContext(this, context, this._mutationGeneration);
+      const result = await this.request("data:update-profile", {
+        profileId: context.profileId,
+        precondition: context.precondition,
         delete: {
           aliases: [name],
         },
       });
-
-      this.emit("alias-deleted", { name });
+      requireProfileUpdateResult(result);
+      if (canPublishProfileMutation(this, context, this._mutationGeneration))
+        this.emit("alias-deleted", { name });
       return { success: true, message: "alias_deleted", data: { name } };
     } catch (error) {
       console.error("[AliasService] Failed to delete alias:", error);
@@ -200,19 +253,23 @@ export default class AliasService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/aliases.js').AliasDuplicateResult>}
    */
   async duplicateAliasWithName(sourceName, newName) {
+    try {
+      sourceName = requireMutationString(sourceName, {
+        optional: true,
+        allowEmpty: true,
+      });
+      newName = requireMutationString(newName, {
+        optional: true,
+        allowEmpty: true,
+      });
+    } catch {
+      return { success: false, error: "invalid_alias_name" };
+    }
     if (!sourceName || !newName) {
       return { success: false, error: "invalid_alias_name" };
     }
 
-    // Validate source exists
-    if (!this.serviceCache.aliases[sourceName]) {
-      return {
-        success: false,
-        error: "alias_not_found",
-        params: { name: sourceName },
-      };
-    }
-
+    const generation = this._mutationGeneration;
     // Validate new alias name and not duplicate
     if (!(await this.isValidAliasName(newName))) {
       return {
@@ -221,7 +278,24 @@ export default class AliasService extends ComponentBase {
         params: { name: newName },
       };
     }
-    if (this.serviceCache.aliases[newName]) {
+    let context;
+    try {
+      context = captureProfileMutationContext(this, generation);
+      assertProfileMutationContext(this, context, this._mutationGeneration);
+    } catch {
+      return { success: false, error: "failed_to_duplicate_alias" };
+    }
+    const profileId = context.profileId;
+    if (!profileId)
+      return { success: false, error: "failed_to_duplicate_alias" };
+    const aliases = this.cache.dataState?.profiles[profileId]?.aliases ?? {};
+    if (!aliases[sourceName])
+      return {
+        success: false,
+        error: "alias_not_found",
+        params: { name: sourceName },
+      };
+    if (aliases[newName]) {
       return {
         success: false,
         error: "alias_already_exists",
@@ -229,15 +303,13 @@ export default class AliasService extends ComponentBase {
       };
     }
 
-    const original = this.serviceCache.aliases[sourceName];
-    const profileId = this.serviceCache.currentProfile;
-    if (!profileId) {
-      return { success: false, error: "failed_to_duplicate_alias" };
-    }
+    const original = structuredClone(aliases[sourceName]);
 
     try {
-      await this.request("data:update-profile", {
+      assertProfileMutationContext(this, context, this._mutationGeneration);
+      const result = await this.request("data:update-profile", {
         profileId,
+        precondition: context.precondition,
         add: {
           aliases: {
             [newName]: {
@@ -248,13 +320,7 @@ export default class AliasService extends ComponentBase {
           },
         },
       });
-
-      // Update local cache
-      this.serviceCache.aliases[newName] = {
-        description: original.description,
-        commands: original.commands,
-        type: original.type || "alias",
-      };
+      requireProfileUpdateResult(result);
 
       return {
         success: true,

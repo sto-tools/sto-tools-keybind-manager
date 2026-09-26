@@ -7,15 +7,15 @@ import applicationGlobalsPlugin from "./scripts/eslint/applicationGlobals.mjs";
 // Existing oversized files cannot grow. Lower a limit whenever the file shrinks
 // until every entry reaches the repository-wide 500-line policy.
 const legacyMaxLineLimits = {
-  "src/js/components/services/DataCoordinator.js": 895,
+  "src/js/components/services/DataCoordinator.js": 769,
   "src/js/components/services/ParameterCommandService.js": 550,
   "src/js/components/ui/CommandChainUI.js": 854,
   "src/js/components/ui/CommandUI.js": 538,
   "src/js/lib/kbf/parsers/KBFDecodePipeline.js": 915,
   "src/js/lib/kbf/translation/ActivityTranslator.js": 1767,
   "tests/unit/lib/ActivityTranslator.test.js": 3250,
-  "tests/unit/services/ImportService.test.js": 826,
-  "tests/unit/services/SelectionService.test.js": 580,
+  "tests/unit/services/ImportService.test.js": 777,
+  "tests/unit/services/SelectionService.test.js": 554,
   "tests/unit/ui/CommandChainUI.test.js": 423,
 };
 

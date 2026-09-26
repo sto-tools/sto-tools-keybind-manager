@@ -1,4 +1,8 @@
 import ComponentBase from "../ComponentBase.js";
+import {
+  materializeMutationRequest,
+  requireProfileUpdateResult,
+} from "./mutationRequestBoundary.js";
 
 /** @typedef {'space' | 'ground' | 'alias'} InterfaceMode */
 /** @typedef {import('../../types/rpc/index.js').RpcResult<'environment:switch'>} EnvironmentSwitchResult */
@@ -10,6 +14,15 @@ import ComponentBase from "../ComponentBase.js";
  *   profileId: string | null
  * }} ModeSwitchContext
  */
+/** @typedef {{
+ *   mode: InterfaceMode,
+ *   context: ModeSwitchContext,
+ *   startingRevision: number | null,
+ *   ownerAdvanced: boolean,
+ *   targetObserved: boolean,
+ *   publication: Promise<unknown> | null,
+ *   releaseAdmission: () => void
+ * }} ModeSwitchAction */
 
 /** @type {ReadonlySet<string>} */
 const INTERFACE_MODES = new Set(["space", "ground", "alias"]);
@@ -50,8 +63,8 @@ export default class InterfaceModeService extends ComponentBase {
     this._acceptedProfileId = null;
     /** @type {Promise<void>} */
     this._switchQueue = Promise.resolve();
-    /** @type {Promise<unknown>} */
-    this._modePublication = Promise.resolve();
+    this._activeModeSwitch = /** @type {ModeSwitchAction | null} */ (null);
+    this._modePublication = /** @type {Promise<unknown>} */ (Promise.resolve());
     /** @type {InterfaceMode} */
     this._modePublicationMode = this._currentMode;
 
@@ -79,12 +92,14 @@ export default class InterfaceModeService extends ComponentBase {
 
     this._responseDetachFunction = this.respond(
       "environment:switch",
-      (payload) =>
-        this.switchMode(
-          payload && typeof payload === "object" && "mode" in payload
-            ? payload.mode
-            : undefined,
-        ),
+      (payload) => {
+        try {
+          const request = materializeMutationRequest(payload, ["mode"]);
+          return this.switchMode(request.mode);
+        } catch {
+          return { success: false, error: "invalid_environment" };
+        }
+      },
     );
   }
 
@@ -163,12 +178,25 @@ export default class InterfaceModeService extends ComponentBase {
       }
       this._acceptedAuthorityEpoch = state.authorityEpoch;
       this._acceptedProfileId = state.currentProfile;
-
-      return this.adoptAcceptedMode(state.currentEnvironment, {
-        isInitialization:
-          reason === "initial-load" || reason === "storage-reset",
-        publish: !OWNER_PUBLISHED_ENVIRONMENT_REASONS.has(reason),
-      });
+      const observedAction = this._observeActiveSwitch(
+        state,
+        reason,
+        profileId,
+      );
+      /** @type {Promise<unknown> | null} */
+      let publication = null;
+      // The pending publication may itself await a selection write that produced
+      // this snapshot, so joining it here would create an acknowledgement cycle.
+      if (state.currentEnvironment !== this._currentMode) {
+        publication = this.adoptAcceptedMode(state.currentEnvironment, {
+          isInitialization:
+            reason === "initial-load" || reason === "storage-reset",
+          publish: !OWNER_PUBLISHED_ENVIRONMENT_REASONS.has(reason),
+        });
+      }
+      if (observedAction?.targetObserved)
+        observedAction.publication = publication ?? Promise.resolve();
+      return publication ?? undefined;
     };
 
     this.eventBus?.on("profile:switched", this._profileSwitchedHandler);
@@ -216,101 +244,154 @@ export default class InterfaceModeService extends ComponentBase {
     );
   }
 
-  /**
-   * Queue every valid user switch behind its predecessors. Both fulfilment and
-   * rejection advance the tail so one failed persistence cannot poison it.
-   *
+  /** Release admission on exact-CAS supersession; retain matching settlement.
+   * @param {import('../../types/events/component-state.js').DataCoordinatorStateSnapshot} state
+   * @param {import('../../types/events/data.js').DataStateChangeReason} reason
+   * @param {string | undefined} changedProfileId
+   * @returns {ModeSwitchAction | null}
+   */
+  _observeActiveSwitch(state, reason, changedProfileId) {
+    const action = this._activeModeSwitch;
+    if (!action || action.startingRevision === null) return null;
+    const { context } = action;
+    const replacement =
+      PROFILE_CONTEXT_REPLACEMENT_REASONS.has(reason) ||
+      (reason === "profile-replaced" &&
+        changedProfileId === state.currentProfile);
+    const sameAuthority = state.authorityEpoch === context.authorityEpoch;
+    const superseded =
+      !sameAuthority || state.revision > action.startingRevision;
+    if (!superseded) return null;
+
+    action.ownerAdvanced = true;
+    if (
+      !replacement &&
+      sameAuthority &&
+      state.currentProfile === context.profileId &&
+      state.currentEnvironment === action.mode
+    ) {
+      action.targetObserved = true;
+    }
+    action.releaseAdmission();
+    return action;
+  }
+
+  /** Queue valid switches; fulfilment and rejection both advance the tail.
    * @param {InterfaceMode} mode
    * @param {ModeSwitchContext} context
    * @returns {Promise<EnvironmentSwitchResult>}
    */
   _enqueueModeSwitch(mode, context) {
-    const run = () => this._runModeSwitch(mode, context);
-    const result = this._switchQueue.then(run, run);
-    this._switchQueue = result.then(
-      () => undefined,
-      () => undefined,
+    let released = false;
+    let release = () => {};
+    /** @type {Promise<void>} */
+    const admitted = new Promise((resolve) => {
+      release = () => resolve();
+    });
+    const action = /** @type {ModeSwitchAction} */ ({
+      mode,
+      context,
+      startingRevision: null,
+      ownerAdvanced: false,
+      targetObserved: false,
+      publication: null,
+      releaseAdmission: () => {
+        if (released) return;
+        released = true;
+        release();
+      },
+    });
+    const predecessor = this._switchQueue;
+    const started = predecessor.then(
+      () => ({ result: this._runModeSwitch(action) }),
+      () => ({ result: this._runModeSwitch(action) }),
     );
-    return result;
+    this._switchQueue = started
+      .then(
+        () => admitted,
+        () => admitted,
+      )
+      .then(() => undefined);
+    return started.then(({ result }) => result);
   }
 
-  /**
-   * @param {InterfaceMode} mode
-   * @param {ModeSwitchContext} context
+  /** @param {ModeSwitchAction} action
    * @returns {Promise<EnvironmentSwitchResult>}
    */
-  async _runModeSwitch(mode, context) {
-    if (!this._isCurrentLifecycle(context)) {
-      return { success: false, error: "operation_cancelled" };
-    }
-
-    if (!this._isCurrentSwitchContext(context)) {
-      return { success: false, error: "operation_cancelled" };
-    }
-
-    // Evaluate this only after preceding requests have completed. A sequence
-    // such as ground -> space must not collapse the second invocation merely
-    // because space was current when it was enqueued.
-    if (mode === this._currentMode) {
-      return { success: true, mode };
-    }
-
-    if (!context.profileId) {
-      return { success: false, error: "no_profile_selected" };
-    }
-
-    const startingSnapshot = this.cache.dataState;
-    const startingRevision = startingSnapshot?.ready
-      ? startingSnapshot.revision
-      : null;
-    let result;
+  async _runModeSwitch(action) {
+    const { mode, context } = action;
     try {
-      result = await this.request("data:update-profile", {
-        profileId: context.profileId,
-        properties: {
-          currentEnvironment: mode,
-        },
-      });
-    } catch (error) {
+      if (!this._isCurrentLifecycle(context)) {
+        return { success: false, error: "operation_cancelled" };
+      }
+
       if (!this._isCurrentSwitchContext(context)) {
         return { success: false, error: "operation_cancelled" };
       }
-      console.error(
-        "[InterfaceModeService] Failed to persist environment change:",
-        error,
-      );
-      return { success: false, error: "failed_to_save_profile" };
-    }
 
-    if (!this._isCurrentSwitchContext(context)) {
-      return { success: false, error: "operation_cancelled" };
-    }
-    if (!result?.success) {
-      return { success: false, error: "failed_to_save_profile" };
-    }
+      // Evaluate this only after preceding requests have committed or become
+      // irrevocably stale. Listener settlement remains private to each reply.
+      if (mode === this._currentMode) {
+        return { success: true, mode };
+      }
 
-    const acceptedSnapshot = this.cache.dataState;
-    const ownerPublishedDuringWrite = Boolean(
-      startingRevision !== null &&
-        acceptedSnapshot?.ready &&
-        acceptedSnapshot.authorityEpoch === context.authorityEpoch &&
-        acceptedSnapshot.currentProfile === context.profileId &&
-        acceptedSnapshot.revision > startingRevision,
-    );
-    if (
-      ownerPublishedDuringWrite &&
-      acceptedSnapshot?.currentEnvironment !== mode
-    ) {
-      return { success: false, error: "operation_cancelled" };
+      if (!context.profileId) {
+        return { success: false, error: "no_profile_selected" };
+      }
+
+      const startingSnapshot = this.cache.dataState;
+      if (!startingSnapshot?.ready) {
+        return { success: false, error: "operation_cancelled" };
+      }
+      action.startingRevision = startingSnapshot.revision;
+      this._activeModeSwitch = action;
+
+      try {
+        const result = await this.request("data:update-profile", {
+          profileId: context.profileId,
+          precondition: {
+            authorityEpoch: startingSnapshot.authorityEpoch,
+            revision: startingSnapshot.revision,
+          },
+          properties: {
+            currentEnvironment: mode,
+          },
+        });
+        requireProfileUpdateResult(result);
+      } catch (error) {
+        if (!this._isCurrentSwitchContext(context)) {
+          return { success: false, error: "operation_cancelled" };
+        }
+        console.error(
+          "[InterfaceModeService] Failed to persist environment change:",
+          error,
+        );
+        return { success: false, error: "failed_to_save_profile" };
+      }
+
+      if (action.targetObserved) {
+        await action.publication;
+        return { success: true, mode };
+      }
+      if (!this._isCurrentSwitchContext(context) || action.ownerAdvanced) {
+        return { success: true, mode };
+      }
+
+      // Test doubles and compatibility responders may acknowledge without a
+      // state publication. Invoke the local projection before releasing the
+      // admission tail, then await only this action's listener settlement.
+      action.publication = this.adoptAcceptedMode(mode);
+      action.targetObserved = true;
+      action.releaseAdmission();
+      await action.publication;
+      return { success: true, mode };
+    } finally {
+      action.releaseAdmission();
+      if (this._activeModeSwitch === action) this._activeModeSwitch = null;
     }
-
-    await this.adoptAcceptedMode(mode);
-
-    return { success: true, mode };
   }
 
-  /**
-   * Switch to a new mode through the durable DataCoordinator boundary.
+  /** Switch to a new mode through the durable DataCoordinator boundary.
    * @param {unknown} mode
    * @returns {Promise<EnvironmentSwitchResult>}
    */
@@ -325,8 +406,7 @@ export default class InterfaceModeService extends ComponentBase {
     return this._enqueueModeSwitch(mode, this._captureSwitchContext());
   }
 
-  /**
-   * Adopt an environment already accepted by DataCoordinator without writing
+  /** Adopt an environment already accepted by DataCoordinator without writing
    * it back through the persistence boundary.
    *
    * @param {unknown} mode
@@ -369,10 +449,11 @@ export default class InterfaceModeService extends ComponentBase {
   // Cleanup event listeners and invalidate queued/in-flight work.
   onDestroy() {
     this._lifecycleGeneration += 1;
+    this._activeModeSwitch?.releaseAdmission();
+    this._activeModeSwitch = null;
     this._switchQueue = Promise.resolve();
     this._modePublication = Promise.resolve();
     this._modePublicationMode = this._currentMode;
-
     if (this._modeListenersSetup && this._profileSwitchedHandler) {
       this.eventBus?.off("profile:switched", this._profileSwitchedHandler);
     }

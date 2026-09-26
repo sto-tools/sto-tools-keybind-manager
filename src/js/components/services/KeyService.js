@@ -1,5 +1,32 @@
 import ComponentBase from "../ComponentBase.js";
 import { STO_KEY_NAMES } from "../../data/stoKeyNames.js";
+import {
+  materializeMutationRequest,
+  requireMutationString,
+  requireProfileUpdateResult,
+} from "./mutationRequestBoundary.js";
+import {
+  captureProfileMutationContext,
+  assertProfileMutationContext,
+  canPublishProfileMutation,
+} from "./profileMutationContext.js";
+
+/** @param {unknown} input @param {readonly string[]} fields */
+function keyRequest(input, fields) {
+  const value = materializeMutationRequest(input, fields);
+  for (const field of fields) {
+    requireMutationString(value[field], {
+      optional: true,
+      nullable: field === "sourceKey" || field === "bindset",
+      allowEmpty: true,
+    });
+    if (
+      ["__proto__", "constructor", "prototype"].includes(String(value[field]))
+    )
+      throw new TypeError("invalid_mutation_request");
+  }
+  return value;
+}
 
 /**
  * KeyService – the authoritative service for creating, deleting and duplicating
@@ -23,34 +50,31 @@ export default class KeyService extends ComponentBase {
 
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
+    this._mutationGeneration = 0;
   }
 
   setupRequestHandlers() {
     if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
 
     this._responseDetachFunctions.push(
-      this.respond(
-        "key:add",
-        (
-          {
-            key,
-            bindset,
-          } = /** @type {{ key?: string, bindset?: string }} */ ({}),
-        ) => this.addKey(key, bindset),
-      ),
-      this.respond(
-        "key:delete",
-        ({ key } = /** @type {{ key?: string }} */ ({})) => this.deleteKey(key),
-      ),
-      this.respond(
-        "key:duplicate-with-name",
-        (
-          {
-            sourceKey,
-            newKey,
-          } = /** @type {{ sourceKey?: string, newKey?: string }} */ ({}),
-        ) => this.duplicateKeyWithName(sourceKey, newKey),
-      ),
+      this.respond("key:add", (payload) => {
+        const input = keyRequest(payload === undefined ? {} : payload, [
+          "key",
+          "bindset",
+        ]);
+        return this.addKey(input.key, input.bindset);
+      }),
+      this.respond("key:delete", (payload) => {
+        const input = keyRequest(payload === undefined ? {} : payload, ["key"]);
+        return this.deleteKey(input.key);
+      }),
+      this.respond("key:duplicate-with-name", (payload) => {
+        const input = keyRequest(payload === undefined ? {} : payload, [
+          "sourceKey",
+          "newKey",
+        ]);
+        return this.duplicateKeyWithName(input.sourceKey, input.newKey);
+      }),
     );
   }
 
@@ -92,25 +116,38 @@ export default class KeyService extends ComponentBase {
 
   // Core key operations now use DataCoordinator
   /**
-   * @param {string | undefined} keyName
-   * @param {string | null} [bindset]
+   * @param {unknown} keyName
+   * @param {unknown} [bindset]
    * @returns {Promise<import('../../types/rpc/keys.js').KeyAddResult>}
    */
   async addKey(keyName, bindset = null) {
+    try {
+      keyRequest({ key: keyName, bindset }, ["key", "bindset"]);
+    } catch {
+      return { success: false, error: "invalid_key_name" };
+    }
+    if (typeof keyName !== "string")
+      return { success: false, error: "invalid_key_name" };
     if (!(await this.isValidKeyName(keyName))) {
       return { success: false, error: "invalid_key_name", params: { keyName } };
     }
-    if (typeof keyName !== "string") {
-      return { success: false, error: "invalid_key_name", params: { keyName } };
-    }
-
     if (!this.cache.currentProfile) {
       return { success: false, error: "no_profile_selected" };
     }
 
-    const environment = this.cache.currentEnvironment;
+    let context;
+    try {
+      context = captureProfileMutationContext(this, this._mutationGeneration);
+    } catch {
+      return { success: false, error: "failed_to_add_key" };
+    }
+    const environment = context.environment;
+    if (!context.profileId)
+      return { success: false, error: "no_profile_selected" };
     const targetBindset =
-      bindset && bindset !== "Primary Bindset" ? bindset : null;
+      typeof bindset === "string" && bindset && bindset !== "Primary Bindset"
+        ? bindset
+        : null;
     const profile = this.cache.profile;
 
     if (targetBindset) {
@@ -135,23 +172,12 @@ export default class KeyService extends ComponentBase {
     }
 
     try {
-      // CRITICAL FIX: Update selection FIRST, before modifying profile
-      // This ensures when data:update-profile triggers profile:updated,
-      // the selection cache already contains the new key
-      // Use skipPersistence to avoid triggering a second profile:updated event
-      await this.request("selection:select-key", {
-        keyName,
-        environment,
-        ...(targetBindset ? { bindset: targetBindset } : {}),
-        skipPersistence: true, // Skip persistence to avoid duplicate profile:updated events
-      });
-
-      // NOW update the profile - DataCoordinator will emit profile:updated,
-      // but selection cache is already correct
+      assertProfileMutationContext(this, context, this._mutationGeneration);
       if (targetBindset) {
         // Add to a specific bindset without touching primary keys
-        await this.request("data:update-profile", {
-          profileId: this.cache.currentProfile,
+        const result = await this.request("data:update-profile", {
+          profileId: context.profileId,
+          precondition: context.precondition,
           updates: {
             modify: {
               bindsets: {
@@ -167,26 +193,12 @@ export default class KeyService extends ComponentBase {
           },
         });
 
-        // Keep local cache in sync so UI can immediately render the new bindset key
-        this.cache.profile = this.cache.profile || {};
-        this.cache.profile.bindsets = this.cache.profile.bindsets || {};
-        const bindsetData =
-          this.cache.profile.bindsets[targetBindset] ??
-          (this.cache.profile.bindsets[targetBindset] = {
-            space: { keys: {} },
-            ground: { keys: {} },
-          });
-        const environmentData =
-          bindsetData[environment] ??
-          (bindsetData[environment] = {
-            keys: {},
-          });
-        const targetKeys = environmentData.keys ?? (environmentData.keys = {});
-        targetKeys[keyName] = [];
+        requireProfileUpdateResult(result);
       } else {
         // Add to primary bindset (original path)
-        await this.request("data:update-profile", {
-          profileId: this.cache.currentProfile,
+        const result = await this.request("data:update-profile", {
+          profileId: context.profileId,
+          precondition: context.precondition,
           add: {
             builds: {
               [environment]: {
@@ -198,10 +210,22 @@ export default class KeyService extends ComponentBase {
           },
         });
 
-        // Keep primary cache in sync for immediate UI updates
-        this.cache.keys[keyName] = [];
-        if (this.cache.profile?.builds?.[environment]?.keys) {
-          this.cache.profile.builds[environment].keys[keyName] = [];
+        requireProfileUpdateResult(result);
+      }
+
+      if (canPublishProfileMutation(this, context, this._mutationGeneration)) {
+        try {
+          await this.request("selection:select-key", {
+            keyName,
+            environment,
+            ...(targetBindset ? { bindset: targetBindset } : {}),
+            skipPersistence: true,
+          });
+        } catch (error) {
+          console.warn(
+            "[KeyService] Key saved but selection presentation failed:",
+            error,
+          );
         }
       }
 
@@ -219,10 +243,17 @@ export default class KeyService extends ComponentBase {
 
   // Delete a key row from the current profile
   /**
-   * @param {string | undefined} keyName
+   * @param {unknown} keyName
    * @returns {Promise<import('../../types/rpc/keys.js').KeyDeleteResult>}
    */
   async deleteKey(keyName) {
+    try {
+      keyRequest({ key: keyName }, ["key"]);
+    } catch {
+      return { success: false, error: "key_not_found" };
+    }
+    if (typeof keyName !== "string" || !keyName)
+      return { success: false, error: "key_not_found" };
     if (!this.cache.currentProfile) {
       return { success: false, error: "no_profile_selected" };
     }
@@ -232,9 +263,16 @@ export default class KeyService extends ComponentBase {
     }
 
     try {
+      const context = captureProfileMutationContext(
+        this,
+        this._mutationGeneration,
+      );
       // Delete key using explicit operations API
-      await this.request("data:update-profile", {
-        profileId: this.cache.currentProfile,
+      if (!context.profileId)
+        return { success: false, error: "no_profile_selected" };
+      const result = await this.request("data:update-profile", {
+        profileId: context.profileId,
+        precondition: context.precondition,
         delete: {
           builds: {
             [this.cache.currentEnvironment]: {
@@ -243,13 +281,15 @@ export default class KeyService extends ComponentBase {
           },
         },
       });
+      requireProfileUpdateResult(result);
 
       // SelectionService handles selection clearing automatically via key-deleted event
-      this.emit("key-deleted", { keyName });
+      if (canPublishProfileMutation(this, context, this._mutationGeneration))
+        this.emit("key-deleted", { keyName });
       return {
         success: true,
         key: keyName,
-        environment: this.cache.currentEnvironment,
+        environment: context.environment,
       };
     } catch (error) {
       console.error("[KeyService] Failed to delete key:", error);
@@ -259,10 +299,17 @@ export default class KeyService extends ComponentBase {
 
   // Duplicate an existing key row (clone commands with new ids)
   /**
-   * @param {string | undefined} keyName
+   * @param {unknown} keyName
    * @returns {Promise<import('../../types/rpc/keys.js').KeyDuplicateResult>}
    */
   async duplicateKey(keyName) {
+    try {
+      keyRequest({ key: keyName }, ["key"]);
+    } catch {
+      return { success: false, error: "key_not_found" };
+    }
+    if (typeof keyName !== "string" || !keyName)
+      return { success: false, error: "key_not_found" };
     if (!this.cache.currentProfile) {
       return { success: false, error: "no_profile_selected" };
     }
@@ -277,7 +324,13 @@ export default class KeyService extends ComponentBase {
     }
 
     try {
+      const context = captureProfileMutationContext(
+        this,
+        this._mutationGeneration,
+      );
       // Generate unique new key name
+      if (!context.profileId)
+        return { success: false, error: "no_profile_selected" };
       let newKeyName = `${keyName}_copy`;
       let counter = 1;
       while (this.cache.keys[newKeyName]) {
@@ -292,8 +345,9 @@ export default class KeyService extends ComponentBase {
       );
 
       // Add duplicated key using explicit operations API
-      await this.request("data:update-profile", {
-        profileId: this.cache.currentProfile,
+      const result = await this.request("data:update-profile", {
+        profileId: context.profileId,
+        precondition: context.precondition,
         add: {
           builds: {
             [this.cache.currentEnvironment]: {
@@ -304,12 +358,13 @@ export default class KeyService extends ComponentBase {
           },
         },
       });
+      requireProfileUpdateResult(result);
 
       return {
         success: true,
         sourceKey: keyName,
         newKey: newKeyName,
-        environment: this.cache.currentEnvironment,
+        environment: context.environment,
       };
     } catch (error) {
       console.error("[KeyService] Failed to duplicate key:", error);
@@ -319,25 +374,29 @@ export default class KeyService extends ComponentBase {
 
   // Duplicate an existing key to an explicit new key name
   /**
-   * @param {string | null | undefined} sourceKey
-   * @param {string | undefined} newKey
+   * @param {unknown} sourceKey
+   * @param {unknown} newKey
    * @returns {Promise<import('../../types/rpc/keys.js').KeyDuplicateResult>}
    */
   async duplicateKeyWithName(sourceKey, newKey) {
-    if (!this.cache.currentProfile) {
-      return { success: false, error: "no_profile_selected" };
-    }
-
-    if (!sourceKey || typeof sourceKey !== "string") {
+    try {
+      keyRequest({ sourceKey, newKey }, ["sourceKey", "newKey"]);
+    } catch {
       return { success: false, error: "failed_to_duplicate_key" };
     }
-
-    if (!newKey || typeof newKey !== "string") {
+    if (typeof sourceKey !== "string" || !sourceKey)
+      return { success: false, error: "failed_to_duplicate_key" };
+    if (typeof newKey !== "string" || !newKey)
+      return { success: false, error: "invalid_key_name" };
+    if (!(await this.isValidKeyName(newKey))) {
       return {
         success: false,
         error: "invalid_key_name",
-        params: { keyName: newKey || "" },
+        params: { keyName: newKey },
       };
+    }
+    if (!this.cache.currentProfile) {
+      return { success: false, error: "no_profile_selected" };
     }
 
     // Validate source exists
@@ -350,13 +409,15 @@ export default class KeyService extends ComponentBase {
     }
 
     // Validate new key name and not duplicate
-    if (!(await this.isValidKeyName(newKey))) {
-      return {
-        success: false,
-        error: "invalid_key_name",
-        params: { keyName: newKey },
-      };
+    let context;
+    try {
+      context = captureProfileMutationContext(this, this._mutationGeneration);
+    } catch {
+      return { success: false, error: "failed_to_duplicate_key" };
     }
+
+    if (!context.profileId)
+      return { success: false, error: "no_profile_selected" };
 
     if (this.cache.keys[newKey]) {
       return {
@@ -373,9 +434,10 @@ export default class KeyService extends ComponentBase {
 
     try {
       const clonedCommands = JSON.parse(JSON.stringify(commands));
-
-      await this.request("data:update-profile", {
-        profileId: this.cache.currentProfile,
+      assertProfileMutationContext(this, context, this._mutationGeneration);
+      const result = await this.request("data:update-profile", {
+        profileId: context.profileId,
+        precondition: context.precondition,
         add: {
           builds: {
             [this.cache.currentEnvironment]: {
@@ -386,14 +448,12 @@ export default class KeyService extends ComponentBase {
           },
         },
       });
-
-      // Update local cache so dependent services remain in sync until broadcast arrives
-      this.cache.keys[newKey] = JSON.parse(JSON.stringify(clonedCommands));
+      requireProfileUpdateResult(result);
       return {
         success: true,
         sourceKey,
         newKey,
-        environment: this.cache.currentEnvironment,
+        environment: context.environment,
       };
     } catch (error) {
       console.error("[KeyService] Failed to duplicate key with name:", error);
@@ -501,11 +561,13 @@ export default class KeyService extends ComponentBase {
   }
 
   onInit() {
+    this._mutationGeneration += 1;
     this.setupRequestHandlers();
     this.setupEventListeners();
   }
 
   onDestroy() {
+    this._mutationGeneration += 1;
     for (const detach of this._responseDetachFunctions) detach();
     this._responseDetachFunctions = [];
   }

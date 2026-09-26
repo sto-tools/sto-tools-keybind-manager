@@ -67,7 +67,7 @@ describe("Command customization checked-bundle boundary", () => {
     const trayCommand = "TrayExecByTray 0 0";
     const siblingCommand = {
       command: "FireAll",
-      custom: { nested: "preserve" },
+      extension: { nested: "preserve" },
     };
     const probeCommands = [trayCommand, siblingCommand];
     const probeProjection = observeCommandChainProjection(bus, probeCommands);

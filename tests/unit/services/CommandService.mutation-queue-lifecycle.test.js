@@ -97,6 +97,26 @@ describe("CommandService mutation queue and lifecycle", () => {
     vi.restoreAllMocks();
   });
 
+  it.each(["accepted", "rejected", "malformed"])(
+    "detaches its admission observer after an %s owner reply",
+    async (outcome) => {
+      const listeners = fixture.eventBus.getListenerCount("data:state-changed");
+      service.request = vi.fn(async (_topic, payload) => {
+        if (outcome === "rejected") throw new Error("write_failed");
+        if (outcome === "malformed") return { success: true };
+        profile = applyProfileOperations(profile, payload);
+        publish();
+        return { success: true, profile };
+      });
+      await expect(service.addCommand("F1", "Three")).resolves.toBe(
+        outcome === "accepted",
+      );
+      expect(fixture.eventBus.getListenerCount("data:state-changed")).toBe(
+        listeners,
+      );
+    },
+  );
+
   it("plans overlapping additions in queue order from each accepted owner commit", async () => {
     const firstWrite = deferred();
     const requests = [];
@@ -105,7 +125,7 @@ describe("CommandService mutation queue and lifecycle", () => {
       if (requests.length === 1) await firstWrite.promise;
       profile = applyProfileOperations(profile, payload);
       publish();
-      return { success: true };
+      return { success: true, profile: structuredClone(profile) };
     });
 
     const first = service.addCommand("F1", "Three");
@@ -114,6 +134,7 @@ describe("CommandService mutation queue and lifecycle", () => {
     await vi.waitFor(() => expect(service.request).toHaveBeenCalledOnce());
     expect(requests[0]).toEqual({
       profileId: "captain",
+      precondition: { authorityEpoch: 50, revision: 1 },
       modify: {
         builds: { space: { keys: { F1: ["One", "Two", "Three"] } } },
       },
@@ -124,6 +145,7 @@ describe("CommandService mutation queue and lifecycle", () => {
     expect(service.request).toHaveBeenCalledTimes(2);
     expect(requests[1]).toEqual({
       profileId: "captain",
+      precondition: { authorityEpoch: 50, revision: 2 },
       modify: {
         builds: {
           space: { keys: { F1: ["One", "Two", "Three", "Four"] } },
@@ -138,6 +160,43 @@ describe("CommandService mutation queue and lifecycle", () => {
     ]);
   });
 
+  it("deeply detaches a queued rich command before the caller can mutate it", async () => {
+    const firstWrite = deferred();
+    const requests = [];
+    service.request = vi.fn(async (_topic, payload) => {
+      requests.push(structuredClone(payload));
+      if (requests.length === 1) await firstWrite.promise;
+      profile = applyProfileOperations(profile, payload);
+      publish();
+      return { success: true, profile };
+    });
+    const command = {
+      command: "Original",
+      extension: { labels: ["accepted"] },
+    };
+    const added = vi.fn();
+    fixture.eventBus.on("command-added", added);
+    const first = service.addCommand("F1", "First");
+    const queued = service.addCommand("F1", command);
+    command.command = "Changed";
+    command.extension.labels[0] = "Changed";
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    firstWrite.resolve();
+    await expect(Promise.all([first, queued])).resolves.toEqual([true, true]);
+    expect(requests[1].modify.builds.space.keys.F1.at(-1)).toBe("Original");
+    expect(added).toHaveBeenLastCalledWith({
+      key: "F1",
+      command: {
+        command: "Original",
+        extension: { labels: ["accepted"] },
+      },
+    });
+    expect(requests[1].precondition).toEqual({
+      authorityEpoch: 50,
+      revision: 2,
+    });
+  });
+
   it("rejects a targeted edit when an earlier queued write commits first", async () => {
     const firstWrite = deferred();
     const requests = [];
@@ -146,7 +205,7 @@ describe("CommandService mutation queue and lifecycle", () => {
       await firstWrite.promise;
       profile = applyProfileOperations(profile, payload);
       publish();
-      return { success: true };
+      return { success: true, profile: structuredClone(profile) };
     });
     const edited = vi.fn();
     fixture.eventBus.on("command-edited", edited);
@@ -161,6 +220,10 @@ describe("CommandService mutation queue and lifecycle", () => {
     expect(service.request).toHaveBeenCalledOnce();
     expect(requests[0]).toEqual({
       profileId: "captain",
+      precondition: {
+        authorityEpoch: expect.any(Number),
+        revision: expect.any(Number),
+      },
       modify: {
         builds: { space: { keys: { F1: ["Intervening", "Two"] } } },
       },
@@ -183,7 +246,7 @@ describe("CommandService mutation queue and lifecycle", () => {
       if (requests.length === 1) await firstWrite.promise;
       profile = applyProfileOperations(profile, payload);
       publish();
-      return { success: true };
+      return { success: true, profile: structuredClone(profile) };
     });
 
     const first = service.addCommand("F1", "Three");
@@ -198,12 +261,20 @@ describe("CommandService mutation queue and lifecycle", () => {
     expect(requests).toEqual([
       {
         profileId: "captain",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           builds: { space: { keys: { F1: ["One", "Two", "Three"] } } },
         },
       },
       {
         profileId: "captain",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           builds: {
             space: { keys: { F1: ["Changed", "Two", "Three"] } },
@@ -215,7 +286,7 @@ describe("CommandService mutation queue and lifecycle", () => {
     expect(service.ui.showToast).not.toHaveBeenCalled();
   });
 
-  it("keeps queued work attached to its invocation profile and environment", async () => {
+  it("keeps queued work attached to its invocation profile and environment when an earlier baseline becomes stale", async () => {
     const firstWrite = deferred();
     const requests = [];
     const replacement = {
@@ -232,13 +303,15 @@ describe("CommandService mutation queue and lifecycle", () => {
     service.request = vi.fn(async (_topic, payload) => {
       requests.push(structuredClone(payload));
       if (requests.length === 1) await firstWrite.promise;
+      if (payload.precondition.revision !== revision)
+        throw new Error("operation_cancelled");
       profile = applyProfileOperations(profile, payload);
       publish({
         currentProfile: "replacement",
         currentEnvironment: "ground",
         profiles: { captain: profile, replacement },
       });
-      return { success: true };
+      return { success: true, profile: structuredClone(profile) };
     });
     const added = vi.fn();
     fixture.eventBus.on("command-added", added);
@@ -253,10 +326,14 @@ describe("CommandService mutation queue and lifecycle", () => {
     });
     firstWrite.resolve();
 
-    await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+    await expect(Promise.all([first, second])).resolves.toEqual([false, true]);
     expect(requests).toEqual([
       {
         profileId: "captain",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           builds: {
             space: {
@@ -267,11 +344,15 @@ describe("CommandService mutation queue and lifecycle", () => {
       },
       {
         profileId: "captain",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           builds: {
             space: {
               keys: {
-                F1: ["One", "Two", "FirstQueuedWrite", "SecondQueuedWrite"],
+                F1: ["One", "Two", "SecondQueuedWrite"],
               },
             },
           },
@@ -281,7 +362,6 @@ describe("CommandService mutation queue and lifecycle", () => {
     expect(profile.builds.space.keys.F1).toEqual([
       "One",
       "Two",
-      "FirstQueuedWrite",
       "SecondQueuedWrite",
     ]);
     expect(replacement.builds.ground.keys.G1).toEqual(["ReplacementGround"]);
@@ -334,7 +414,7 @@ describe("CommandService mutation queue and lifecycle", () => {
       });
       chainService.cache.selectedKey = "G1";
       chainChanged.mockClear();
-      write.resolve({ success: true });
+      write.resolve({ success: true, profile: structuredClone(profile) });
 
       await expect(pending).resolves.toBe(true);
       expect(listener).not.toHaveBeenCalled();
@@ -344,12 +424,12 @@ describe("CommandService mutation queue and lifecycle", () => {
     },
   );
 
-  it("suppresses queued and in-flight work from a destroyed generation", async () => {
+  it("retains acknowledged durability but suppresses queued work and effects from a destroyed generation", async () => {
     const firstWrite = deferred();
     service.request = vi
       .fn()
       .mockImplementationOnce(() => firstWrite.promise)
-      .mockResolvedValue({ success: true });
+      .mockResolvedValue({ success: true, profile: structuredClone(profile) });
     const added = vi.fn();
     fixture.eventBus.on("command-added", added);
 
@@ -360,9 +440,9 @@ describe("CommandService mutation queue and lifecycle", () => {
     service.destroy();
     service.init();
     const current = service.addCommand("F1", "CurrentGeneration");
-    firstWrite.resolve({ success: true });
+    firstWrite.resolve({ success: true, profile: structuredClone(profile) });
 
-    await expect(inFlight).resolves.toBe(false);
+    await expect(inFlight).resolves.toBe(true);
     await expect(queued).resolves.toBe(false);
     await expect(current).resolves.toBe(true);
     expect(service.request).toHaveBeenCalledTimes(2);
@@ -370,6 +450,10 @@ describe("CommandService mutation queue and lifecycle", () => {
       "data:update-profile",
       {
         profileId: "captain",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         modify: {
           builds: {
             space: {

@@ -1,5 +1,6 @@
 import { createDataStateChangedPayload } from "./dataStateChange.js";
 import { createVirtualProfile } from "./dataState.js";
+import { recordDataCoordinatorPublication } from "./dataCoordinatorMutationQueue.js";
 
 /**
  * Publish one authoritative snapshot and retain the event-bus settlement
@@ -26,6 +27,7 @@ export function publishDataCoordinatorState(coordinator, reason, details = {}) {
     createDataStateChangedPayload(reason, state, details),
     { synchronous: true },
   );
+  recordDataCoordinatorPublication(coordinator, settled);
   return { state, settled };
 }
 

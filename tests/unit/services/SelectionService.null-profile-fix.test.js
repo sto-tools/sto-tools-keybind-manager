@@ -1,3 +1,7 @@
+import {
+  seedSelectionMutationOwner,
+  selectionMutationReceipt,
+} from "../../fixtures/services/selectionMutationOwner.js";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/services/harness.js";
@@ -21,8 +25,11 @@ describe("SelectionService - Null Profile Handling Fix", () => {
     });
 
     // Mock request method for DataCoordinator integration
-    selectionService.request = vi.fn();
+    selectionService.request = vi
+      .fn()
+      .mockResolvedValue(selectionMutationReceipt());
 
+    seedSelectionMutationOwner(selectionService);
     await selectionService.init();
   });
 

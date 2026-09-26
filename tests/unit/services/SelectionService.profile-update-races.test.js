@@ -1,3 +1,7 @@
+import {
+  seedSelectionMutationOwner,
+  adoptSelectionMutationReceipt,
+} from "../../fixtures/services/selectionMutationOwner.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ComponentBase from "../../../src/js/components/ComponentBase.js";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
@@ -56,6 +60,7 @@ describe("SelectionService profile update races", () => {
     detaches = [];
 
     service = new SelectionService({ eventBus });
+    seedSelectionMutationOwner(service);
     await service.init();
     consumer = new ProfileUpdateRaceConsumer(eventBus);
     consumer.init();
@@ -94,7 +99,10 @@ describe("SelectionService profile update races", () => {
       respond(eventBus, "data:update-profile", async (payload) => {
         updateRequests.push(payload);
         await blockedWrite.promise;
-        return { success: true, profile };
+        return adoptSelectionMutationReceipt(service, {
+          ...service.cache.profile,
+          selections: payload.updates.properties.selections,
+        });
       }),
     );
 

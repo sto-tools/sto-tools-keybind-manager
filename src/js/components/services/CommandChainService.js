@@ -1,4 +1,13 @@
 import ComponentBase from "../ComponentBase.js";
+import {
+  materializeMutationRequest,
+  requireMutationString,
+  requireProfileUpdateResult,
+} from "./mutationRequestBoundary.js";
+import {
+  captureProfileMutationContext,
+  canPublishProfileMutation,
+} from "./profileMutationContext.js";
 import * as eventPayloads from "../../core/eventPayloads.js";
 import {
   getEffectiveCommandBindset,
@@ -39,9 +48,15 @@ export default class CommandChainService extends ComponentBase {
     if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
 
     this._responseDetachFunctions.push(
-      this.respond("command:set-stabilize", ({ name, stabilize, bindset }) =>
-        this.setStabilize(name, stabilize, bindset),
-      ),
+      this.respond("command:set-stabilize", (payload) => {
+        const input = materializeMutationRequest(payload, [
+          "name",
+          "stabilize",
+          "bindset",
+        ]);
+        if (typeof input.stabilize !== "boolean") return { success: false };
+        return this.setStabilize(input.name, input.stabilize, input.bindset);
+      }),
     );
   }
 
@@ -135,12 +150,15 @@ export default class CommandChainService extends ComponentBase {
     // Note: command:add events are now handled by CommandUI
     // CommandChainService only handles the resulting command-added events
     // Edit command
-    this.addEventListener("commandchain:edit", ({ index }) =>
-      this.editCommandAtIndex(index),
-    );
+    this.addEventListener("commandchain:edit", (payload) => {
+      const input = materializeMutationRequest(payload, ["index"]);
+      return this.editCommandAtIndex(input.index);
+    });
 
     // Delete command
-    this.addEventListener("commandchain:delete", async ({ index }) => {
+    this.addEventListener("commandchain:delete", async (payload) => {
+      const { index } = materializeMutationRequest(payload, ["index"]);
+      if (!Number.isSafeInteger(index) || Number(index) < 0) return;
       const lifecycleGeneration = this._lifecycleGeneration;
       const selectedKeyName =
         this.cache.currentEnvironment === "alias"
@@ -155,7 +173,7 @@ export default class CommandChainService extends ComponentBase {
       try {
         await this.request("command:delete", {
           key: selectedKeyName,
-          index,
+          index: Number(index),
           bindset: bindsetParam,
         });
         const commands = await this.getCommandsForSelectedKey();
@@ -168,39 +186,48 @@ export default class CommandChainService extends ComponentBase {
     });
 
     // Move command
-    this.addEventListener(
-      "commandchain:move",
-      async ({ fromIndex, toIndex }) => {
-        const lifecycleGeneration = this._lifecycleGeneration;
-        const selectedKeyName =
-          this.cache.currentEnvironment === "alias"
-            ? this.cache.selectedAlias
-            : this.cache.selectedKey;
-        if (!selectedKeyName) return;
+    this.addEventListener("commandchain:move", async (payload) => {
+      const { fromIndex, toIndex } = materializeMutationRequest(payload, [
+        "fromIndex",
+        "toIndex",
+      ]);
+      if (
+        ![fromIndex, toIndex].every(
+          (value) => Number.isSafeInteger(value) && Number(value) >= 0,
+        )
+      )
+        return;
+      const lifecycleGeneration = this._lifecycleGeneration;
+      const selectedKeyName =
+        this.cache.currentEnvironment === "alias"
+          ? this.cache.selectedAlias
+          : this.cache.selectedKey;
+      if (!selectedKeyName) return;
 
-        const effectiveBindset = this.getEffectiveCommandBindset();
-        const bindsetParam =
-          effectiveBindset === "Primary Bindset" ? null : effectiveBindset;
-        try {
-          await this.request("command:move", {
-            key: selectedKeyName,
-            fromIndex,
-            toIndex,
-            bindset: bindsetParam,
-          });
-          const commands = await this.getCommandsForSelectedKey();
-          this._publishChainCommands(commands, lifecycleGeneration);
-        } catch (error) {
-          if (this._isCurrentLifecycle(lifecycleGeneration)) {
-            console.error("Failed to move command:", error);
-          }
+      const effectiveBindset = this.getEffectiveCommandBindset();
+      const bindsetParam =
+        effectiveBindset === "Primary Bindset" ? null : effectiveBindset;
+      try {
+        await this.request("command:move", {
+          key: selectedKeyName,
+          fromIndex: Number(fromIndex),
+          toIndex: Number(toIndex),
+          bindset: bindsetParam,
+        });
+        const commands = await this.getCommandsForSelectedKey();
+        this._publishChainCommands(commands, lifecycleGeneration);
+      } catch (error) {
+        if (this._isCurrentLifecycle(lifecycleGeneration)) {
+          console.error("Failed to move command:", error);
         }
-      },
-    );
+      }
+    });
 
     // Clear entire chain when broadcast event received (Button in UI)
-    this.addEventListener("command-chain:clear", async ({ key }) => {
-      if (!key) return;
+    this.addEventListener("command-chain:clear", async (payload) => {
+      const input = materializeMutationRequest(payload, ["key"]);
+      const key = requireMutationString(input.key);
+      if (["__proto__", "constructor", "prototype"].includes(key)) return;
       const effectiveBindset = this.getEffectiveCommandBindset();
       await this.clearCommandChain(
         key,
@@ -267,10 +294,11 @@ export default class CommandChainService extends ComponentBase {
    * discarded when a later edit, lifecycle replacement, owner replacement, or
    * exact command-location change supersedes it.
    *
-   * @param {number} index
+   * @param {unknown} index
    * @returns {Promise<boolean>}
    */
   async editCommandAtIndex(index) {
+    if (!Number.isSafeInteger(index) || Number(index) < 0) return false;
     const lifecycleGeneration = this._lifecycleGeneration;
     const editGeneration = ++this._editGeneration;
     const target = captureCommandEditTarget({
@@ -280,7 +308,7 @@ export default class CommandChainService extends ComponentBase {
       selectedAlias: this.cache.selectedAlias,
       activeBindset: this.cache.activeBindset,
       bindsetsEnabled: this.cache.preferences?.bindsetsEnabled,
-      index,
+      index: Number(index),
     });
     if (!target) return false;
     const isCurrent = () =>
@@ -342,6 +370,26 @@ export default class CommandChainService extends ComponentBase {
    * @param {string | null} bindset
    */
   async clearCommandChain(key, bindset = null) {
+    const input = materializeMutationRequest({ key, bindset }, [
+      "key",
+      "bindset",
+    ]);
+    try {
+      requireMutationString(input.key);
+      requireMutationString(input.bindset, {
+        nullable: true,
+        optional: true,
+        allowEmpty: true,
+      });
+      if (
+        [input.key, input.bindset].some((value) =>
+          ["__proto__", "constructor", "prototype"].includes(String(value)),
+        )
+      )
+        return false;
+    } catch {
+      return false;
+    }
     const lifecycleGeneration = this._lifecycleGeneration;
     try {
       if (!key) {
@@ -367,6 +415,7 @@ export default class CommandChainService extends ComponentBase {
       }
 
       const currentEnv = this.cache.currentEnvironment || "space";
+      const context = captureProfileMutationContext(this, lifecycleGeneration);
       const plan = planCommandChainClear({
         profile,
         profileId,
@@ -381,20 +430,18 @@ export default class CommandChainService extends ComponentBase {
         return false;
       }
 
-      const result = await this.request(
-        "data:update-profile",
-        plan.updateProfileRequest,
-      );
-
-      if (!this._isCurrentLifecycle(lifecycleGeneration)) return false;
-      if (result?.success) {
-        return this._publishChainCommands([], lifecycleGeneration);
-      } else {
-        console.error(
-          "CommandChainService: Failed to save profile via DataCoordinator",
-        );
-        return false;
-      }
+      const result = await this.request("data:update-profile", {
+        ...plan.updateProfileRequest,
+        precondition: context.precondition,
+      });
+      requireProfileUpdateResult(result);
+      if (
+        canPublishProfileMutation(this, context, this._lifecycleGeneration) &&
+        (this.cache.dataState?.revision ?? 0) <=
+          context.precondition.revision + 1
+      )
+        this._publishChainCommands([], lifecycleGeneration);
+      return true;
     } catch (error) {
       if (this._isCurrentLifecycle(lifecycleGeneration)) {
         console.error(
@@ -432,12 +479,35 @@ export default class CommandChainService extends ComponentBase {
 
   // Toggle or set stabilization flag for current key / alias.
   /**
-   * @param {string} name - The key or alias name
-   * @param {boolean} stabilize - Whether to enable stabilization
-   * @param {string | null} bindset - Optional bindset name
+   * @param {unknown} name - The key or alias name
+   * @param {unknown} stabilize - Whether to enable stabilization
+   * @param {unknown} bindset - Optional bindset name
    * @returns {Promise<import('../../types/rpc/commands.js').StabilizeResult>}
    */
   async setStabilize(name, stabilize = true, bindset = null) {
+    let input;
+    try {
+      input = materializeMutationRequest({ name, stabilize, bindset }, [
+        "name",
+        "stabilize",
+        "bindset",
+      ]);
+      name = requireMutationString(input.name);
+      bindset = requireMutationString(input.bindset, {
+        nullable: true,
+        optional: true,
+        allowEmpty: true,
+      });
+      if (
+        typeof input.stabilize !== "boolean" ||
+        [name, bindset].some((value) =>
+          ["__proto__", "constructor", "prototype"].includes(String(value)),
+        )
+      )
+        return { success: false };
+    } catch {
+      return { success: false };
+    }
     const lifecycleGeneration = this._lifecycleGeneration;
     try {
       if (!name) return { success: false };
@@ -447,29 +517,29 @@ export default class CommandChainService extends ComponentBase {
       const profileId = snapshot?.ready ? snapshot.currentProfile : null;
       const environment = snapshot?.currentEnvironment;
       if (!profile || !profileId || !environment) return { success: false };
+      const context = captureProfileMutationContext(this, lifecycleGeneration);
 
       const plan = planCommandStabilization({
         profile,
         profileId,
-        name,
+        name: String(name),
         environment,
-        stabilize,
-        bindset,
+        stabilize: input.stabilize,
+        bindset: typeof bindset === "string" ? bindset : null,
       });
       if (!plan.valid) return { success: false };
 
       // Persist via DataCoordinator
-      const result = await this.request(
-        "data:update-profile",
-        plan.updateProfileRequest,
-      );
-      if (!this._isCurrentLifecycle(lifecycleGeneration)) {
+      const result = await this.request("data:update-profile", {
+        ...plan.updateProfileRequest,
+        precondition: context.precondition,
+      });
+      try {
+        requireProfileUpdateResult(result);
+      } catch {
         return { success: false };
       }
-      if (result?.success) {
-        return { success: true };
-      }
-      return { success: false };
+      return { success: true };
     } catch (err) {
       if (!this._isCurrentLifecycle(lifecycleGeneration)) {
         return { success: false };

@@ -1,3 +1,7 @@
+import {
+  seedSelectionMutationOwner,
+  adoptSelectionMutationReceipt,
+} from "../../fixtures/services/selectionMutationOwner.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ComponentBase from "../../../src/js/components/ComponentBase.js";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
@@ -57,6 +61,7 @@ describe("SelectionService intent races", () => {
     detaches = [];
 
     service = new SelectionService({ eventBus });
+    seedSelectionMutationOwner(service);
     await service.init();
     consumer = new SelectionRaceConsumer(eventBus);
     consumer.init();
@@ -98,7 +103,10 @@ describe("SelectionService intent races", () => {
         updateRequests.push(payload);
         await blockedWrite.promise;
         durableSelections = { ...payload.updates.properties.selections };
-        return { success: true, profile };
+        return adoptSelectionMutationReceipt(service, {
+          ...profile,
+          selections: durableSelections,
+        });
       }),
     );
 
@@ -155,7 +163,10 @@ describe("SelectionService intent races", () => {
         updateRequests.push(payload);
         if (updateRequests.length === 2) throw new Error("write rejected");
         durableSelections = { ...payload.updates.properties.selections };
-        return { success: true, profile };
+        return adoptSelectionMutationReceipt(service, {
+          ...profile,
+          selections: durableSelections,
+        });
       }),
       eventBus.on("selection:state-changed", (payload) =>
         snapshots.push(payload),
@@ -218,7 +229,10 @@ describe("SelectionService intent races", () => {
         updateRequests.push(payload);
         if (updateRequests.length === 2) throw new Error("write rejected");
         durableSelections = { ...payload.updates.properties.selections };
-        return { success: true, profile };
+        return adoptSelectionMutationReceipt(service, {
+          ...profile,
+          selections: durableSelections,
+        });
       }),
       eventBus.on("selection:state-changed", (payload) =>
         snapshots.push(payload),

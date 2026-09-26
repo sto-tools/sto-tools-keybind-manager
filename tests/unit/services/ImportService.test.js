@@ -1,9 +1,22 @@
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { createImportServiceFixture } from "../../fixtures/index.js";
 import { completeKBFParseResult } from "../../fixtures/kbfParseResult.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { vi } from "vitest";
+
+const createStoredProfile = () => ({
+  name: "Test Profile",
+  builds: {
+    space: { keys: {}, aliases: {} },
+    ground: { keys: {}, aliases: {} },
+  },
+  bindsets: {},
+  aliases: {},
+  keybindMetadata: {},
+  bindsetMetadata: {},
+});
 
 /**
  * Unit tests – ImportService – verify project file validation
@@ -26,6 +39,7 @@ describe("ImportService", () => {
       storage: fixture.storage,
     });
     service.init();
+    service._cacheDataState(createDataCoordinatorState());
     service.cache.preferences.bindsetsEnabled = true;
 
     // Register responder for parser on the fixture event bus
@@ -220,16 +234,7 @@ describe("ImportService", () => {
       );
 
       // Mock storage service
-      const mockProfile = {
-        builds: {
-          space: { keys: {}, aliases: {} },
-          ground: { keys: {}, aliases: {} },
-        },
-        bindsets: {},
-        aliases: {},
-        keybindMetadata: {},
-        bindsetMetadata: {},
-      };
+      const mockProfile = createStoredProfile();
       vi.spyOn(service.storage, "getProfile").mockReturnValue(mockProfile);
       vi.spyOn(service.storage, "saveProfile").mockImplementation(
         (id, profile) => {
@@ -316,16 +321,7 @@ describe("ImportService", () => {
         completeKBFParseResult(mockParseResult),
       );
 
-      const mockProfile = {
-        builds: {
-          space: { keys: {}, aliases: {} },
-          ground: { keys: {}, aliases: {} },
-        },
-        bindsets: {},
-        aliases: {},
-        keybindMetadata: {},
-        bindsetMetadata: {},
-      };
+      const mockProfile = createStoredProfile();
       vi.spyOn(service.storage, "getProfile").mockReturnValue(mockProfile);
       vi.spyOn(service.storage, "saveProfile").mockImplementation(() => {});
 
@@ -411,6 +407,7 @@ describe("ImportService", () => {
         storage: fixture.storage,
       });
       service.init();
+      service._cacheDataState(createDataCoordinatorState());
       service.cache.preferences.bindsetsEnabled = true;
 
       // Register responder for parser on the fixture event bus
@@ -474,16 +471,7 @@ describe("ImportService", () => {
       );
 
       // Mock storage service
-      const mockProfile = {
-        builds: {
-          space: { keys: {}, aliases: {} },
-          ground: { keys: {}, aliases: {} },
-        },
-        bindsets: {},
-        aliases: {},
-        keybindMetadata: {},
-        bindsetMetadata: {},
-      };
+      const mockProfile = createStoredProfile();
       vi.spyOn(service.storage, "getProfile").mockReturnValue(mockProfile);
       vi.spyOn(service.storage, "saveProfile").mockImplementation(
         (id, profile) => {
@@ -682,16 +670,7 @@ describe("ImportService", () => {
 
       // Mock storage service and capture saved profile
       let savedProfile = null;
-      const mockProfile = {
-        builds: {
-          space: { keys: {}, aliases: {} },
-          ground: { keys: {}, aliases: {} },
-        },
-        bindsets: {},
-        aliases: {},
-        keybindMetadata: {},
-        bindsetMetadata: {},
-      };
+      const mockProfile = createStoredProfile();
       vi.spyOn(service.storage, "getProfile").mockReturnValue(mockProfile);
       vi.spyOn(service.storage, "saveProfile").mockImplementation(
         (id, profile) => {
@@ -764,16 +743,7 @@ describe("ImportService", () => {
       );
 
       // Mock storage service
-      const mockProfile = {
-        builds: {
-          space: { keys: {}, aliases: {} },
-          ground: { keys: {}, aliases: {} },
-        },
-        bindsets: {},
-        aliases: {},
-        keybindMetadata: {},
-        bindsetMetadata: {},
-      };
+      const mockProfile = createStoredProfile();
       vi.spyOn(service.storage, "getProfile").mockReturnValue(mockProfile);
       vi.spyOn(service.storage, "saveProfile").mockImplementation(
         (id, profile) => {
@@ -841,16 +811,7 @@ describe("ImportService", () => {
       );
 
       // Mock storage service
-      const mockProfile = {
-        builds: {
-          space: { keys: {}, aliases: {} },
-          ground: { keys: {}, aliases: {} },
-        },
-        bindsets: {},
-        aliases: {},
-        keybindMetadata: {},
-        bindsetMetadata: {},
-      };
+      const mockProfile = createStoredProfile();
       vi.spyOn(service.storage, "getProfile").mockReturnValue(mockProfile);
       vi.spyOn(service.storage, "saveProfile").mockImplementation(
         (id, profile) => {
@@ -907,14 +868,14 @@ describe("ImportService", () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe("no_active_profile");
 
-      // Test missing environment - service fails at validation before environment handling
+      // Explicit null is not an optional environment in the action contract.
       result = await service.request("import:kbf-file", {
         content: "dGVzdA==",
         profileId: "test-profile",
         environment: null,
       });
-      expect(result.success).toBe(false); // Fails at validation stage before environment handling
-      expect(result.error).toBe("invalid_kbf_file_format");
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("invalid_kbf_file_content");
     });
 
     it("should handle environment-specific bindset mapping via request endpoint", async () => {
@@ -958,16 +919,7 @@ describe("ImportService", () => {
       );
 
       // Mock storage service
-      const mockProfile = {
-        builds: {
-          space: { keys: {}, aliases: {} },
-          ground: { keys: {}, aliases: {} },
-        },
-        bindsets: {},
-        aliases: {},
-        keybindMetadata: {},
-        bindsetMetadata: {},
-      };
+      const mockProfile = createStoredProfile();
       vi.spyOn(service.storage, "getProfile").mockReturnValue(mockProfile);
       vi.spyOn(service.storage, "saveProfile").mockImplementation(
         (id, profile) => {

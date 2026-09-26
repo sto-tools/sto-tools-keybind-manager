@@ -6,6 +6,28 @@ import { setOwnDataField } from "./jsonDataBoundary.js";
 /** @typedef {import('./serviceTypes.js').StoredCommand} StoredCommand */
 
 /**
+ * Construct the minimal complete profile required by the authoritative
+ * replacement boundary. The explicit target identity is also the only
+ * available user-provided name for a previously absent profile.
+ *
+ * @param {string} profileId
+ * @param {string} environment
+ * @returns {ProfileData}
+ */
+function createMissingImportProfile(profileId, environment) {
+  return {
+    name: profileId,
+    currentEnvironment: environment,
+    builds: { space: { keys: {} }, ground: { keys: {} } },
+    aliases: {},
+    bindsets: {},
+    keybindMetadata: { space: {}, ground: {} },
+    aliasMetadata: {},
+    bindsetMetadata: {},
+  };
+}
+
+/**
  * @typedef {object} TextCommandCapabilities
  * @property {(commandString: string) => PromiseLike<{ commands?: import('./serviceTypes.js').StoredCommand[], isMirrored?: boolean }>} parseCommand
  * @property {(commands: StoredCommand | StoredCommand[] | null | undefined) => string[]} normalizeCommands
@@ -51,6 +73,7 @@ async function optimizeCommands(commands, optimizeCommand) {
  *
  * @param {{
  *   profile: ProfileData | null | undefined,
+ *   profileId: string,
  *   parsed: ParsedKeybindFile,
  *   environment: string,
  *   strategy: string,
@@ -60,15 +83,14 @@ async function optimizeCommands(commands, optimizeCommand) {
  */
 export async function planKeybindTextImport({
   profile,
+  profileId,
   parsed,
   environment,
   strategy,
   capabilities,
 }) {
   const nextProfile = structuredClone(
-    profile || {
-      builds: { space: { keys: {} }, ground: { keys: {} } },
-    },
+    profile || createMissingImportProfile(profileId, environment),
   );
 
   if (!nextProfile.builds) {
@@ -168,6 +190,7 @@ export async function planKeybindTextImport({
  *
  * @param {{
  *   profile: ProfileData | null | undefined,
+ *   profileId: string,
  *   parsed: ParsedAliasFile,
  *   strategy: string,
  *   optimizeCommand: TextCommandCapabilities['optimizeCommand'],
@@ -176,11 +199,14 @@ export async function planKeybindTextImport({
  */
 export async function planAliasTextImport({
   profile,
+  profileId,
   parsed,
   strategy,
   optimizeCommand,
 }) {
-  const nextProfile = structuredClone(profile || { aliases: {} });
+  const nextProfile = structuredClone(
+    profile || createMissingImportProfile(profileId, "space"),
+  );
   if (!nextProfile.aliases) nextProfile.aliases = {};
 
   let imported = 0;

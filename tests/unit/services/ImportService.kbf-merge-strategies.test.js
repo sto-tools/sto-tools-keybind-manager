@@ -1,3 +1,4 @@
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ImportService from "../../../src/js/components/services/ImportService.js";
@@ -71,6 +72,7 @@ describe("ImportService KBF merge strategies", () => {
       storage: fixture.storage,
     });
     service.init();
+    service._cacheDataState(createDataCoordinatorState());
     respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
     fixture.eventBus.emit(
       "preferences:state-changed",

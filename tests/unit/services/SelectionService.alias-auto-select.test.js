@@ -1,3 +1,7 @@
+import {
+  seedSelectionMutationOwner,
+  selectionMutationReceipt,
+} from "../../fixtures/services/selectionMutationOwner.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
@@ -10,7 +14,8 @@ describe("SelectionService alias auto-selection state access", () => {
   beforeEach(async () => {
     fixture = createServiceFixture();
     service = new SelectionService({ eventBus: fixture.eventBus });
-    service.request = vi.fn();
+    service.request = vi.fn().mockResolvedValue(selectionMutationReceipt());
+    seedSelectionMutationOwner(service);
     await service.init();
     service.extendCache({
       currentProfile: "test-profile",

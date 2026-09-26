@@ -12,6 +12,25 @@ import {
 } from "./dataState.js";
 import { findCommandByName } from "../../data/commandCatalog.js";
 import { planCommandMutation } from "./commandMutationPlanner.js";
+import {
+  materializeCommandMutation,
+  dispatchCommandMutationRequest,
+  enqueueCommandMutation,
+  watchCommandMutationAdmission,
+  currentCommandMutationEvent,
+  publishCommandMutationEvent,
+} from "./commandMutationBoundary.js";
+import {
+  materializeMutationRequest,
+  requireMutationString,
+  requireMutationIdentifier,
+  requireProfileUpdateResult,
+} from "./mutationRequestBoundary.js";
+import {
+  captureProfileMutationContext,
+  assertProfileMutationContext,
+  canPublishProfileMutation,
+} from "./profileMutationContext.js";
 import { planMirroredCommandSequence } from "./commandTransformationPlanner.js";
 import { normalizeParsedCommandForDisplay } from "./commandDisplayProjection.js";
 
@@ -41,29 +60,36 @@ export default class CommandService extends ComponentBase {
     if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
 
     this._responseDetachFunctions.push(
-      this.respond("command:delete", async ({ key, index, bindset }) =>
-        this.deleteCommand(key, index, bindset),
+      this.respond("command:delete", (payload) =>
+        this._handleCommandRequest("delete", payload),
       ),
-      this.respond(
-        "command:move",
-        async ({ key, fromIndex, toIndex, bindset }) =>
-          this.moveCommand(key, fromIndex, toIndex, bindset),
+      this.respond("command:move", (payload) =>
+        this._handleCommandRequest("move", payload),
       ),
-      this.respond(
-        "command:import-from-source",
-        ({ sourceValue, targetKey, clearDestination, currentEnvironment }) =>
-          this.importFromSource(
-            sourceValue,
-            targetKey,
-            clearDestination,
-            currentEnvironment,
-          ),
-      ),
+      this.respond("command:import-from-source", (payload) => {
+        const input = materializeMutationRequest(payload, [
+          "sourceValue",
+          "targetKey",
+          "clearDestination",
+          "currentEnvironment",
+        ]);
+        return this.importFromSource(
+          input.sourceValue,
+          input.targetKey,
+          input.clearDestination,
+          input.currentEnvironment,
+        );
+      }),
       this.respond(
         "command:generate-mirrored-commands",
         async ({ commands = [] }) => this.generateMirroredCommands(commands),
       ),
     );
+  }
+
+  /** @param {'add'|'delete'|'move'|'edit'} type @param {unknown} payload */
+  _handleCommandRequest(type, payload) {
+    return dispatchCommandMutationRequest(this, type, payload);
   }
 
   onInit() {
@@ -102,26 +128,9 @@ export default class CommandService extends ComponentBase {
     );
   }
 
-  /**
-   * Keep mutation planning inside the queue so every operation observes the
-   * accepted owner snapshot published by the preceding write.
-   *
-   * @param {(generation: number, context: { authorityEpoch: number | null, profileId: string | null, environment: string }) => Promise<boolean>} operation
-   * @returns {Promise<boolean>}
-   */
+  /** @param {Parameters<typeof enqueueCommandMutation>[1]} operation */
   _enqueueCommandMutation(operation) {
-    const generation = this._mutationGeneration;
-    const context = this._captureCommandMutationContext();
-    const run = () =>
-      this._isCurrentMutationGeneration(generation)
-        ? operation(generation, context)
-        : false;
-    const result = this._mutationQueue.then(run, run);
-    this._mutationQueue = result.then(
-      () => undefined,
-      () => undefined,
-    );
-    return result;
+    return enqueueCommandMutation(this, operation);
   }
 
   /**
@@ -160,20 +169,7 @@ export default class CommandService extends ComponentBase {
 
   /** @param {import('./commandMutationPlanner.js').CommandMutationEvent} event */
   _publishCommandMutationEvent(event) {
-    switch (event.topic) {
-      case "command-added":
-        this.emit("command-added", event.payload);
-        break;
-      case "command-deleted":
-        this.emit("command-deleted", event.payload);
-        break;
-      case "command-moved":
-        this.emit("command-moved", event.payload);
-        break;
-      case "command-edited":
-        this.emit("command-edited", event.payload);
-        break;
-    }
+    publishCommandMutationEvent(this, event);
   }
 
   /**
@@ -186,50 +182,73 @@ export default class CommandService extends ComponentBase {
    * @param {{ operation: 'add' | 'delete' | 'move' | 'edit', notifyMissingProfile?: boolean, notifyStorageFailure?: boolean }} diagnostics
    */
   _runCommandMutation(mutation, diagnostics) {
-    return this._enqueueCommandMutation(async (generation, context) => {
-      const plan = this._planCommandMutation(mutation, context);
-      if (!plan.valid) {
-        if (plan.reason === "no_valid_commands") {
-          console.warn("CommandService: No valid commands to add");
+    try {
+      mutation = materializeCommandMutation(mutation);
+    } catch {
+      return Promise.resolve(false);
+    }
+    return this._enqueueCommandMutation(
+      async (generation, context, release) => {
+        const plan = this._planCommandMutation(mutation, context);
+        if (!plan.valid) {
+          if (plan.reason === "no_valid_commands") {
+            console.warn("CommandService: No valid commands to add");
+          }
+          if (plan.reason === "stale_edit_target") {
+            this.ui?.showToast?.(
+              this.i18n.t("command_edit_target_changed"),
+              "warning",
+            );
+          }
+          if (
+            plan.reason === "invalid_profile" &&
+            diagnostics.notifyMissingProfile
+          ) {
+            this.ui?.showToast?.(this.i18n.t("no_valid_profile"), "error");
+          }
+          return false;
         }
-        if (plan.reason === "stale_edit_target") {
-          this.ui?.showToast?.(
-            this.i18n.t("command_edit_target_changed"),
-            "warning",
-          );
-        }
-        if (
-          plan.reason === "invalid_profile" &&
-          diagnostics.notifyMissingProfile
-        ) {
-          this.ui?.showToast?.(this.i18n.t("no_valid_profile"), "error");
-        }
-        return false;
-      }
 
-      try {
-        const result = await this.request(
-          "data:update-profile",
-          plan.updateProfileRequest,
-        );
-        if (!result?.success) {
-          throw new Error(this.i18n.t("storage_write_failed"));
-        }
-        if (!this._isCurrentMutationGeneration(generation)) return false;
+        let stop = () => {};
+        try {
+          const snapshot = this.cache.dataState;
+          if (!snapshot?.ready) return false;
+          const precondition = {
+            authorityEpoch: snapshot.authorityEpoch,
+            revision: snapshot.revision,
+          };
+          stop = watchCommandMutationAdmission(this, precondition, release);
+          const result = await this.request("data:update-profile", {
+            ...plan.updateProfileRequest,
+            precondition,
+          });
+          requireProfileUpdateResult(result);
 
-        if (this._isCurrentMutationContext(context)) {
-          this._publishCommandMutationEvent(plan.event);
+          if (
+            this._isCurrentMutationGeneration(generation) &&
+            this._isCurrentMutationContext(context)
+          ) {
+            this._publishCommandMutationEvent(
+              currentCommandMutationEvent(
+                plan,
+                this.cache.dataState,
+                precondition.revision,
+              ),
+            );
+          }
+          return true;
+        } catch (error) {
+          if (!this._isCurrentMutationGeneration(generation)) return false;
+          console.error(`Failed to ${diagnostics.operation} command:`, error);
+          if (diagnostics.notifyStorageFailure) {
+            this.ui?.showToast?.(this.i18n.t("storage_write_failed"), "error");
+          }
+          return false;
+        } finally {
+          stop();
         }
-        return true;
-      } catch (error) {
-        if (!this._isCurrentMutationGeneration(generation)) return false;
-        console.error(`Failed to ${diagnostics.operation} command:`, error);
-        if (diagnostics.notifyStorageFailure) {
-          this.ui?.showToast?.(this.i18n.t("storage_write_failed"), "error");
-        }
-        return false;
-      }
-    });
+      },
+    );
   }
 
   /**
@@ -301,16 +320,13 @@ export default class CommandService extends ComponentBase {
   // Set up event listeners for DataCoordinator integration
   setupEventListeners() {
     // Listen for command addition events from UI components (broadcast pattern)
-    this.addEventListener("command:add", async ({ command, key, bindset }) => {
-      await this.addCommand(key, command, bindset);
-    });
+    this.addEventListener("command:add", (payload) =>
+      this._handleCommandRequest("add", payload),
+    );
 
     // Listen for command edit events from UI components (broadcast pattern)
-    this.addEventListener(
-      "command:edit",
-      async ({ key, index, updatedCommand, bindset = null, target }) => {
-        await this.editCommand(key, index, updatedCommand, bindset, target);
-      },
+    this.addEventListener("command:edit", (payload) =>
+      this._handleCommandRequest("edit", payload),
     );
   }
 
@@ -477,10 +493,10 @@ export default class CommandService extends ComponentBase {
 
   // Import commands from a source to a target key
   /**
-   * @param {string} sourceValue
-   * @param {string} targetKey
-   * @param {boolean} clearDestination
-   * @param {string} currentEnvironment
+   * @param {unknown} sourceValue
+   * @param {unknown} targetKey
+   * @param {unknown} clearDestination
+   * @param {unknown} currentEnvironment
    * @returns {Promise<import('../../types/rpc/commands.js').CommandImportResult>}
    */
   async importFromSource(
@@ -489,13 +505,35 @@ export default class CommandService extends ComponentBase {
     clearDestination,
     currentEnvironment,
   ) {
-    if (!sourceValue || !targetKey) {
-      throw new Error("Source and target are required for import");
-    }
+    const input = materializeMutationRequest(
+      { sourceValue, targetKey, clearDestination, currentEnvironment },
+      ["sourceValue", "targetKey", "clearDestination", "currentEnvironment"],
+    );
+    sourceValue = requireMutationString(input.sourceValue);
+    targetKey = requireMutationString(input.targetKey);
+    currentEnvironment = requireMutationIdentifier(input.currentEnvironment);
+    const sourceParts = String(sourceValue).split(":");
+    requireMutationIdentifier(sourceParts[0]);
+    requireMutationIdentifier(sourceParts[1]);
+    if (typeof input.clearDestination !== "boolean")
+      throw new TypeError("invalid_mutation_request");
+    clearDestination = input.clearDestination;
+    // Validate dynamic destinations before reading accepted authority.
+    requireMutationIdentifier(targetKey);
+    const invocation = captureProfileMutationContext(
+      this,
+      this._mutationGeneration,
+    );
+    const assertInvocation = () => {
+      if (
+        !canPublishProfileMutation(this, invocation, this._mutationGeneration)
+      )
+        throw new Error("operation_cancelled");
+    };
 
     try {
       // Parse source value (format: "environment:key" or "alias:aliasName")
-      const [sourceType, sourceName] = sourceValue.split(":");
+      const [sourceType, sourceName] = String(sourceValue).split(":");
 
       /** @type {import('./serviceTypes.js').StoredCommand[]} */
       let sourceCommands = [];
@@ -549,7 +587,7 @@ export default class CommandService extends ComponentBase {
             async (cmdString) => {
               const isCompatible = await this.isCommandCompatible(
                 cmdString,
-                currentEnvironment,
+                String(currentEnvironment),
               );
               return { command: cmdString, isCompatible };
             },
@@ -573,7 +611,14 @@ export default class CommandService extends ComponentBase {
       }
 
       // Perform the import
+      assertProfileMutationContext(this, invocation, this._mutationGeneration);
       if (clearDestination) {
+        assertInvocation();
+        const planning = captureProfileMutationContext(
+          this,
+          this._mutationGeneration,
+        );
+        assertProfileMutationContext(this, planning, this._mutationGeneration);
         await clearImportTarget(
           {
             cache: {
@@ -582,16 +627,20 @@ export default class CommandService extends ComponentBase {
             },
             i18n: this.i18n,
             request: (_topic, payload) =>
-              this.request("data:update-profile", payload),
+              this.request("data:update-profile", {
+                ...payload,
+                precondition: planning.precondition,
+              }),
           },
-          currentEnvironment,
-          targetKey,
+          String(currentEnvironment),
+          String(targetKey),
         );
       }
 
       // Add the filtered commands
       for (const command of filteredCommands) {
-        const added = await this.addCommand(targetKey, command);
+        assertInvocation();
+        const added = await this.addCommand(String(targetKey), command);
         if (!added) throw new Error(this.i18n.t("storage_write_failed"));
       }
 

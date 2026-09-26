@@ -178,7 +178,7 @@ describe("DataCoordinator initial-load ordering", () => {
   it("serializes reload behind a pending initial owner-state draft", async () => {
     const pendingNormalization = deferred();
     const normalize = vi
-      .spyOn(coordinator, "normalizeAllProfiles")
+      .spyOn(coordinator, "_normalizeAllProfiles")
       .mockImplementationOnce(() => pendingNormalization.promise)
       .mockResolvedValue(0);
 
@@ -208,7 +208,7 @@ describe("DataCoordinator initial-load ordering", () => {
   it("queues a reinitialized lifecycle behind the prior initial load", async () => {
     const firstNormalization = deferred();
     const normalize = vi
-      .spyOn(coordinator, "normalizeAllProfiles")
+      .spyOn(coordinator, "_normalizeAllProfiles")
       .mockImplementationOnce(() => firstNormalization.promise)
       .mockResolvedValue(0);
 
@@ -253,7 +253,7 @@ describe("DataCoordinator initial-load ordering", () => {
 
     durableRoot = root("fresh", "Fresh");
     const pendingNormalization = deferred();
-    vi.spyOn(coordinator, "normalizeAllProfiles").mockImplementationOnce(
+    vi.spyOn(coordinator, "_normalizeAllProfiles").mockImplementationOnce(
       () => pendingNormalization.promise,
     );
     fixture.storage.saveProfile.mockClear();
@@ -334,7 +334,7 @@ describe("DataCoordinator initial-load ordering", () => {
   it("cancels a reload waiting on initialization when its lifecycle ends", async () => {
     const pendingNormalization = deferred();
     const normalize = vi
-      .spyOn(coordinator, "normalizeAllProfiles")
+      .spyOn(coordinator, "_normalizeAllProfiles")
       .mockImplementationOnce(() => pendingNormalization.promise)
       .mockResolvedValue(0);
 

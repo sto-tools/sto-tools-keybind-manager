@@ -33,8 +33,15 @@ export type DefaultDataLoadResult =
     }
   | { success: false; error: string };
 
+/** Accepted owner baseline used to plan a detached mutation candidate. */
+export type ProfileMutationPrecondition = {
+  authorityEpoch: number;
+  revision: number;
+};
+
 type ExistingProfileUpdateRequest = {
   profileId: string;
+  precondition?: ProfileMutationPrecondition;
   createIfMissing?: never;
   updates?: ProfileOperations;
   add?: ProfileOperations["add"];
@@ -48,6 +55,7 @@ type ExistingProfileUpdateRequest = {
 
 type CreateMissingProfileFromReplacementRequest = {
   profileId: string;
+  precondition?: ProfileMutationPrecondition;
   /**
    * Explicitly permits creation only from a complete replacement operation.
    * Ordinary update requests remain update-only and reject a missing profile.

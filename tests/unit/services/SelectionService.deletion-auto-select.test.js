@@ -1,3 +1,7 @@
+import {
+  seedSelectionMutationOwner,
+  selectionMutationReceipt,
+} from "../../fixtures/services/selectionMutationOwner.js";
 // Test to verify SelectionService handles auto-selection when selected items are deleted
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
@@ -15,11 +19,12 @@ describe("SelectionService Deletion Auto-Selection", () => {
     // Only mutation actions use RPC; profile projections come from dataState.
     selectionService.request = vi.fn((topic) => {
       if (topic === "data:update-profile") {
-        return { success: true };
+        return selectionMutationReceipt();
       }
       return {};
     });
 
+    seedSelectionMutationOwner(selectionService);
     await selectionService.init();
 
     // Explicitly spy on emissions while retaining the real event flow.

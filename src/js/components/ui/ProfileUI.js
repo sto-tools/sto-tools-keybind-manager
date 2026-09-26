@@ -1,5 +1,6 @@
 import UIComponentBase from "../UIComponentBase.js";
 import { getSnapshotProfiles } from "../services/dataState.js";
+import { requireMutationIdentifier } from "../services/mutationRequestBoundary.js";
 import {
   errorMessage,
   eventElement,
@@ -43,11 +44,13 @@ export default class ProfileUI extends UIComponentBase {
     this.currentModal = null;
 
     this.eventListenersSetup = false;
+    this._profileActionGeneration = 0;
   }
 
   // Initialize the ProfileUI component – called by ComponentBase after the
   // late-join handshake wiring is set up.
   onInit() {
+    this._profileActionGeneration += 1;
     this.setupEventListeners();
     this.renderProfiles();
     this.updateProfileInfo();
@@ -127,9 +130,13 @@ export default class ProfileUI extends UIComponentBase {
   // Handle profile switching - using DataCoordinator directly for better performance
   /** @param {string} profileId */
   async handleProfileSwitch(profileId) {
+    const generation = this._profileActionGeneration;
     try {
+      requireMutationIdentifier(profileId);
       // Use DataCoordinator directly for better performance
       const result = await this.request("data:switch-profile", { profileId });
+      if (this.destroyed || generation !== this._profileActionGeneration)
+        return;
       if (result?.switched) {
         // Key grid will be updated automatically via events
         // Command chain handled elsewhere – just refresh our info UI
@@ -137,6 +144,8 @@ export default class ProfileUI extends UIComponentBase {
         this.showToast(result.message, "success");
       }
     } catch (error) {
+      if (this.destroyed || generation !== this._profileActionGeneration)
+        return;
       this.showToast(errorMessage(error), "error");
     }
   }
@@ -324,6 +333,14 @@ export default class ProfileUI extends UIComponentBase {
       return;
     }
 
+    const generation = this._profileActionGeneration;
+    const selectedProfile = this.cache.currentProfile;
+    const authorityEpoch = this.cache.dataState?.authorityEpoch;
+    const isCurrent = () =>
+      !this.destroyed &&
+      generation === this._profileActionGeneration &&
+      authorityEpoch === this.cache.dataState?.authorityEpoch;
+
     try {
       let result;
       switch (this.currentModal) {
@@ -333,10 +350,13 @@ export default class ProfileUI extends UIComponentBase {
             name,
             description,
           });
+          if (!isCurrent()) return;
           if (result?.success) {
+            if (this.cache.currentProfile !== selectedProfile) return;
             await this.request("data:switch-profile", {
               profileId: result.profileId,
             });
+            if (!isCurrent()) return;
             // Key grid will be updated automatically via events
             this.updateProfileInfo();
             this.showToast(result.message, "success");
@@ -357,6 +377,7 @@ export default class ProfileUI extends UIComponentBase {
             sourceId,
             newName: name,
           });
+          if (!isCurrent()) return;
           if (result?.success) {
             this.showToast(result.message, "success");
           }
@@ -377,6 +398,7 @@ export default class ProfileUI extends UIComponentBase {
             newName: name,
             description,
           });
+          if (!isCurrent()) return;
           if (result?.success) {
             this.updateProfileInfo();
             this.showToast(
@@ -391,6 +413,7 @@ export default class ProfileUI extends UIComponentBase {
       this.modalManager?.hide("profileModal");
       this.currentModal = null;
     } catch (error) {
+      if (!isCurrent()) return;
       this.showToast(errorMessage(error), "error");
     }
   }
@@ -404,6 +427,9 @@ export default class ProfileUI extends UIComponentBase {
     }
 
     if (!this.confirmDialog) return;
+    const profileId = this.cache.currentProfile;
+    const generation = this._profileActionGeneration;
+    const authorityEpoch = this.cache.dataState?.authorityEpoch;
 
     const message = this.i18n.t("confirm_delete_profile", {
       profileName: this.cache.profile.name,
@@ -418,22 +444,33 @@ export default class ProfileUI extends UIComponentBase {
         "profileDelete",
       )
     ) {
-      this.deleteCurrentProfile();
+      if (
+        this.destroyed ||
+        generation !== this._profileActionGeneration ||
+        authorityEpoch !== this.cache.dataState?.authorityEpoch ||
+        this.cache.currentProfile !== profileId
+      )
+        return;
+      await this.deleteCurrentProfile();
     }
   }
 
   // Delete the current profile - using DataCoordinator directly
   async deleteCurrentProfile() {
+    const generation = this._profileActionGeneration;
     try {
       const profileId = this.cache.currentProfile;
       if (!profileId) {
         this.showToast(this.i18n.t("no_profile_selected_to_delete"), "warning");
         return;
       }
+      requireMutationIdentifier(profileId);
       // Use DataCoordinator directly for better performance
       const result = await this.request("data:delete-profile", {
         profileId,
       });
+      if (this.destroyed || generation !== this._profileActionGeneration)
+        return;
       if (result.success) {
         if (result.switchedProfile) {
           // Key grid will be updated automatically via events
@@ -443,6 +480,8 @@ export default class ProfileUI extends UIComponentBase {
         this.showToast(result.message, "success");
       }
     } catch (error) {
+      if (this.destroyed || generation !== this._profileActionGeneration)
+        return;
       this.showToast(errorMessage(error), "error");
     }
   }
@@ -470,6 +509,7 @@ export default class ProfileUI extends UIComponentBase {
   }
 
   onDestroy() {
+    this._profileActionGeneration += 1;
     this.eventListenersSetup = false;
     super.onDestroy();
   }

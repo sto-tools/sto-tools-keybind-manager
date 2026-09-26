@@ -1,3 +1,4 @@
+import { seedSelectionMutationOwner } from "../../fixtures/services/selectionMutationOwner.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
@@ -52,6 +53,7 @@ describe("SelectionService restoration lifecycle", () => {
 
     service = new SelectionService({ eventBus });
     services.push(service);
+    seedSelectionMutationOwner(service);
     await service.init();
   });
 
@@ -222,6 +224,7 @@ describe("SelectionService restoration lifecycle", () => {
 
     const replacement = new SelectionService({ eventBus });
     services.push(replacement);
+    seedSelectionMutationOwner(replacement);
     await replacement.init();
     await eventBus.emit("profile:switched", {
       fromProfile: null,

@@ -315,3 +315,101 @@ export function namedMethodCallCounts(entries = sourceEntries()) {
   }
   return counts;
 }
+
+/**
+ * Syntactic action inventory, not alias resolution or a semantic call graph.
+ * Anonymous callbacks retain their enclosing named function/method; named
+ * arrow/function-valued variables establish their own location. Payload text
+ * and physical line numbers deliberately do not define caller identity.
+ */
+export function profileMutationCallsites(entries, { dynamic = false } = {}) {
+  const counts = {};
+  for (const [fileName, sourceFile] of parsedEntries(
+    entries,
+    ts.ScriptKind.JS,
+    ["request", "invokeRequest"],
+  )) {
+    function visit(node, owner = "top") {
+      let nextOwner = owner;
+      if (ts.isConstructorDeclaration(node)) {
+        nextOwner = "constructor";
+      } else if (
+        (ts.isMethodDeclaration(node) || ts.isFunctionDeclaration(node)) &&
+        node.name
+      ) {
+        nextOwner = node.name.getText(sourceFile);
+      } else if (
+        ts.isVariableDeclaration(node) &&
+        node.initializer &&
+        (ts.isArrowFunction(node.initializer) ||
+          ts.isFunctionExpression(node.initializer))
+      ) {
+        nextOwner = node.name.getText(sourceFile);
+      }
+      if (ts.isCallExpression(node)) {
+        const call = memberCall(node, sourceFile);
+        const bareName = ts.isIdentifier(node.expression)
+          ? node.expression.text
+          : null;
+        const member = call?.method === "request";
+        if (member || ["request", "invokeRequest"].includes(bareName)) {
+          const index =
+            member ||
+            (node.arguments[0] && ts.isStringLiteralLike(node.arguments[0]))
+              ? 0
+              : 1;
+          const argument = node.arguments[index];
+          const topic =
+            argument && ts.isStringLiteralLike(argument) ? argument.text : null;
+          if (dynamic ? topic === null : topic === "data:update-profile") {
+            const key = [
+              fileName,
+              owner,
+              member ? call.receiver : bareName,
+              topic ?? "<dynamic-topic>",
+            ].join("|");
+            counts[key] = (counts[key] || 0) + 1;
+          }
+        }
+      }
+      ts.forEachChild(node, (child) => visit(child, nextOwner));
+    }
+    visit(sourceFile);
+  }
+  return counts;
+}
+
+/**
+ * Freeze explicit helper edges so adding/moving a cohort import is reviewable.
+ * Includes re-exports and dynamic import expressions (including nonliterals).
+ * Does not resolve aliases, require(), or arbitrary runtime module loaders.
+ */
+export function profileMutationModuleDependencies(entries) {
+  const counts = {};
+  for (const [fileName, sourceFile] of parsedEntries(entries)) {
+    function visit(node) {
+      let kind;
+      let argument;
+      if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+        kind = "static";
+        argument = node.moduleSpecifier;
+      } else if (
+        ts.isCallExpression(node) &&
+        node.expression.kind === ts.SyntaxKind.ImportKeyword
+      ) {
+        kind = "dynamic";
+        argument = node.arguments[0];
+      }
+      if (kind && argument) {
+        const specifier = ts.isStringLiteralLike(argument)
+          ? argument.text
+          : "<dynamic-module>";
+        const key = [fileName, kind, specifier].join("|");
+        counts[key] = (counts[key] || 0) + 1;
+      }
+      ts.forEachChild(node, visit);
+    }
+    visit(sourceFile);
+  }
+  return counts;
+}

@@ -2,10 +2,34 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import BindsetSelectorService from "../../../src/js/components/services/BindsetSelectorService.js";
 import { createServiceFixture } from "../../fixtures/index.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 
 describe("BindsetSelectorService key lookup", () => {
   let fixture;
   let service;
+
+  function seedMutationSnapshot() {
+    const profile = {
+      id: "profile-1",
+      name: "Profile",
+      builds: { space: { keys: { F1: [] } }, ground: { keys: {} } },
+      aliases: {},
+      bindsets: {
+        Weapons: { space: { keys: { F1: [] } }, ground: { keys: {} } },
+      },
+    };
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "test-seed",
+      state: createDataCoordinatorState({
+        currentProfile: "profile-1",
+        currentEnvironment: "space",
+        currentProfileData: profile,
+        profiles: { "profile-1": profile },
+      }),
+    });
+    service.cache.selectedKey = "F1";
+    return profile;
+  }
 
   beforeEach(() => {
     fixture = createServiceFixture();
@@ -132,15 +156,17 @@ describe("BindsetSelectorService key lookup", () => {
 
   it("adds the selected key before publishing the retained bindset events", async () => {
     service.init();
+    const profile = seedMutationSnapshot();
     service.cache.selectedKey = "F1";
     service.cache.currentEnvironment = "space";
     service.cache.profile = { id: "profile-1" };
     fixture.eventBus.mockResponse("data:update-profile", () => ({
       success: true,
+      profile,
     }));
     fixture.eventBusFixture.clearEventHistory();
 
-    await expect(service.addKeyToBindset("Weapons")).resolves.toEqual({
+    await expect(service.addKeyToBindset("Weapons")).resolves.toMatchObject({
       success: true,
     });
 
@@ -175,16 +201,20 @@ describe("BindsetSelectorService key lookup", () => {
 
   it("owns the active-bindset reset after removing the selected key", async () => {
     service.init();
+    const profile = seedMutationSnapshot();
     service.cache.selectedKey = "F1";
     service.cache.currentEnvironment = "space";
     service.cache.activeBindset = "Weapons";
     service.cache.profile = { id: "profile-1" };
     fixture.eventBus.mockResponse("data:update-profile", () => ({
       success: true,
+      profile,
     }));
     fixture.eventBusFixture.clearEventHistory();
 
-    await expect(service.removeKeyFromBindset("Weapons")).resolves.toEqual({
+    await expect(
+      service.removeKeyFromBindset("Weapons"),
+    ).resolves.toMatchObject({
       success: true,
     });
 
@@ -214,6 +244,7 @@ describe("BindsetSelectorService key lookup", () => {
 
   it("does not reset the active bindset when key removal is rejected", async () => {
     service.init();
+    seedMutationSnapshot();
     service.cache.selectedKey = "F1";
     service.cache.currentEnvironment = "space";
     service.cache.activeBindset = "Weapons";
@@ -226,7 +257,7 @@ describe("BindsetSelectorService key lookup", () => {
 
     await expect(service.removeKeyFromBindset("Weapons")).resolves.toEqual({
       success: false,
-      error: "persistence_failed",
+      error: "remove_failed",
     });
 
     expect(service.cache.activeBindset).toBe("Weapons");

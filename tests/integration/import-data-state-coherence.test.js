@@ -159,6 +159,21 @@ describe("ImportService DataCoordinator coherence", () => {
     expect(ownerProfile.lastModified).toBeTruthy();
   }
 
+  function expectRestartReadable(targetProfileId, assertProfile) {
+    const restartedBus = createEventBusFixture();
+    const restartedStorage = new StorageService({
+      eventBus: restartedBus.eventBus,
+      version: "1.0.0",
+    });
+    try {
+      restartedStorage.init();
+      assertProfile(restartedStorage.getProfile(targetProfileId));
+    } finally {
+      restartedStorage.destroy();
+      restartedBus.destroy();
+    }
+  }
+
   it("commits a keybind import as one authoritative revision", async () => {
     await expectCoherentCommit(
       () => service.importKeybindFile('F1 "FireAll"', profileId, "space"),
@@ -192,6 +207,10 @@ describe("ImportService DataCoordinator coherence", () => {
     );
 
     expect(coordinator.getCurrentState().currentProfile).toBe(profileId);
+    expectRestartReadable(targetProfileId, (profile) => {
+      expect(profile.name).toBe(targetProfileId);
+      expect(profile.builds.ground.keys.F3).toEqual(["Target_Enemy_Near"]);
+    });
   });
 
   it("authoritatively creates a missing profile for alias import", async () => {
@@ -212,6 +231,12 @@ describe("ImportService DataCoordinator coherence", () => {
     );
 
     expect(coordinator.getCurrentState().currentProfile).toBe(profileId);
+    expectRestartReadable(targetProfileId, (profile) => {
+      expect(profile.name).toBe(targetProfileId);
+      expect(profile.aliases.FocusTarget).toMatchObject({
+        commands: ["Target_Enemy_Near"],
+      });
+    });
   });
 
   it("commits a KBF import as one authoritative revision", async () => {

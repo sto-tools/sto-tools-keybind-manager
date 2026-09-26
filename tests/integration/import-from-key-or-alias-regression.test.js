@@ -74,7 +74,8 @@ describe("Regression: Import from Key or Alias request routing", () => {
       storage: fixture.storage,
       i18n: { t: (key) => key },
     });
-    await dataCoordinator.init();
+    dataCoordinator.init();
+    await dataCoordinator.initialStateReady;
 
     aliasBrowserService = new AliasBrowserService({ eventBus });
     aliasBrowserService.init();

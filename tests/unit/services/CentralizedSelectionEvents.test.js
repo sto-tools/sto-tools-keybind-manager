@@ -170,6 +170,7 @@ describe("Centralized Selection Events", () => {
       // Set up mock profile data for CommandService
       const mockProfile = {
         id: "test-profile",
+        name: "Test Profile",
         builds: {
           space: { keys: { F1: ["Target_Enemy_Near"] } },
           ground: { keys: {} },
@@ -296,6 +297,7 @@ describe("Centralized Selection Events", () => {
       // Mock profile data for services
       const mockProfile = {
         id: "test-profile",
+        name: "Test Profile",
         builds: {
           space: { keys: { F1: ["Target_Enemy_Near"] } },
           ground: { keys: {} },
@@ -304,6 +306,14 @@ describe("Centralized Selection Events", () => {
       };
 
       // Simulate profile loading
+      harness.eventBus.emit("data:state-changed", {
+        reason: "initial-load",
+        state: createDataCoordinatorState({
+          currentProfile: "test-profile",
+          currentProfileData: mockProfile,
+          profiles: { "test-profile": mockProfile },
+        }),
+      });
       harness.eventBus.emit("profile:switched", {
         profileId: "test-profile",
         profile: mockProfile,

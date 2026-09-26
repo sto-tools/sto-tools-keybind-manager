@@ -1,3 +1,4 @@
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import {
@@ -29,6 +30,7 @@ describe("ImportService - KBF Key Token Normalization", () => {
       storage: fixture.storage,
     });
     service.init();
+    service._cacheDataState(createDataCoordinatorState());
     respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
 
     // Register responder for parser on the fixture event bus
@@ -80,6 +82,7 @@ describe("ImportService - KBF Key Token Normalization", () => {
 
     // Mock storage to return a test profile
     fixture.storage.getProfile = vi.fn().mockReturnValue({
+      name: "Test Profile",
       builds: {
         space: { keys: {}, aliases: {} },
         ground: { keys: {}, aliases: {} },
@@ -162,6 +165,7 @@ describe("ImportService - KBF Key Token Normalization", () => {
 
     // Mock storage to return a test profile
     fixture.storage.getProfile = vi.fn().mockReturnValue({
+      name: "Test Profile",
       builds: {
         space: { keys: {}, aliases: {} },
         ground: { keys: {}, aliases: {} },
@@ -231,6 +235,7 @@ describe("ImportService - KBF Key Token Normalization", () => {
 
     // Mock storage to return a test profile
     fixture.storage.getProfile = vi.fn().mockReturnValue({
+      name: "Test Profile",
       builds: {
         space: { keys: {}, aliases: {} },
         ground: { keys: {}, aliases: {} },

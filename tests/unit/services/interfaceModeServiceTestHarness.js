@@ -1,4 +1,4 @@
-import { vi } from "vitest";
+import { expect, vi } from "vitest";
 
 import InterfaceModeService from "../../../src/js/components/services/InterfaceModeService.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
@@ -75,7 +75,21 @@ export function createInterfaceModeServiceHarness() {
   };
 
   const profileUpdateResponder = (handler = () => ({ success: true })) => {
-    const update = vi.fn(handler);
+    const update = vi.fn(async (payload) => {
+      expect(payload.precondition).toEqual({
+        authorityEpoch: service.cache.dataState.authorityEpoch,
+        revision: service.cache.dataState.revision,
+      });
+      const result = await handler(payload);
+      return result?.success === true
+        ? {
+            ...result,
+            profile:
+              result.profile ??
+              profile(payload.profileId, payload.properties.currentEnvironment),
+          }
+        : result;
+    });
     fixture.eventBus.mockResponse("data:update-profile", update);
     return update;
   };

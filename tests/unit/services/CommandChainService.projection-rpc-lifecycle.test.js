@@ -151,7 +151,7 @@ describe("CommandChainService projection responder lifecycle", () => {
     },
   );
 
-  it("suppresses a predecessor clear result after lifecycle replacement", async () => {
+  it("retains an acknowledged predecessor clear without publication after lifecycle replacement", async () => {
     service.init();
     const profile = {
       id: "captain",
@@ -175,9 +175,9 @@ describe("CommandChainService projection responder lifecycle", () => {
     await vi.waitFor(() => expect(service.request).toHaveBeenCalledOnce());
     service.destroy();
     service.init();
-    request.resolve({ success: true });
+    request.resolve({ success: true, profile });
 
-    await expect(pending).resolves.toBe(false);
+    await expect(pending).resolves.toBe(true);
     expect(changed).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,7 @@
 // Test to verify Phase 2.1 event flow optimization - elimination of redundant keys:changed events
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createServiceFixture } from "../../fixtures/services/harness.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 
 // Import the services we optimized
 import KeyService from "../../../src/js/components/services/KeyService.js";
@@ -110,7 +111,22 @@ describe("Phase 2.1: Event Flow Optimization - keys:changed Elimination", () => 
       keyService.cache.currentEnvironment = "space";
 
       // Mock the request method for DataCoordinator update
-      keyService.request = vi.fn().mockResolvedValue({ success: true });
+      const profile = {
+        name: "Test",
+        builds: { space: { keys: { F1: ["command1"] } } },
+        aliases: {},
+      };
+      harness.eventBus.emit("data:state-changed", {
+        reason: "initial-load",
+        state: createDataCoordinatorState({
+          currentProfile: "test-profile",
+          currentProfileData: profile,
+          profiles: { "test-profile": profile },
+        }),
+      });
+      keyService.request = vi
+        .fn()
+        .mockResolvedValue({ success: true, profile });
       keyService.isValidKeyName = vi.fn().mockResolvedValue(true);
 
       // Call duplicateKeyWithName

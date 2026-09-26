@@ -1,3 +1,7 @@
+import {
+  seedSelectionMutationOwner,
+  selectionMutationReceipt,
+} from "../../fixtures/services/selectionMutationOwner.js";
 // Test to verify SelectionService validates cached selections exist before restoring
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
@@ -13,7 +17,9 @@ describe("SelectionService Cached Selection Validation", () => {
     selectionService = new SelectionService({
       eventBus: env.eventBus,
     });
-    selectionService.request = vi.fn().mockResolvedValue({ success: true });
+    selectionService.request = vi
+      .fn()
+      .mockResolvedValue(selectionMutationReceipt());
 
     // Mock ComponentBase cache with test data
     selectionService.cache = {
@@ -64,6 +70,7 @@ describe("SelectionService Cached Selection Validation", () => {
       },
     };
 
+    seedSelectionMutationOwner(selectionService);
     await selectionService.init();
     const profile = {
       ...selectionService.cache.profile,
@@ -281,7 +288,9 @@ describe("SelectionService Cached Selection Validation", () => {
 
   describe("Per-environment caching behaviour", () => {
     it("should remember last selection per environment when switching back and forth", async () => {
-      selectionService.request = vi.fn().mockResolvedValue({ success: true });
+      selectionService.request = vi
+        .fn()
+        .mockResolvedValue(selectionMutationReceipt());
 
       selectionService.cache.builds = {
         space: { keys: { F10: ["FireAll"], F11: ["Spare"] } },
@@ -309,7 +318,9 @@ describe("SelectionService Cached Selection Validation", () => {
     });
 
     it("should restore environment-specific selection when environment:changed events fire", async () => {
-      selectionService.request = vi.fn().mockResolvedValue({ success: true });
+      selectionService.request = vi
+        .fn()
+        .mockResolvedValue(selectionMutationReceipt());
 
       selectionService.cache.builds = {
         space: { keys: { F10: ["FireAll"], F12: ["Spare"] } },

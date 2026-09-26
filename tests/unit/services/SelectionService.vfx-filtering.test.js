@@ -1,3 +1,7 @@
+import {
+  seedSelectionMutationOwner,
+  selectionMutationReceipt,
+} from "../../fixtures/services/selectionMutationOwner.js";
 // Test to verify SelectionService filters out VFX Manager system aliases during auto-selection
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createBasicTestEnvironment } from "../../fixtures";
@@ -58,8 +62,11 @@ describe("SelectionService VFX Alias Filtering", () => {
       cachedSelections: { space: null, ground: null, alias: null },
     };
 
+    seedSelectionMutationOwner(selectionService);
     await selectionService.init();
-    selectionService.request = vi.fn().mockResolvedValue({ success: true });
+    selectionService.request = vi
+      .fn()
+      .mockResolvedValue(selectionMutationReceipt());
   });
 
   afterEach(() => {

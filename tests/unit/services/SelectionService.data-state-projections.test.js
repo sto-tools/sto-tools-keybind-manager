@@ -1,3 +1,7 @@
+import {
+  seedSelectionMutationOwner,
+  selectionMutationReceipt,
+} from "../../fixtures/services/selectionMutationOwner.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
@@ -11,7 +15,7 @@ describe("SelectionService data-state projections", () => {
   beforeEach(() => {
     harness = createServiceFixture();
     service = new SelectionService({ eventBus: harness.eventBus });
-    service.request = vi.fn().mockResolvedValue({ success: true });
+    service.request = vi.fn().mockResolvedValue(selectionMutationReceipt());
     service.init();
     service.extendCache({
       currentProfile: "test-profile",
@@ -69,6 +73,7 @@ describe("SelectionService data-state projections", () => {
   });
 
   it("keeps alias auto-selection on the accepted compatibility projection", async () => {
+    seedSelectionMutationOwner(service);
     service.cache.aliases = { Alias1: {}, Alias2: {} };
 
     await expect(service.autoSelectFirst("alias")).resolves.toBe("Alias1");

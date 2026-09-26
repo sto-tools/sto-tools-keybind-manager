@@ -188,4 +188,39 @@ describe("DataCoordinator initial publication settlement", () => {
     });
     expect(eventBus.hasListeners("rpc:data:create-profile")).toBe(true);
   });
+
+  it("allows an initial-publication listener to await reload without a readiness cycle", async () => {
+    storageFixture.storageService.getAllData.mockReturnValue({
+      currentProfile: "alpha",
+      profiles: { alpha: profile("Alpha") },
+      settings: {},
+      version: "1.0.0",
+    });
+    const reasons = [];
+    const reloadResults = [];
+    eventBus.on("data:state-changed", async ({ reason }) => {
+      reasons.push(reason);
+      if (reason === "initial-load") {
+        reloadResults.push(await coordinator.reloadState());
+      }
+    });
+    coordinator = new DataCoordinator({
+      eventBus,
+      storage: storageFixture.storageService,
+      i18n: { t: (key) => key },
+      defaultProfiles: {},
+    });
+    coordinator.init();
+    await coordinator.initialStateReady;
+    expect(reasons).toEqual(["initial-load", "state-reloaded"]);
+    expect(reloadResults).toEqual([
+      {
+        success: true,
+        profiles: 1,
+        currentProfile: "alpha",
+        environment: "space",
+      },
+    ]);
+    expect(eventBus.hasListeners("rpc:data:create-profile")).toBe(true);
+  });
 });

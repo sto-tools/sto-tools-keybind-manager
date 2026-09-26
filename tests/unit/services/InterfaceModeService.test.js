@@ -39,6 +39,20 @@ describe("InterfaceModeService", () => {
     expect(service).not.toHaveProperty("app");
   });
 
+  it("rejects a malformed owner acknowledgement without announcing a mode switch", async () => {
+    publishProfile("captain", "space");
+    fixture.eventBusFixture.clearEventHistory();
+    fixture.eventBus.mockResponse("data:update-profile", () => ({
+      success: true,
+    }));
+    await expect(service.switchMode("ground")).resolves.toEqual({
+      success: false,
+      error: "failed_to_save_profile",
+    });
+    expect(service.currentMode).toBe("space");
+    expect(environmentEvents()).toEqual([]);
+  });
+
   it("persists the captured profile before committing and broadcasting a switch", async () => {
     publishProfile("captain", "space");
     fixture.eventBusFixture.clearEventHistory();
@@ -50,6 +64,7 @@ describe("InterfaceModeService", () => {
     await vi.waitFor(() => expect(update).toHaveBeenCalledOnce());
     expect(update.mock.calls[0][0]).toEqual({
       profileId: "captain",
+      precondition: { authorityEpoch: 1, revision: 1 },
       properties: { currentEnvironment: "ground" },
     });
     expect(service.currentMode).toBe("space");
@@ -107,6 +122,7 @@ describe("InterfaceModeService", () => {
       });
       detachUpdate = realService.respond("data:update-profile", () => ({
         success: true,
+        profile: profile("captain", "ground"),
       }));
       detachListener = realFixture.eventBus.on(
         "environment:changed",
@@ -139,6 +155,50 @@ describe("InterfaceModeService", () => {
       detachListener();
       detachUpdate();
       if (!realService.destroyed) realService.destroy();
+      realFixture.destroy();
+    }
+  });
+
+  it("does not join an earlier environment publication from an unchanged-mode owner snapshot", async () => {
+    const realFixture = await createRealEventBusFixture();
+    const realService = new InterfaceModeService({
+      eventBus: realFixture.eventBus,
+    });
+    const releaseListener = deferred();
+    const detach = realFixture.eventBus.on(
+      "environment:changed",
+      () => releaseListener.promise,
+    );
+    try {
+      realService.init();
+      let modeSettled = false;
+      const modePublication = realService
+        .adoptAcceptedMode("ground")
+        .then(() => {
+          modeSettled = true;
+        });
+      const selectedProfile = profile("captain", "ground");
+      await realFixture.eventBus.emit(
+        "data:state-changed",
+        {
+          reason: "profile-updated",
+          state: createDataCoordinatorState({
+            currentProfile: "captain",
+            currentEnvironment: "ground",
+            currentProfileData: selectedProfile,
+            profiles: { captain: selectedProfile },
+          }),
+        },
+        { synchronous: true },
+      );
+      expect(modeSettled).toBe(false);
+      releaseListener.resolve();
+      await modePublication;
+      expect(modeSettled).toBe(true);
+    } finally {
+      releaseListener.resolve();
+      detach();
+      realService.destroy();
       realFixture.destroy();
     }
   });

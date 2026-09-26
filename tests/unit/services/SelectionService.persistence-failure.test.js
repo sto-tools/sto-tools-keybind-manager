@@ -1,3 +1,7 @@
+import {
+  seedSelectionMutationOwner,
+  selectionMutationReceipt,
+} from "../../fixtures/services/selectionMutationOwner.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
 import { createServiceFixture } from "../../fixtures/services/harness.js";
@@ -17,8 +21,9 @@ describe("SelectionService persistence failures", () => {
       capturedEvents.push({ event, data });
       return originalEmit(event, data);
     });
-    service.request = vi.fn();
+    service.request = vi.fn().mockResolvedValue(selectionMutationReceipt());
 
+    seedSelectionMutationOwner(service);
     await service.init();
     service.extendCache({
       selectedKey: null,

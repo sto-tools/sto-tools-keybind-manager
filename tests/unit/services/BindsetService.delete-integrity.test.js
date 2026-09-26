@@ -83,6 +83,10 @@ describe("BindsetService deletion integrity", () => {
       expect(updateProfile).toHaveBeenCalledOnce();
       expect(updateProfile).toHaveBeenCalledWith("data:update-profile", {
         profileId: "captain",
+        precondition: {
+          authorityEpoch: expect.any(Number),
+          revision: expect.any(Number),
+        },
         updates: {
           delete: {
             bindsets: ["Weapons"],

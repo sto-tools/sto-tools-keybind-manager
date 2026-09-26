@@ -1,3 +1,4 @@
+import { seedSelectionMutationOwner } from "../../fixtures/services/selectionMutationOwner.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ComponentBase from "../../../src/js/components/ComponentBase.js";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
@@ -63,6 +64,7 @@ describe("SelectionService lifecycle", () => {
     detaches = [];
 
     service = new SelectionService({ eventBus });
+    seedSelectionMutationOwner(service);
     await service.init();
     consumer = new SelectionLifecycleConsumer(eventBus);
     consumer.init();

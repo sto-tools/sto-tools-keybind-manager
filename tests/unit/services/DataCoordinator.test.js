@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createServiceFixture } from "../../fixtures/index.js";
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
 
+const storedProfile = (name, fields = {}) => ({
+  name,
+  builds: { space: { keys: {} }, ground: { keys: {} } },
+  ...fields,
+});
+
 describe("DataCoordinator Service", () => {
   let dataCoordinator;
   let fixture, mockStorage, mockEventBus;
@@ -83,10 +89,9 @@ describe("DataCoordinator Service", () => {
       const mockData = {
         currentProfile: "test-profile",
         profiles: {
-          "test-profile": {
-            name: "Test Profile",
+          "test-profile": storedProfile("Test Profile", {
             description: "Test Description",
-          },
+          }),
         },
         settings: embeddedSettings,
       };
@@ -111,8 +116,8 @@ describe("DataCoordinator Service", () => {
       const mockData = {
         currentProfile: null,
         profiles: {
-          profile1: { name: "Profile 1" },
-          profile2: { name: "Profile 2" },
+          profile1: storedProfile("Profile 1"),
+          profile2: storedProfile("Profile 2"),
         },
         settings: {},
       };
@@ -229,13 +234,15 @@ describe("DataCoordinator Service", () => {
 
     it("should clone existing profile", async () => {
       // Setup source profile
-      dataCoordinator.state.profiles["source-profile"] = {
-        name: "Source Profile",
-        description: "Source Description",
-        aliases: {
-          test: { commands: ["command1"], description: "Test alias" },
+      dataCoordinator.state.profiles["source-profile"] = storedProfile(
+        "Source Profile",
+        {
+          description: "Source Description",
+          aliases: {
+            test: { commands: ["command1"], description: "Test alias" },
+          },
         },
-      };
+      );
 
       const result = await dataCoordinator.cloneProfile(
         "source-profile",
@@ -254,7 +261,8 @@ describe("DataCoordinator Service", () => {
 
     it("should rename existing profile", async () => {
       // Setup existing profile
-      dataCoordinator.state.profiles["test-profile"] = { name: "Old Name" };
+      dataCoordinator.state.profiles["test-profile"] =
+        storedProfile("Old Name");
 
       const result = await dataCoordinator.renameProfile(
         "test-profile",
@@ -273,8 +281,8 @@ describe("DataCoordinator Service", () => {
 
     it("should delete existing profile", async () => {
       // Setup profiles
-      dataCoordinator.state.profiles["profile1"] = { name: "Profile 1" };
-      dataCoordinator.state.profiles["profile2"] = { name: "Profile 2" };
+      dataCoordinator.state.profiles["profile1"] = storedProfile("Profile 1");
+      dataCoordinator.state.profiles["profile2"] = storedProfile("Profile 2");
       dataCoordinator.state.currentProfile = "profile1";
 
       const result = await dataCoordinator.deleteProfile("profile1");
@@ -325,11 +333,12 @@ describe("DataCoordinator Service", () => {
       const embeddedSettings = { theme: "root-only", legacy: true };
       const durableRoot = {
         currentProfile: "test-profile",
-        profiles: { "test-profile": { name: "Test Profile" } },
+        profiles: { "test-profile": storedProfile("Test Profile") },
         settings: embeddedSettings,
       };
       mockStorage.getAllData.mockReturnValue(durableRoot);
-      dataCoordinator.state.profiles["test-profile"] = { name: "Test Profile" };
+      dataCoordinator.state.profiles["test-profile"] =
+        storedProfile("Test Profile");
 
       await dataCoordinator.updateProfile("test-profile", {
         properties: { description: "Updated" },
@@ -355,7 +364,11 @@ describe("DataCoordinator Service", () => {
 
       const newData = {
         currentProfile: "reloaded-profile",
-        profiles: { "reloaded-profile": { name: "Reloaded" } },
+        // A genuine pre-builds stored profile keeps this test's requirement:
+        // normalization does not invent canonical builds in owner state.
+        profiles: {
+          "reloaded-profile": { name: "Reloaded", mode: "space", keys: {} },
+        },
         settings: { newSetting: "value" },
       };
 

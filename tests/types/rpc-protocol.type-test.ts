@@ -902,6 +902,23 @@ async function exerciseCoreApi() {
   });
   await request(eventBus, "data:update-profile", {
     profileId: "captain",
+    precondition: { authorityEpoch: 1, revision: 2 },
+    properties: { description: "guarded update" },
+  });
+  // @ts-expect-error Both authority and revision are required when guarded.
+  request(eventBus, "data:update-profile", {
+    profileId: "captain",
+    precondition: { authorityEpoch: 1 },
+    properties: { description: "incomplete guard" },
+  });
+  // @ts-expect-error A revision must be numeric, not a coerced string.
+  request(eventBus, "data:update-profile", {
+    profileId: "captain",
+    precondition: { authorityEpoch: 1, revision: "2" },
+    properties: { description: "invalid guard" },
+  });
+  await request(eventBus, "data:update-profile", {
+    profileId: "captain",
     updates: {
       replacement: {
         name: "Imported Captain",

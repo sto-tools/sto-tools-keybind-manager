@@ -104,7 +104,7 @@ describe("VFXManagerService", () => {
     // Only the update remains an action RPC; profile state comes from the cache.
     service.request = vi.fn(async (topic) => {
       if (topic === "data:update-profile") {
-        return { success: true };
+        return { success: true, profile: profileWithVFX("Bloom") };
       }
       return null;
     });
@@ -116,6 +116,7 @@ describe("VFXManagerService", () => {
     expect(service.request).toHaveBeenCalledOnce();
     expect(service.request).toHaveBeenCalledWith("data:update-profile", {
       profileId: "test-profile",
+      precondition: { authorityEpoch: 1, revision: 1 },
       properties: {
         vertigoSettings: {
           selectedEffects: { space: ["Bloom"], ground: [] },
@@ -165,25 +166,66 @@ describe("VFXManagerService", () => {
     });
   });
 
-  it("keeps the accepted VFX snapshot unchanged when the authoritative update fails", async () => {
-    await emitDataState(
-      createDataCoordinatorState({
-        currentProfileData: profileWithVFX(null),
-      }),
-      "initial-load",
-    );
-    const accepted = service.cache.dataState;
-    service.toggleEffect("space", "Bloom");
-    service.request = vi.fn().mockRejectedValue(new Error("write failed"));
+  it.each(["rejected", "malformed"])(
+    "keeps accepted VFX state and the modal unchanged after a %s acknowledgement",
+    async (outcome) => {
+      await emitDataState(
+        createDataCoordinatorState({
+          currentProfileData: profileWithVFX(null),
+        }),
+        "initial-load",
+      );
+      const accepted = service.cache.dataState;
+      service.toggleEffect("space", "Bloom");
+      service.request =
+        outcome === "rejected"
+          ? vi.fn().mockRejectedValue(new Error("write failed"))
+          : vi.fn().mockResolvedValue({ success: true });
 
-    await service.saveEffects();
+      await service.saveEffects();
 
-    expect(service.cache.dataState).toBe(accepted);
-    expect(accepted.currentProfileData.vertigoSettings).toEqual({
-      selectedEffects: { space: [], ground: [] },
-      showPlayerSay: false,
+      expect(service.cache.dataState).toBe(accepted);
+      expect(accepted.currentProfileData.vertigoSettings).toEqual({
+        selectedEffects: { space: [], ground: [] },
+        showPlayerSay: false,
+      });
+      eventBusFixture.expectNoEvent("modal:hide");
+    },
+  );
+
+  it("rejects invalid draft values before accepted-state reads", async () => {
+    service.selectedEffects.space.add({ unsafe: true });
+    const read = vi.fn(() => {
+      throw new Error("owner read before validation");
     });
-    eventBusFixture.expectEvent("modal:hide", { modalId: "vertigoModal" });
+    Object.defineProperty(service.cache, "dataState", {
+      configurable: true,
+      get: read,
+    });
+    service.request = vi.fn();
+    await service.saveEffects();
+    expect(read).not.toHaveBeenCalled();
+    expect(service.request).not.toHaveBeenCalled();
+  });
+
+  it("suppresses stale modal effects after an acknowledged save crosses teardown", async () => {
+    await emitDataState(
+      createDataCoordinatorState({ currentProfileData: profileWithVFX(null) }),
+    );
+    let acknowledge;
+    service.request = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          acknowledge = resolve;
+        }),
+    );
+    const pending = service.saveEffects();
+    service.destroy();
+    service.init();
+    eventBusFixture.clearEventHistory();
+    acknowledge({ success: true, profile: profileWithVFX(null) });
+    await pending;
+    expect(eventBusFixture.getEventsOfType("modal:hide")).toHaveLength(0);
   });
 
   it("derives VFX state from accepted revisions and a replacement authority", async () => {

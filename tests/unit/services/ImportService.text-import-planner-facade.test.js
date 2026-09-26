@@ -1,3 +1,4 @@
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ImportService from "../../../src/js/components/services/ImportService.js";
@@ -87,6 +88,7 @@ describe("ImportService text-profile planner facade", () => {
       i18n: { t: (key) => key },
     });
     service.init();
+    service._cacheDataState(createDataCoordinatorState());
     fixture.eventBus.on("profile:updated", () => trace.push("legacy"));
   });
 
@@ -147,6 +149,7 @@ describe("ImportService text-profile planner facade", () => {
           updateSource: "ImportService",
         },
         createIfMissing: true,
+        precondition: { authorityEpoch: 1, revision: 1 },
       },
     ]);
     expect(fixture.storage.getProfile(profileId)).toMatchObject({

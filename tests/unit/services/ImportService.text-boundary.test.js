@@ -1,3 +1,4 @@
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ImportService from "../../../src/js/components/services/ImportService.js";
@@ -21,6 +22,7 @@ describe("ImportService STO text boundary", () => {
       },
     });
     service.init();
+    service._cacheDataState(createDataCoordinatorState());
     parseCommand = vi.fn(({ commandString }) => ({
       commands: commandString ? [{ command: commandString }] : [],
       isMirrored: false,

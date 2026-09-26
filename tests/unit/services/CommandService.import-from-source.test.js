@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 import CommandService from "../../../src/js/components/services/CommandService.js";
+import { applyProfileOperations } from "../../../src/js/components/services/profileOperations.js";
 
 function createProfile() {
   return {
@@ -86,7 +87,8 @@ describe("CommandService importFromSource clear destination", () => {
       .spyOn(service, "request")
       .mockImplementation(async (topic) => {
         timeline.push(topic);
-        if (topic === "data:update-profile") return { success: true };
+        if (topic === "data:update-profile")
+          return { success: true, profile: structuredClone(createProfile()) };
         throw new Error(`Unexpected request: ${topic}`);
       });
     const addSpy = vi
@@ -105,6 +107,10 @@ describe("CommandService importFromSource clear destination", () => {
 
     expect(requestSpy).toHaveBeenCalledWith("data:update-profile", {
       profileId: "profile1",
+      precondition: {
+        authorityEpoch: expect.any(Number),
+        revision: expect.any(Number),
+      },
       modify: { builds: { space: { keys: { F2: [] } } } },
     });
     expect(addSpy.mock.calls).toEqual([
@@ -140,7 +146,8 @@ describe("CommandService importFromSource clear destination", () => {
         if (topic === "parser:parse-command-string") {
           return { commands: ["AliasOne", "AliasTwo"] };
         }
-        if (topic === "data:update-profile") return { success: true };
+        if (topic === "data:update-profile")
+          return { success: true, profile: structuredClone(createProfile()) };
         throw new Error(`Unexpected request: ${topic}`);
       });
     const addSpy = vi
@@ -159,6 +166,10 @@ describe("CommandService importFromSource clear destination", () => {
 
     expect(requestSpy).toHaveBeenCalledWith("data:update-profile", {
       profileId: "profile1",
+      precondition: {
+        authorityEpoch: expect.any(Number),
+        revision: expect.any(Number),
+      },
       modify: {
         aliases: {
           targetAlias: { commands: [] },
@@ -216,7 +227,8 @@ describe("CommandService importFromSource clear destination", () => {
   it("rejects when a sequential addition fails after clearing", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(service, "request").mockImplementation(async (topic) => {
-      if (topic === "data:update-profile") return { success: true };
+      if (topic === "data:update-profile")
+        return { success: true, profile: structuredClone(createProfile()) };
       throw new Error(`Unexpected request: ${topic}`);
     });
     const addSpy = vi
@@ -247,6 +259,71 @@ describe("CommandService importFromSource clear destination", () => {
     ).rejects.toThrow("not_found");
     expect(requestSpy).not.toHaveBeenCalled();
     expect(addSpy).not.toHaveBeenCalled();
+  });
+
+  it.each(["revision", "authority", "environment", "disposal"])(
+    "cancels before clear when alias parsing crosses a changed %s",
+    async (change) => {
+      let finishParsing;
+      const parsed = new Promise((resolve) => {
+        finishParsing = resolve;
+      });
+      const write = vi
+        .spyOn(service, "request")
+        .mockImplementation(async (topic) => {
+          if (topic === "parser:parse-command-string") return parsed;
+          throw new Error("unexpected owner write");
+        });
+      const pending = service.importFromSource(
+        "alias:sourceAlias",
+        "F2",
+        true,
+        "space",
+      );
+      await vi.waitFor(() => expect(write).toHaveBeenCalledOnce());
+      if (change === "disposal") service.destroy();
+      else {
+        const state = structuredClone(service.cache.dataState);
+        if (change === "authority") {
+          state.authorityEpoch += 1;
+          state.revision = 0;
+        } else state.revision += 1;
+        if (change === "environment") state.currentEnvironment = "ground";
+        service._cacheDataState(state);
+      }
+      finishParsing({ commands: ["AliasOne"] });
+      await expect(pending).rejects.toThrow("operation_cancelled");
+      expect(write).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("retains clear and first-add durability but stops later additions after the profile changes", async () => {
+    let durable = createProfile();
+    let revision = 1;
+    const writes = [];
+    vi.spyOn(service, "request").mockImplementation(async (topic, payload) => {
+      expect(topic).toBe("data:update-profile");
+      expect(payload.precondition).toEqual({ authorityEpoch: 1, revision });
+      writes.push(structuredClone(payload));
+      durable = applyProfileOperations(durable, payload.updates || payload);
+      revision += 1;
+      service._cacheDataState(
+        createDataCoordinatorState({
+          authorityEpoch: 1,
+          revision,
+          currentProfile: writes.length === 2 ? "other" : "profile1",
+          currentProfileData: durable,
+          profiles: { profile1: durable, other: createProfile() },
+        }),
+      );
+      return { success: true, profile: durable };
+    });
+    await expect(
+      service.importFromSource("space:F1", "F2", true, "space"),
+    ).rejects.toThrow("operation_cancelled");
+    expect(writes).toHaveLength(2);
+    expect(writes[0].modify.builds.space.keys.F2).toEqual([]);
+    expect(durable.builds.space.keys.F2).toEqual(["SourceOne"]);
   });
 
   it("projects primary and named-bindset commands without retired queries", async () => {

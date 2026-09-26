@@ -83,6 +83,10 @@ describe("CommandChainService stabilization facade", () => {
 
     expect(service.request).toHaveBeenCalledWith("data:update-profile", {
       profileId: "captain",
+      precondition: {
+        authorityEpoch: expect.any(Number),
+        revision: expect.any(Number),
+      },
       modify: {
         keybindMetadata: {
           space: {
@@ -114,6 +118,10 @@ describe("CommandChainService stabilization facade", () => {
     expect(service.request).toHaveBeenCalledOnce();
     expect(service.request).toHaveBeenCalledWith("data:update-profile", {
       profileId: "captain",
+      precondition: {
+        authorityEpoch: expect.any(Number),
+        revision: expect.any(Number),
+      },
       modify: {
         keybindMetadata: {
           space: {
@@ -225,7 +233,7 @@ describe("CommandChainService stabilization facade", () => {
   });
 
   it.each([false, true])(
-    "suppresses stale success after destroy%s",
+    "retains acknowledged success without stale effects after destroy%s",
     async (reinitialize) => {
       let resolveWrite;
       service.request = vi.fn(
@@ -241,7 +249,7 @@ describe("CommandChainService stabilization facade", () => {
       if (reinitialize) service.init();
       resolveWrite({ success: true, profile });
 
-      await expect(pending).resolves.toEqual({ success: false });
+      await expect(pending).resolves.toEqual({ success: true });
       expect(
         service.emit.mock.calls.filter(
           ([topic]) => topic === "profile:updated",

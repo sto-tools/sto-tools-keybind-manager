@@ -1,3 +1,5 @@
+import { requireProfileUpdateResult } from "./mutationRequestBoundary.js";
+
 /**
  * Build the canonical DataCoordinator update used to clear an import target.
  *
@@ -49,7 +51,9 @@ export async function clearImportTarget(service, environment, targetKey) {
   if (!update) throw new Error(service.i18n.t("not_found"));
 
   const result = await service.request("data:update-profile", update);
-  if (!result?.success) {
+  try {
+    requireProfileUpdateResult(result);
+  } catch {
     throw new Error(service.i18n.t("storage_write_failed"));
   }
 }

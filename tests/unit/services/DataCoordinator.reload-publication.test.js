@@ -195,7 +195,7 @@ describe("DataCoordinator reload publication acknowledgement", () => {
     expect(profileInvocations).toBe(1);
   });
 
-  it("cancels an acknowledged reload when its owner is destroyed while listeners settle", async () => {
+  it("retains an accepted reload when its owner is destroyed after publication invocation", async () => {
     useReloadedRoot();
     const environmentGate = deferred();
     let environmentInvocations = 0;
@@ -224,8 +224,10 @@ describe("DataCoordinator reload publication acknowledgement", () => {
     environmentGate.resolve();
 
     await expect(response).resolves.toEqual({
-      success: false,
-      error: "operation_cancelled",
+      success: true,
+      profiles: 1,
+      currentProfile: "beta",
+      environment: "ground",
     });
     expect(environmentInvocations).toBe(1);
   });

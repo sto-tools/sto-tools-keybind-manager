@@ -1,5 +1,10 @@
 import persist from "./storageWrites.js";
 import { publishDataCoordinatorState } from "./dataCoordinatorPublication.js";
+import {
+  activateDataCoordinatorOwner,
+  enqueueDataCoordinatorMutation,
+  recordDataCoordinatorPublication,
+} from "./dataCoordinatorMutationQueue.js";
 
 /** @param {unknown} error */
 const getErrorMessage = (error) =>
@@ -9,19 +14,29 @@ const getErrorMessage = (error) =>
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 
 /**
- * Queue one requested initial load behind all prior lifecycle attempts. Ready
- * retains the current attempt's rejection while the private tail and public
- * settlement barrier always resolve, allowing later lifecycles to proceed.
+ * The shared writer queue orders initial adoption behind prior writes. Keep a
+ * separate adoption barrier so a publication listener may await a reload
+ * without waiting on its own settlement. Public readiness still includes all
+ * initial/default publications and responder installation.
  *
  * @param {import('./DataCoordinator.js').default} coordinator
  * @returns {Promise<void>}
  */
 export function beginInitialCoordinatorStateLoad(coordinator) {
-  const operation = coordinator._captureOperationGeneration();
-  const initialLoad = coordinator._initialStateTail.then(() => {
-    coordinator._assertCurrentOperation(operation);
-    return loadInitialCoordinatorState(coordinator);
+  /** @type {() => void} */
+  let adopted;
+  /** @type {(reason: unknown) => void} */
+  let failed;
+  coordinator._initialStateCommitted = new Promise((resolve, reject) => {
+    adopted = resolve;
+    failed = reject;
   });
+  void coordinator._initialStateCommitted.catch(() => undefined);
+  const initialLoad = enqueueDataCoordinatorMutation(coordinator, async () => {
+    await loadInitialCoordinatorState(coordinator);
+    adopted();
+  });
+  void initialLoad.catch((error) => failed(error));
   return ownInitialCoordinatorStateReady(coordinator, initialLoad);
 }
 
@@ -38,6 +53,7 @@ function ownInitialCoordinatorStateReady(coordinator, ready) {
 
 /** @param {import('./DataCoordinator.js').default} coordinator */
 export function initializeDataCoordinatorState(coordinator) {
+  activateDataCoordinatorOwner(coordinator);
   console.log(`[${coordinator.componentName}] Initializing...`);
   const operation = coordinator._captureOperationGeneration();
   coordinator._stateReady = false;
@@ -72,7 +88,7 @@ async function loadInitialCoordinatorState(coordinator) {
       metadata: { lastModified: data.lastModified, version: "1.0.0" },
     };
 
-    await coordinator.normalizeAllProfiles(nextState.profiles, {
+    await coordinator._normalizeAllProfiles(nextState.profiles, {
       rootData: data,
     });
     coordinator._assertCurrentOperation(operation);
@@ -139,9 +155,13 @@ async function loadInitialCoordinatorState(coordinator) {
     /** @type {Promise<void>} */
     let defaultProfilesReady = Promise.resolve();
     if (needsDefaultProfiles) {
-      defaultProfilesReady = coordinator.tryCreateDefaultProfiles();
+      defaultProfilesReady = coordinator._tryCreateDefaultProfiles();
     }
-    await Promise.all([initialStatePublication.settled, defaultProfilesReady]);
+    await defaultProfilesReady;
+    recordDataCoordinatorPublication(
+      coordinator,
+      initialStatePublication.settled,
+    );
     coordinator._assertCurrentOperation(operation);
   } catch (error) {
     if (!coordinator._isCurrentOperation(operation)) {

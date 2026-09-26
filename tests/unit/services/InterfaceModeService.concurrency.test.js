@@ -54,6 +54,7 @@ describe("InterfaceModeService", () => {
     expect(update).toHaveBeenCalledTimes(2);
     expect(update.mock.calls[1][0]).toEqual({
       profileId: "captain",
+      precondition: { authorityEpoch: 1, revision: 1 },
       properties: { currentEnvironment: "alias" },
     });
     expect(service.currentMode).toBe("alias");
@@ -83,6 +84,7 @@ describe("InterfaceModeService", () => {
     await vi.waitFor(() => expect(update).toHaveBeenCalledOnce());
     expect(update.mock.calls[0][0]).toEqual({
       profileId: "captain",
+      precondition: { authorityEpoch: 1, revision: 1 },
       properties: { currentEnvironment: "ground" },
     });
 
@@ -90,6 +92,7 @@ describe("InterfaceModeService", () => {
     await vi.waitFor(() => expect(update).toHaveBeenCalledTimes(2));
     expect(update.mock.calls[1][0]).toEqual({
       profileId: "captain",
+      precondition: { authorityEpoch: 1, revision: 1 },
       properties: { currentEnvironment: "alias" },
     });
 
@@ -145,7 +148,7 @@ describe("InterfaceModeService", () => {
     expect(environmentEvents()).toHaveLength(1);
   });
 
-  it("cancels a successful pending write after a newer snapshot accepts another mode", async () => {
+  it("retains accepted success without overwriting a newer mode", async () => {
     publishProfile("captain", "space");
     fixture.eventBusFixture.clearEventHistory();
     const write = deferred();
@@ -169,15 +172,12 @@ describe("InterfaceModeService", () => {
     ]);
 
     write.resolve({ success: true });
-    await expect(pending).resolves.toEqual({
-      success: false,
-      error: "operation_cancelled",
-    });
+    await expect(pending).resolves.toEqual({ success: true, mode: "ground" });
     expect(service.currentMode).toBe("alias");
     expect(environmentEvents()).toHaveLength(1);
   });
 
-  it("cancels an in-flight completion after a same-ID state reload replaces the profile", async () => {
+  it("retains accepted success after a same-ID state reload", async () => {
     publishProfile("captain", "space");
     fixture.eventBusFixture.clearEventHistory();
     const write = deferred();
@@ -212,15 +212,12 @@ describe("InterfaceModeService", () => {
     expect(environmentEvents()).toEqual([reloadEnvironment]);
 
     write.resolve({ success: true });
-    await expect(pending).resolves.toEqual({
-      success: false,
-      error: "operation_cancelled",
-    });
+    await expect(pending).resolves.toEqual({ success: true, mode: "ground" });
     expect(service.currentMode).toBe("alias");
     expect(environmentEvents()).toHaveLength(1);
   });
 
-  it("cancels an in-flight completion after a same-ID complete profile replacement", async () => {
+  it("retains accepted success after a same-ID complete profile replacement", async () => {
     publishProfile("captain", "space");
     fixture.eventBusFixture.clearEventHistory();
     const write = deferred();
@@ -238,10 +235,7 @@ describe("InterfaceModeService", () => {
     expect(environmentEvents()).toHaveLength(1);
 
     write.resolve({ success: true });
-    await expect(pending).resolves.toEqual({
-      success: false,
-      error: "operation_cancelled",
-    });
+    await expect(pending).resolves.toEqual({ success: true, mode: "ground" });
     expect(service.currentMode).toBe("ground");
     expect(environmentEvents()).toHaveLength(1);
   });
@@ -317,7 +311,7 @@ describe("InterfaceModeService", () => {
     expect(environmentEvents()).toEqual([ownerEvent]);
   });
 
-  it("suppresses a stale completion after the active profile is replaced", async () => {
+  it("retains accepted success without publishing into a replaced profile", async () => {
     publishProfile("captain", "space");
     fixture.eventBusFixture.clearEventHistory();
     const write = deferred();
@@ -333,10 +327,7 @@ describe("InterfaceModeService", () => {
 
     write.resolve({ success: true });
 
-    await expect(pending).resolves.toEqual({
-      success: false,
-      error: "operation_cancelled",
-    });
+    await expect(pending).resolves.toEqual({ success: true, mode: "ground" });
     expect(service.currentMode).toBe("alias");
     expect(environmentEvents()).toEqual([]);
   });
@@ -357,7 +348,7 @@ describe("InterfaceModeService", () => {
 
     firstWrite.resolve({ success: true });
     await expect(Promise.all([active, queued])).resolves.toEqual([
-      { success: false, error: "operation_cancelled" },
+      { success: true, mode: "ground" },
       { success: false, error: "operation_cancelled" },
     ]);
     expect(update).toHaveBeenCalledOnce();
@@ -365,7 +356,7 @@ describe("InterfaceModeService", () => {
     expect(environmentEvents()).toEqual([]);
   });
 
-  it("re-registers one responder and suppresses an earlier lifecycle completion", async () => {
+  it("re-registers one responder and suppresses old lifecycle effects", async () => {
     publishProfile("captain", "space");
     fixture.eventBusFixture.clearEventHistory();
     const oldWrite = deferred();
@@ -387,10 +378,7 @@ describe("InterfaceModeService", () => {
     fixture.eventBusFixture.clearEventHistory();
 
     oldWrite.resolve({ success: true });
-    await expect(stale).resolves.toEqual({
-      success: false,
-      error: "operation_cancelled",
-    });
+    await expect(stale).resolves.toEqual({ success: true, mode: "ground" });
     expect(service.currentMode).toBe("space");
     expect(environmentEvents()).toEqual([]);
 

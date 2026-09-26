@@ -77,25 +77,34 @@ describe("data:update-profile prototype safety", () => {
       Object.prototype,
       "polluted",
     );
-    const payloads = [
-      JSON.parse(
-        '{"profileId":"alpha","updates":{"add":{"builds":{"__proto__":{"keys":{"F9":["polluted"]}}}}}}',
-      ),
-      JSON.parse(
-        '{"profileId":"alpha","modify":{"bindsets":{"constructor":{"space":{"keys":{"F9":["polluted"]}}}}}}',
-      ),
-      JSON.parse(
-        '{"profileId":"prototype","updates":{"properties":{"description":"polluted"}}}',
-      ),
+    const attacks = [
+      {
+        payload: JSON.parse(
+          '{"profileId":"alpha","updates":{"add":{"builds":{"__proto__":{"keys":{"F9":["polluted"]}}}}}}',
+        ),
+        error: "invalid_mutation_request",
+      },
+      {
+        payload: JSON.parse(
+          '{"profileId":"alpha","modify":{"bindsets":{"constructor":{"space":{"keys":{"F9":["polluted"]}}}}}}',
+        ),
+        error: "invalid_mutation_request",
+      },
+      {
+        payload: JSON.parse(
+          '{"profileId":"prototype","updates":{"properties":{"description":"polluted"}}}',
+        ),
+        error: "unsafe_profile_operation_key",
+      },
     ];
     const ownerBefore = structuredClone(coordinator.state);
     const revisionBefore = coordinator.getCurrentState().revision;
 
     try {
-      for (const payload of payloads) {
+      for (const { payload, error } of attacks) {
         await expect(
           client.request("data:update-profile", payload),
-        ).rejects.toThrow("unsafe_profile_operation_key");
+        ).rejects.toThrow(error);
       }
 
       expect(fixture.storage.saveProfile).not.toHaveBeenCalled();

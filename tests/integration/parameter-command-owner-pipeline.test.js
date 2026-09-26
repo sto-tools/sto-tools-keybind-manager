@@ -262,6 +262,7 @@ describe("Parameter command EventBus owner pipeline", () => {
     await expect(parameterUI.saveParameterCommand()).resolves.toBe(true);
     await vi.waitFor(() => {
       expect(coordinator.getCurrentState().revision).toBe(revisionBefore + 1);
+      expect(addedEvents).toHaveLength(1);
     });
 
     expect(buildRequests).toEqual([
@@ -316,6 +317,7 @@ describe("Parameter command EventBus owner pipeline", () => {
     await expect(parameterUI.saveParameterCommand()).resolves.toBe(true);
     await vi.waitFor(() => {
       expect(coordinator.getCurrentState().revision).toBe(revisionBefore + 1);
+      expect(editedEvents).toHaveLength(1);
     });
 
     expect(parameterEdits).toHaveLength(1);
