@@ -2,29 +2,29 @@ import ComponentBase from "../ComponentBase.js";
 import { formatAliasLine, formatKeybindLine } from "../../lib/STOFormatter.js";
 import { normalizeToOptimizedString } from "../../lib/commandDisplayAdapter.js";
 import { projectVirtualVFXAliases } from "./vfxAliasProjection.js";
-import { getSnapshotProfile } from "./dataState.js";
+import { getSnapshotProfile, getSnapshotProfiles } from "./dataState.js";
 import { materializeSyncProject } from "./syncProjectMaterializer.js";
 import { planMirroredCommandSequence } from "./commandTransformationPlanner.js";
-import { stoData } from "../../data.js";
+import {
+  renderAliasFileHeader,
+  renderKeybindFileHeader,
+} from "./exportFileHeaders.js";
+
+/** @typedef {import('./serviceTypes.js').ServicePreferences & { translateGeneratedMessages?: boolean }} ExportPreferences */
 
 /**
  * ExportService – encapsulates all business-logic for exporting / importing
  * profiles, keybind data and project archives.
  */
 export default class ExportService extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, storage?: import('./serviceTypes.js').Storage, i18n?: import('./serviceTypes.js').I18n }} [options] */
-  constructor({ eventBus, storage, i18n } = {}) {
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, currentArtifactSerializer?: import('../../types/storage-contracts.js').CurrentProjectArtifactSerializerPort, i18n?: import('./serviceTypes.js').I18n }} [options] */
+  constructor({ eventBus, currentArtifactSerializer, i18n } = {}) {
     super(eventBus);
     this.componentName = "ExportService";
-    this.storage = storage;
+    this.currentArtifactSerializer = currentArtifactSerializer ?? null;
     this.i18n = i18n;
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
-  }
-
-  /** @returns {import('./serviceTypes.js').ExportCache} */
-  get exportCache() {
-    return /** @type {import('./serviceTypes.js').ExportCache} */ (this.cache);
   }
 
   /**
@@ -36,13 +36,7 @@ export default class ExportService extends ComponentBase {
   }
 
   onInit() {
-    // Initialize ExportService-specific cache properties
-    this.extendCache({
-      profiles: {}, // ExportService needs to cache multiple profiles
-    });
-
     this.setupRequestHandlers();
-    this.setupEventListeners();
   }
 
   setupRequestHandlers() {
@@ -63,11 +57,15 @@ export default class ExportService extends ComponentBase {
         "export:generate-keybind-file",
         async ({ profileId, environment = "space", syncMode = false }) => {
           const prof = this.getProfileFromCache(profileId);
-          if (!prof)
+          if (!prof || typeof prof.name !== "string")
             throw new Error(
               `Profile ${profileId} not found in ExportService cache`,
             );
-          return await this.generateSTOKeybindFile(prof, {
+          const exportProfile =
+            /** @type {import('./serviceTypes.js').ProfileData & { name: string }} */ (
+              /** @type {unknown} */ (prof)
+            );
+          return await this.generateSTOKeybindFile(exportProfile, {
             environment,
             syncMode,
           });
@@ -75,8 +73,14 @@ export default class ExportService extends ComponentBase {
       ),
       this.respond("export:generate-alias-file", async ({ profileId }) => {
         const prof = this.getProfileFromCache(profileId);
-        if (!prof) throw new Error(`Profile ${profileId} not found`);
-        return await this.generateAliasFile(prof);
+        if (!prof || typeof prof.name !== "string") {
+          throw new Error(`Profile ${profileId} not found`);
+        }
+        const exportProfile =
+          /** @type {import('./serviceTypes.js').ProfileData & { name: string }} */ (
+            /** @type {unknown} */ (prof)
+          );
+        return await this.generateAliasFile(exportProfile);
       }),
       this.respond("export:sync-to-folder", async ({ dirHandle }) => {
         return this.syncToFolder(dirHandle).then(() => undefined);
@@ -84,30 +88,16 @@ export default class ExportService extends ComponentBase {
     );
   }
 
-  setupEventListeners() {
-    // Keep cache in sync when DataCoordinator broadcasts changes
-    this.addEventListener("profile:updated", ({ profileId, profile }) => {
-      if (profileId && profile) {
-        this.exportCache.profiles[profileId] = profile;
-      }
-    });
-
-    this.addEventListener("profile:switched", ({ profileId, profile }) => {
-      // ComponentBase handles currentProfile and currentEnvironment automatically
-      if (profileId && profile) this.exportCache.profiles[profileId] = profile;
-    });
-  }
-
   // Check if bind-to-alias mode is enabled from cached preferences (internal method)
-  _getBindToAliasMode() {
-    // Use cached preferences from ComponentBase instead of making requests
-    return this.cache?.preferences?.bindToAliasMode || false;
+  /** @param {ExportPreferences | undefined} [preferences] */
+  _getBindToAliasMode(preferences = this.cache?.preferences) {
+    return preferences?.bindToAliasMode || false;
   }
 
   // Check if bindsets feature is enabled from cached preferences (internal method)
-  _getBindsetsEnabled() {
-    // Use cached preferences from ComponentBase instead of making requests
-    return this.cache?.preferences?.bindsetsEnabled || false;
+  /** @param {ExportPreferences | undefined} [preferences] */
+  _getBindsetsEnabled(preferences = this.cache?.preferences) {
+    return preferences?.bindsetsEnabled || false;
   }
 
   // Sanitize a bindset name into a valid alias component (lower snake)
@@ -150,26 +140,40 @@ export default class ExportService extends ComponentBase {
   // Keybind file generation
   /**
    * @param {import('./serviceTypes.js').ProfileData & { name: string }} profile
-   * @param {{ environment?: string, syncMode?: boolean }} [options]
+   * @param {{ environment?: string, syncMode?: boolean, preferences?: ExportPreferences, translate?: (key: string, options?: Record<string, unknown>) => string }} [options]
    */
   async generateSTOKeybindFile(profile, options = {}) {
-    const { environment = "space", syncMode = false } = options;
+    const {
+      environment = "space",
+      syncMode = false,
+      preferences = this.cache.preferences,
+      translate = (key, translateOptions) =>
+        this.translate(key, translateOptions),
+    } = options;
     const keys = this.extractKeys(profile, environment);
 
     const hasKeys = keys && Object.keys(keys).length > 0;
 
     if (!hasKeys) {
-      return "; " + this.translate("no_keybinds_to_export") + "\n";
+      return "; " + translate("no_keybinds_to_export") + "\n";
     }
 
     const filename = `${profile.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_${environment}.txt`;
-    let content = await this.generateFileHeader(profile, filename, environment);
+    let content = renderKeybindFileHeader({
+      profileName: profile.name,
+      environment,
+      keyCount: Object.keys(keys).length,
+      filename,
+      translate,
+    });
 
     // Add keybind section
     content += await this.generateKeybindSection(keys, {
       environment,
       profile,
       syncMode,
+      preferences,
+      translate,
     });
 
     // Add footer
@@ -179,48 +183,24 @@ export default class ExportService extends ComponentBase {
   }
 
   /**
-   * @param {import('./serviceTypes.js').ProfileData & { name: string }} profile
-   * @param {string | null} syncFilename
-   * @param {string | null} environment
-   */
-  async generateFileHeader(profile, syncFilename = null, environment = null) {
-    const timestamp = new Date().toLocaleString();
-    const env = environment || profile.currentEnvironment || "space";
-    const keyCount = Object.keys(this.extractKeys(profile, env)).length;
-
-    let header = `; ================================================================
-; ${profile.name} - STO Keybind Configuration
-; ================================================================
-; ${this.translate("environment")} ${env.toUpperCase()}
-; ${this.translate("generated")} ${timestamp}
-; ${this.translate("created_by")} STO Tools Keybind Manager v${stoData.settings.version}
-;
-; ${this.translate("statistics")}:
-; - ${this.translate("total_commands")}: ${keyCount}
-;
-; To use this keybind file in Star Trek Online:
-; 1. Save this file in your STO Live folder as a .txt file
-; 2. In-game, type: /bind_load_file ${syncFilename}
-; 3. Your keybinds will be applied immediately
-; ================================================================
-
-`;
-    return header;
-  }
-
-  /**
    * @param {Record<string, import('./serviceTypes.js').StoredCommand[]>} keys
-   * @param {{ environment?: string, profile?: import('./serviceTypes.js').ProfileData, syncMode?: boolean }} [options]
+   * @param {{ environment?: string, profile?: import('./serviceTypes.js').ProfileData, syncMode?: boolean, preferences?: ExportPreferences, translate?: (key: string, options?: Record<string, unknown>) => string }} [options]
    */
   async generateKeybindSection(keys, options = {}) {
-    const { environment = "space", profile } = options;
+    const {
+      environment = "space",
+      profile,
+      preferences = this.cache.preferences,
+      translate = (key, translateOptions) =>
+        this.translate(key, translateOptions),
+    } = options;
 
     if (!keys || Object.keys(keys).length === 0) {
-      return "; " + this.translate("no_keybinds_to_export") + "\n";
+      return "; " + translate("no_keybinds_to_export") + "\n";
     }
 
     // Check if bind-to-alias mode is enabled
-    const bindToAliasMode = this._getBindToAliasMode();
+    const bindToAliasMode = this._getBindToAliasMode(preferences);
 
     let content = `; ==============================================================================\n`;
     content += `; ${environment.toUpperCase()} KEYBINDS\n`;
@@ -233,8 +213,8 @@ export default class ExportService extends ComponentBase {
         "../../lib/aliasNameValidator.js"
       );
 
-      content += `; ${this.translate("export_generated_aliases_note")}\n`;
-      content += `; ${this.translate("export_alias_definitions_note")}\n`;
+      content += `; ${translate("export_generated_aliases_note")}\n`;
+      content += `; ${translate("export_alias_definitions_note")}\n`;
       content += `; ------------------------------------------------------------------------------\n`;
 
       // Generate keybind lines that call the aliases
@@ -283,20 +263,28 @@ export default class ExportService extends ComponentBase {
   /* ---------------------------------------------------------- */
   /* Alias file generation                                      */
   /* ---------------------------------------------------------- */
-  /** @param {import('./serviceTypes.js').ProfileData & { name: string }} profile */
-  async generateAliasFile(profile) {
+  /**
+   * @param {import('./serviceTypes.js').ProfileData & { name: string }} profile
+   * @param {{preferences?: ExportPreferences, translate?: (key: string, options?: Record<string, unknown>) => string}} [options]
+   */
+  async generateAliasFile(profile, options = {}) {
+    const {
+      preferences = this.cache.preferences,
+      translate = (key, translateOptions) =>
+        this.translate(key, translateOptions),
+    } = options;
     const aliases = profile.aliases || {};
 
     // Export from the explicit profile argument so folder sync cannot leak the
     // active profile's VFX draft or saved settings into another profile.
     const vfxAliases = projectVirtualVFXAliases(profile.vertigoSettings, {
-      translate: (key, options) => this.translate(key, options),
+      translate,
       translateGeneratedMessages:
-        this.cache.preferences.translateGeneratedMessages === true,
+        preferences.translateGeneratedMessages === true,
     });
 
     // Check if bind-to-alias mode is enabled and add generated aliases
-    const bindToAliasMode = this._getBindToAliasMode();
+    const bindToAliasMode = this._getBindToAliasMode(preferences);
     /** @type {Record<string, import('./serviceTypes.js').AliasDefinition>} */
     const generatedAliases = {};
 
@@ -347,7 +335,7 @@ export default class ExportService extends ComponentBase {
     // --------------------------------------------------------
     // Bindsets support – generate aliases per bindset & loaders
     // --------------------------------------------------------
-    const bindsetsEnabled = this._getBindsetsEnabled();
+    const bindsetsEnabled = this._getBindsetsEnabled(preferences);
     /** @type {Record<string, import('./serviceTypes.js').AliasDefinition>} */
     const bindsetAliases = {};
     /** @type {Record<string, import('./serviceTypes.js').AliasDefinition>} */
@@ -493,15 +481,19 @@ export default class ExportService extends ComponentBase {
     };
 
     if (Object.keys(allAliases).length === 0) {
-      return "; " + this.translate("no_aliases_to_export") + "\n";
+      return "; " + translate("no_aliases_to_export") + "\n";
     }
 
-    let content = await this.generateAliasFileHeader(profile);
+    let content = renderAliasFileHeader({
+      profileName: profile.name,
+      aliasCount: Object.keys(profile.aliases || {}).length,
+      translate,
+    });
 
     // Add note about generated aliases if any exist
     if (Object.keys(generatedAliases).length > 0) {
-      content += `; ${this.translate("export_user_and_generated_aliases")}\n`;
-      content += `; ${this.translate("export_generated_aliases_count", { count: Object.keys(generatedAliases).length })}\n`;
+      content += `; ${translate("export_user_and_generated_aliases")}\n`;
+      content += `; ${translate("export_generated_aliases_count", { count: Object.keys(generatedAliases).length })}\n`;
       content += `; ================================================================\n\n`;
     }
 
@@ -574,45 +566,12 @@ export default class ExportService extends ComponentBase {
     return content;
   }
 
-  /** @param {import('./serviceTypes.js').ProfileData & { name: string }} profile */
-  async generateAliasFileHeader(profile) {
-    const timestamp = new Date().toLocaleString();
-    const aliasCount = Object.keys(profile.aliases || {}).length;
-
-    return `; ================================================================
-; ${profile.name} - STO Alias Configuration
-; ================================================================
-; ${this.translate("environment")} Alias
-; ${this.translate("generated")} ${timestamp}
-; ${this.translate("created_by")} STO Tools Keybind Manager v${stoData.settings.version}
-;
-; Alias Statistics:
-; - Total aliases: ${aliasCount}
-;
-; To use these aliases in Star Trek Online:
-; 1. Save this file as "CommandAliases.txt" (exactly, without quotes)
-; 2. Place it in your STO directory:
-;    [STO Install]\\Star Trek Online\\Live\\localdata\\CommandAliases.txt
-; 3. The aliases will be available when you start the game
-;
-; Alternative: You can append these aliases to an existing CommandAliases.txt
-; file if you already have one with other aliases.
-;
-; Common STO installation paths:
-; - Steam: C:\\Program Files (x86)\\Steam\\steamapps\\common\\Star Trek Online
-; - Epic: C:\\Program Files\\Epic Games\\Star Trek Online
-; - Arc: C:\\Program Files (x86)\\Perfect World Entertainment\\Arc Games\\Star Trek Online
-; ================================================================
-
-`;
-  }
-
   /* ---------------------------------------------------------- */
   /* Sync to folder                                            */
   /* ---------------------------------------------------------- */
   /** @param {unknown} dirHandle */
   async syncToFolder(dirHandle) {
-    return materializeSyncProject(this, dirHandle, stoData.settings.version);
+    return materializeSyncProject(this, dirHandle);
   }
 
   /**
@@ -672,7 +631,7 @@ export default class ExportService extends ComponentBase {
     return {
       currentProfile: this.cache.currentProfile,
       currentEnvironment: this.cache.currentEnvironment,
-      profiles: this.exportCache.profiles,
+      profiles: getSnapshotProfiles(this.cache.dataState),
     };
   }
 
@@ -680,21 +639,7 @@ export default class ExportService extends ComponentBase {
   /** @param {string | undefined} profileId */
   getProfileFromCache(profileId) {
     if (!profileId) return null;
-    if (this.cache.dataState)
-      return getSnapshotProfile(this.cache.dataState, profileId);
-
-    if (profileId && this.exportCache.profiles[profileId]) {
-      return this.exportCache.profiles[profileId];
-    }
-    // Fallback to storage if available
-    if (
-      profileId &&
-      this.storage &&
-      typeof this.storage.getProfile === "function"
-    ) {
-      return this.storage.getProfile(profileId);
-    }
-    return null;
+    return getSnapshotProfile(this.cache.dataState, profileId);
   }
 
   onDestroy() {

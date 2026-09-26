@@ -4,11 +4,9 @@ import ExportService from "../../../src/js/components/services/ExportService.js"
 import * as SyncService from "../../../src/js/components/services/SyncService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { stoData } from "../../../src/js/data.js";
+import { createPreferencesStateChange } from "../../fixtures/core/componentState.js";
 import {
-  createPreferencesState,
-  createPreferencesStateChange,
-} from "../../fixtures/core/componentState.js";
-import {
+  createCurrentArtifactSerializerFixture,
   createProfileDataFixture,
   createServiceFixture,
 } from "../../fixtures/index.js";
@@ -35,13 +33,14 @@ function createDirectoryCapability() {
 }
 
 describe("ExportService", () => {
-  let fixture, service, profile;
+  let fixture, service, profile, currentArtifactSerializer;
 
   beforeEach(() => {
     fixture = createServiceFixture();
+    currentArtifactSerializer = createCurrentArtifactSerializerFixture();
     service = new ExportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      currentArtifactSerializer,
       i18n: { t: (key) => key },
     });
     service.init();
@@ -290,52 +289,35 @@ describe("ExportService", () => {
   });
 
   describe("syncToFolder", () => {
-    it("rejects when the storage owner is unavailable", async () => {
-      const serviceWithoutStorage = new ExportService({
+    it("rejects when the current-artifact serializer is unavailable", async () => {
+      const serviceWithoutSerializer = new ExportService({
         eventBus: fixture.eventBus,
         i18n: { t: (key) => key },
       });
 
-      await expect(serviceWithoutStorage.syncToFolder({})).rejects.toThrow(
-        "Storage is required to sync exports",
+      await expect(serviceWithoutSerializer.syncToFolder({})).rejects.toThrow(
+        "Invalid sync directory capability",
       );
+      await expect(
+        serviceWithoutSerializer.syncToFolder(createDirectoryCapability()),
+      ).rejects.toThrow("Project artifact serializer is unavailable");
     });
 
-    it("rejects a malformed directory capability at the RPC ingress before reading storage", async () => {
-      const getAllData = vi.spyOn(service.storage, "getAllData");
-
+    it("rejects a malformed directory capability before acquiring owner snapshots", async () => {
       await expect(
         service.request("export:sync-to-folder", {
           dirHandle: { name: "partial" },
         }),
       ).rejects.toThrow("Invalid sync directory capability");
 
-      expect(getAllData).not.toHaveBeenCalled();
-      getAllData.mockRestore();
+      expect(currentArtifactSerializer.calls).toHaveLength(0);
     });
 
     it("rethrows write failures without emitting toast events", async () => {
-      service._cachePreferencesState(createPreferencesState());
       const writeError = new Error("sync write failed");
       const writeSpy = vi
         .spyOn(SyncService, "writeFile")
         .mockRejectedValue(writeError);
-      const getAllDataSpy = vi
-        .spyOn(service.storage, "getAllData")
-        .mockReturnValue({
-          profiles: {
-            profile1: {
-              name: "Profile One",
-              builds: {
-                space: {
-                  keys: {
-                    F1: ["FireAll"],
-                  },
-                },
-              },
-            },
-          },
-        });
 
       fixture.eventBusFixture.clearEventHistory();
 
@@ -347,7 +329,6 @@ describe("ExportService", () => {
       expect(toastEvents).toHaveLength(0);
 
       writeSpy.mockRestore();
-      getAllDataSpy.mockRestore();
     });
   });
 });

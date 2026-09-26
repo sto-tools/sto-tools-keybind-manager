@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ExportService from "../../src/js/components/services/ExportService.js";
+import { serializeProjectArtifact } from "../../src/js/components/services/projectArtifact.js";
+import { createDefaultPreferencesSettings } from "../../src/js/components/services/preferencesDefaults.js";
 import { createCommittedTreeFileSystem } from "../fixtures/index.js";
 
 const golden = JSON.parse(
@@ -15,6 +17,7 @@ const golden = JSON.parse(
 );
 
 const SETTINGS = {
+  ...createDefaultPreferencesSettings(),
   theme: "dark",
   language: "en",
   autoSync: false,
@@ -102,11 +105,34 @@ function createSuccessorState(initial) {
 function createHarness(initial) {
   let state = structuredClone(initial);
   const fileSystem = createCommittedTreeFileSystem();
-  const storage = {
-    getAllData: vi.fn(() => structuredClone(state)),
+  const currentArtifactSerializer = {
+    async serialize() {
+      const capture = {
+        project: {
+          profiles: structuredClone(state.profiles),
+          currentProfile: state.currentProfile,
+        },
+        settings: structuredClone(SETTINGS),
+        source: {
+          preferencesAuthorityEpoch: 1,
+          preferencesRevision: 1,
+          dataAuthorityEpoch: 2,
+          dataRevision: 1,
+        },
+      };
+      const exported = new Date().toISOString();
+      return {
+        artifact: serializeProjectArtifact(capture.project, capture.settings, {
+          version: state.version,
+          exported,
+        }),
+        capture,
+        exported,
+      };
+    },
   };
   const exporter = new ExportService({
-    storage,
+    currentArtifactSerializer,
     i18n: { t: (key) => key },
   });
 

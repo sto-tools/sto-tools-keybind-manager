@@ -65,14 +65,19 @@ describe("ImportService KBF merge strategies", () => {
 
   beforeEach(() => {
     fixture = createServiceFixture();
-    fixture.storage.getProfile.mockReturnValue(structuredClone(sourceProfile));
 
     service = new ImportService({
       eventBus: fixture.eventBus,
       storage: fixture.storage,
     });
     service.init();
-    service._cacheDataState(createDataCoordinatorState());
+    service._cacheDataState(
+      createDataCoordinatorState({
+        currentProfile: profileId,
+        currentProfileData: sourceProfile,
+        profiles: { [profileId]: sourceProfile },
+      }),
+    );
     respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
     fixture.eventBus.emit(
       "preferences:state-changed",

@@ -63,7 +63,6 @@ describe("Bind-to-Alias Mode Integration", () => {
 
     // Create ExportService with i18n
     const exportService = new ExportService({
-      storage: serviceFixture.storage,
       eventBus: serviceFixture.eventBus,
       i18n: mockI18n,
     });

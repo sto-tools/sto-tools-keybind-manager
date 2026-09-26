@@ -15,6 +15,18 @@ respond(undefined, "parser:parse-command-string", ({ commandString }) => {
   };
 });
 
+const sourceProfile = {
+  name: "Test Profile",
+  builds: {
+    space: { keys: {}, aliases: {} },
+    ground: { keys: {}, aliases: {} },
+  },
+  bindsets: {},
+  aliases: {},
+  keybindMetadata: {},
+  bindsetMetadata: {},
+};
+
 /**
  * Integration tests – ImportService – verify KBF key token normalization
  * Ensures that uppercase keys like SPACE are normalized to Space during import
@@ -30,7 +42,13 @@ describe("ImportService - KBF Key Token Normalization", () => {
       storage: fixture.storage,
     });
     service.init();
-    service._cacheDataState(createDataCoordinatorState());
+    service._cacheDataState(
+      createDataCoordinatorState({
+        currentProfile: "test-profile",
+        currentProfileData: sourceProfile,
+        profiles: { "test-profile": sourceProfile },
+      }),
+    );
     respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
 
     // Register responder for parser on the fixture event bus
@@ -79,19 +97,6 @@ describe("ImportService - KBF Key Token Normalization", () => {
       },
       parseFile: vi.fn().mockResolvedValue(mockKBFResult),
     };
-
-    // Mock storage to return a test profile
-    fixture.storage.getProfile = vi.fn().mockReturnValue({
-      name: "Test Profile",
-      builds: {
-        space: { keys: {}, aliases: {} },
-        ground: { keys: {}, aliases: {} },
-      },
-      bindsets: {},
-      aliases: {},
-      keybindMetadata: {},
-      bindsetMetadata: {},
-    });
 
     // Import the KBF content into space environment with bindset 'test-bindset'
     const result = await service.importKBFFile(
@@ -163,19 +168,6 @@ describe("ImportService - KBF Key Token Normalization", () => {
       parseFile: vi.fn().mockResolvedValue(mockKBFResult),
     };
 
-    // Mock storage to return a test profile
-    fixture.storage.getProfile = vi.fn().mockReturnValue({
-      name: "Test Profile",
-      builds: {
-        space: { keys: {}, aliases: {} },
-        ground: { keys: {}, aliases: {} },
-      },
-      bindsets: {},
-      aliases: {},
-      keybindMetadata: {},
-      bindsetMetadata: {},
-    });
-
     const result = await service.importKBFFile(
       "mock kbf content", // The actual content doesn't matter when mocking
       "test-profile",
@@ -232,19 +224,6 @@ describe("ImportService - KBF Key Token Normalization", () => {
       },
       parseFile: vi.fn().mockResolvedValue(mockKBFResult),
     };
-
-    // Mock storage to return a test profile
-    fixture.storage.getProfile = vi.fn().mockReturnValue({
-      name: "Test Profile",
-      builds: {
-        space: { keys: {}, aliases: {} },
-        ground: { keys: {}, aliases: {} },
-      },
-      bindsets: {},
-      aliases: {},
-      keybindMetadata: {},
-      bindsetMetadata: {},
-    });
 
     const result = await service.importKBFFile(
       "mock kbf content", // The actual content doesn't matter when mocking

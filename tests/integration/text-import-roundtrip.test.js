@@ -105,7 +105,6 @@ describe("text export/import round trips", () => {
 
     exportService = new ExportService({
       eventBus: eventBusFixture.eventBus,
-      storage,
       i18n: { t: (key) => key },
     });
     importService = new ImportService({
@@ -280,7 +279,7 @@ describe("text export/import round trips", () => {
 
     expect(importService.cache.dataState).toEqual(state);
     expect(exportService.cache.dataState).toEqual(state);
-    expect(exportService.exportCache.profiles[profileId]).toEqual(ownerProfile);
+    expect(exportService.getProfileFromCache(profileId)).toEqual(ownerProfile);
     expect(storage.getProfile(profileId)).toEqual(ownerProfile);
     expect(
       JSON.parse(localStorage.getItem("sto_keybind_manager")).profiles[

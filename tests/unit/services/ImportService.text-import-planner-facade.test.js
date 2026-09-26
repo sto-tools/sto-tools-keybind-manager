@@ -45,7 +45,16 @@ describe("ImportService text-profile planner facade", () => {
 
   beforeEach(() => {
     fixture = createServiceFixture();
-    fixture.storage.saveProfile(profileId, profile());
+    fixture.storage.saveProfile(
+      profileId,
+      profile({
+        builds: {
+          space: { keys: { F1: ["PersistedStale"] } },
+          ground: { keys: {} },
+        },
+        aliases: {},
+      }),
+    );
     fixture.storage.saveProfile.mockClear();
     trace = [];
     commitPayloads = [];
@@ -64,7 +73,7 @@ describe("ImportService text-profile planner facade", () => {
         if (saved === false) return { success: false };
         return {
           success: true,
-          profile: fixture.storage.getProfile(targetProfileId),
+          profile: structuredClone(updates.replacement),
         };
       },
     );
@@ -88,7 +97,14 @@ describe("ImportService text-profile planner facade", () => {
       i18n: { t: (key) => key },
     });
     service.init();
-    service._cacheDataState(createDataCoordinatorState());
+    const acceptedProfile = profile();
+    service._cacheDataState(
+      createDataCoordinatorState({
+        currentProfile: profileId,
+        currentProfileData: acceptedProfile,
+        profiles: { [profileId]: acceptedProfile },
+      }),
+    );
     fixture.eventBus.on("profile:updated", () => trace.push("legacy"));
   });
 
@@ -129,6 +145,7 @@ describe("ImportService text-profile planner facade", () => {
       "legacy",
       "resolved",
     ]);
+    expect(fixture.storage.getProfile).not.toHaveBeenCalled();
     expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
     expect(commitPayloads).toEqual([
       {
@@ -188,6 +205,7 @@ describe("ImportService text-profile planner facade", () => {
       errors: [],
       message: "import_completed_aliases",
     });
+    expect(fixture.storage.getProfile).not.toHaveBeenCalled();
     expect(fixture.storage.getProfile(profileId)).toMatchObject({
       aliases: {
         Existing: { commands: ["ImportedAlias"], description: "" },
@@ -337,13 +355,20 @@ describe("ImportService text-profile planner facade", () => {
     expect(commitPayloads).toEqual([]);
   });
 
-  it("preserves empty-result and missing-storage precondition ordering", async () => {
+  it("preserves empty-result and pre-ready snapshot precondition ordering", async () => {
     service.destroy();
     service = new ImportService({
       eventBus: fixture.eventBus,
       i18n: { t: (key) => key },
     });
     service.init();
+    service._cacheDataState(
+      createDataCoordinatorState({
+        authorityEpoch: 2,
+        ready: false,
+        revision: 0,
+      }),
+    );
 
     await expect(
       service.importKeybindFile("; comment only", profileId, "space"),
@@ -355,7 +380,8 @@ describe("ImportService text-profile planner facade", () => {
       service.importKeybindFile('F1 "FireAll"', profileId, "space"),
     ).resolves.toEqual({
       success: false,
-      error: "storage_not_available",
+      error: "import_failed",
+      params: { reason: "operation_cancelled" },
     });
     await expect(
       service.importAliasFile('alias sto_kb_generated "FireAll"', profileId),
@@ -365,9 +391,61 @@ describe("ImportService text-profile planner facade", () => {
     });
     await expect(
       service.importAliasFile('alias Fire "FireAll"', profileId),
-    ).resolves.toEqual({ success: false, error: "no_active_profile" });
+    ).resolves.toEqual({
+      success: false,
+      error: "import_failed",
+      params: { reason: "operation_cancelled" },
+    });
     expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
   });
+
+  it.each([
+    {
+      kind: "keybind",
+      importContent: () =>
+        service.importKeybindFile('F2 "CreatedKey"', "new-captain", "space"),
+      expected: { imported: { keys: 1 } },
+      expectedReplacement: {
+        name: "new-captain",
+        builds: { space: { keys: { F2: ["CreatedKey"] } } },
+      },
+    },
+    {
+      kind: "alias",
+      importContent: () =>
+        service.importAliasFile('alias Created "CreatedAlias"', "new-captain"),
+      expected: { imported: { aliases: 1 } },
+      expectedReplacement: {
+        name: "new-captain",
+        aliases: { Created: { commands: ["CreatedAlias"], description: "" } },
+      },
+    },
+  ])(
+    "keeps $kind profile creation when the accepted ready snapshot is empty",
+    async ({ importContent, expected, expectedReplacement }) => {
+      service._cacheDataState(
+        createDataCoordinatorState({
+          authorityEpoch: 2,
+          revision: 0,
+          currentProfile: null,
+          currentProfileData: null,
+          profiles: {},
+        }),
+      );
+      fixture.storage.getProfile.mockReturnValue(profile());
+
+      const result = await importContent();
+
+      expect(result).toMatchObject({ success: true, ...expected });
+      expect(commitPayloads).toHaveLength(1);
+      expect(commitPayloads[0]).toMatchObject({
+        profileId: "new-captain",
+        createIfMissing: true,
+        updates: { replacement: expectedReplacement },
+      });
+      expect(fixture.storage.getProfile).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps a partially planned parser failure detached and effect-free", async () => {
     detachParser();

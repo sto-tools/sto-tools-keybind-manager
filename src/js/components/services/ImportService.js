@@ -37,6 +37,7 @@ import {
   planAliasTextImport,
   planKeybindTextImport,
 } from "./textProfileImportPlanner.js";
+import { getSnapshotProfile } from "./dataState.js";
 
 const VALID_STRATEGIES = ["merge_keep", "merge_overwrite", "overwrite_all"];
 
@@ -159,10 +160,6 @@ export default class ImportService extends ComponentBase {
         return { success: false, error: "no_keybinds_found_in_file" };
       }
 
-      if (!this.storage) {
-        return { success: false, error: "storage_not_available" };
-      }
-
       if (!profileId) {
         return { success: false, error: "no_active_profile" };
       }
@@ -190,7 +187,7 @@ export default class ImportService extends ComponentBase {
       const context = captureContext(this, generation, profileId);
       assertProfileMutationContext(this, context, this._mutationGeneration);
       const plan = await planKeybindTextImport({
-        profile: this.storage.getProfile(profileId),
+        profile: getSnapshotProfile(this.cache.dataState, profileId),
         profileId,
         parsed,
         environment: env,
@@ -255,14 +252,14 @@ export default class ImportService extends ComponentBase {
         return { success: false, error: "no_aliases_found_in_file" };
       }
 
-      if (!this.storage || !profileId) {
+      if (!profileId) {
         return { success: false, error: "no_active_profile" };
       }
 
       const context = captureContext(this, generation, profileId);
       assertProfileMutationContext(this, context, this._mutationGeneration);
       const plan = await planAliasTextImport({
-        profile: this.storage.getProfile(profileId),
+        profile: getSnapshotProfile(this.cache.dataState, profileId),
         profileId,
         parsed,
         strategy,
@@ -334,14 +331,6 @@ export default class ImportService extends ComponentBase {
         error: "invalid_kbf_file_content",
         message: "Invalid KBF file content: expected string data",
         errors: ["File content validation failed"],
-      };
-    }
-
-    if (!this.storage) {
-      return {
-        success: false,
-        error: "storage_not_available",
-        message: "Storage service not available for KBF import",
       };
     }
 
@@ -435,7 +424,7 @@ export default class ImportService extends ComponentBase {
       // Get existing profile
       const context = captureContext(this, generation, profileId);
       assertProfileMutationContext(this, context, this._mutationGeneration);
-      let profile = this.storage.getProfile(profileId);
+      const profile = getSnapshotProfile(this.cache.dataState, profileId);
       if (!profile) {
         return {
           success: false,

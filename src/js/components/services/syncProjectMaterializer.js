@@ -1,5 +1,4 @@
 import { writeFile } from "./SyncService.js";
-import { serializeProjectArtifact } from "./projectArtifact.js";
 import { requireSyncDirectoryCapability } from "./syncFolderBoundary.js";
 
 /**
@@ -8,40 +7,54 @@ import { requireSyncDirectoryCapability } from "./syncFolderBoundary.js";
  *
  * @param {import('./ExportService.js').default} service
  * @param {unknown} rawDirectory
- * @param {string | undefined} version
  */
-export async function materializeSyncProject(service, rawDirectory, version) {
-  if (!service.storage) throw new Error("Storage is required to sync exports");
+export async function materializeSyncProject(service, rawDirectory) {
   const directory = requireSyncDirectoryCapability(rawDirectory).raw;
-  const data = service.storage.getAllData();
-  const preferences = service.cache.preferencesState;
-  if (!preferences?.ready) throw new Error("Preferences state is unavailable");
-  const exported = new Date().toISOString();
-  const projectArtifact = serializeProjectArtifact(data, preferences.settings, {
-    version,
-    exported,
-  });
-  const profiles = data.profiles || {};
+  if (!service.currentArtifactSerializer) {
+    throw new Error("Project artifact serializer is unavailable");
+  }
+  const serialized = await service.currentArtifactSerializer.serialize();
+  const projectArtifact = serialized.artifact;
+  const profiles = serialized.capture.project.profiles;
+  const preferences = serialized.capture.settings;
+  /**
+   * @param {string} key
+   * @param {Record<string, unknown>} [options]
+   */
+  const translate = (key, options = {}) =>
+    service.translate(key, { ...options, lng: preferences.language });
 
   for (const profile of Object.values(profiles)) {
     if (!profile || !profile.name) continue;
     const sanitizedName = profile.name.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const exportProfile =
+      /** @type {import('./serviceTypes.js').ProfileData & { name: string }} */ (
+        /** @type {unknown} */ (profile)
+      );
 
     for (const environment of ["space", "ground"]) {
       if (
         profile.builds?.[environment]?.keys &&
         Object.keys(profile.builds[environment].keys).length > 0
       ) {
-        const keybindContent = await service.generateSTOKeybindFile(profile, {
-          environment,
-          syncMode: true,
-        });
+        const keybindContent = await service.generateSTOKeybindFile(
+          exportProfile,
+          {
+            environment,
+            syncMode: true,
+            preferences,
+            translate,
+          },
+        );
         const filename = `${sanitizedName}/${sanitizedName}_${environment}.txt`;
         await writeFile(directory, filename, keybindContent);
       }
     }
 
-    const aliasContent = await service.generateAliasFile(profile);
+    const aliasContent = await service.generateAliasFile(exportProfile, {
+      preferences,
+      translate,
+    });
     await writeFile(
       directory,
       `${sanitizedName}/${sanitizedName}_aliases.txt`,

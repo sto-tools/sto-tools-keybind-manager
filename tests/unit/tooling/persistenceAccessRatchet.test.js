@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  closedReadCohortRules,
   expectedCallsByFile,
   expectedIndexedDbCallsites,
   expectedNamedMethodCalls,
@@ -122,9 +123,8 @@ describe("persistence access architecture ratchet", () => {
     }
     expect(dispositionTotals).toEqual({
       owner: 16,
-      workflow: 9,
-      projection: 7,
-      compatibility: 12,
+      workflow: 7,
+      compatibility: 11,
       dead: 1,
     });
   });
@@ -148,10 +148,42 @@ describe("persistence access architecture ratchet", () => {
     }
 
     expect(storageTotals).toEqual(expectedStorageServiceCallsByMethod);
-    expect(classTotals).toEqual({ external: 30, helper: 6, internal: 9 });
+    expect(classTotals).toEqual({ external: 20, helper: 6, internal: 9 });
     expect(
       Object.values(storageTotals).reduce((sum, count) => sum + count, 0),
-    ).toBe(45);
+    ).toBe(35);
+  });
+
+  it("keeps the closed read cohort off storage and repository access", () => {
+    const sourceByFile = new Map(entries);
+
+    for (const [fileName, rule] of Object.entries(closedReadCohortRules)) {
+      const source = sourceByFile.get(fileName);
+      expect(source, fileName).toBeTypeOf("string");
+
+      if (rule.forbidStorageDependency) {
+        expect(source, fileName).not.toMatch(
+          /\b(?:this|service)\s*(?:\.|\?\.)\s*storage\b/,
+        );
+        expect(source, fileName).not.toMatch(
+          /(?:constructor\s*\(\s*\{|@param\s*\{\{)[^}]*\bstorage\??\s*:/s,
+        );
+      }
+
+      if (rule.forbidRepositoryDependency) {
+        expect(source, fileName).not.toMatch(
+          /\b(?:project|settings)?repository\b|\/storage\//i,
+        );
+      }
+
+      for (const method of rule.forbiddenStorageMethods || []) {
+        expect(source, fileName).not.toMatch(
+          new RegExp(
+            `\\b(?:this\\s*(?:\\.|\\?\\.)\\s*)?storage\\s*(?:\\.|\\?\\.)\\s*${method}\\b`,
+          ),
+        );
+      }
+    }
   });
 
   it("activates one settings adapter in bootstrap while the project adapter stays unused", () => {

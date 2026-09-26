@@ -6,7 +6,10 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import ProjectManagementService from "../../../src/js/components/services/ProjectManagementService.js";
-import { createServiceFixture } from "../../fixtures/index.js";
+import {
+  createCurrentArtifactSerializerFixture,
+  createServiceFixture,
+} from "../../fixtures/index.js";
 
 describe("project backup and import profile contract", () => {
   const fixtures = [];
@@ -77,7 +80,13 @@ describe("project backup and import profile contract", () => {
 
     const producer = new ProjectManagementService({
       eventBus: source.eventBus,
-      storage: source.storage,
+      currentArtifactSerializer: createCurrentArtifactSerializerFixture({
+        project: {
+          profiles: { "canonical-profile": canonicalProfile },
+          currentProfile: "canonical-profile",
+        },
+        settings: sourceSettings,
+      }),
       i18n: { t: (key) => key },
     });
     const preferences = await createImportPreferencesOwner(destination);
@@ -90,10 +99,6 @@ describe("project backup and import profile contract", () => {
     });
     services.push(producer, consumer);
     producer.init();
-    source.eventBus.emit(
-      "preferences:state-changed",
-      createPreferencesStateChange(sourceSettings),
-    );
     consumer.init();
 
     /** @type {string[]} */
@@ -155,7 +160,7 @@ describe("project backup and import profile contract", () => {
     };
     const producer = new ProjectManagementService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      currentArtifactSerializer: createCurrentArtifactSerializerFixture(),
       ui,
       i18n,
     });
@@ -195,7 +200,11 @@ describe("project backup and import profile contract", () => {
     fixtures.push(fixture);
     const producer = new ProjectManagementService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      currentArtifactSerializer: {
+        serialize: vi
+          .fn()
+          .mockRejectedValue(new Error("preferences_not_ready")),
+      },
       i18n: { t: (key) => key },
     });
     services.push(producer);
@@ -206,7 +215,7 @@ describe("project backup and import profile contract", () => {
       .mockImplementation(() => {});
     await expect(producer.backupApplicationState()).resolves.toEqual({
       success: false,
-      error: "Preferences state is unavailable",
+      error: "preferences_not_ready",
     });
     expect(click).not.toHaveBeenCalled();
     expect(fixture.settingsRepository.load).not.toHaveBeenCalled();

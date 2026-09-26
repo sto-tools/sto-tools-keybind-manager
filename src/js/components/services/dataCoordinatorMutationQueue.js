@@ -86,6 +86,84 @@ export function enqueueDataCoordinatorMutation(owner, operation) {
   });
 }
 
+/**
+ * Reject a lease whose tuple no longer identifies the current ready owner.
+ * Preferences and DataCoordinator revisions are intentionally independent;
+ * this check only compares a DataCoordinator lease with its own owner.
+ *
+ * @param {DataCoordinator} owner
+ * @param {import('../../types/storage-contracts.js').OwnerReadLease<import('../../types/data-contracts.js').ArtifactProjectProjection>} lease
+ */
+export function assertDataCoordinatorReadLeaseCurrent(owner, lease) {
+  const domain = domainFor(owner);
+  const snapshot = owner.getCurrentState();
+  if (
+    domain.owner !== owner ||
+    !owner._isCurrentOperation(owner._captureOperationGeneration()) ||
+    !snapshot.ready ||
+    snapshot.authorityEpoch !== owner._stateAuthorityEpoch ||
+    snapshot.revision !== owner._stateRevision ||
+    lease.authorityEpoch !== snapshot.authorityEpoch ||
+    lease.revision !== snapshot.revision
+  ) {
+    throw new Error("operation_cancelled");
+  }
+}
+
+/**
+ * Wait for all earlier EventBus-domain writes, then hold later writes until
+ * the returned lease is released. The lease carries only the portable project
+ * projection, never the owner or repository capability.
+ *
+ * @param {DataCoordinator} owner
+ * @returns {Promise<import('../../types/storage-contracts.js').OwnerReadLease<import('../../types/data-contracts.js').ArtifactProjectProjection>>}
+ */
+export function acquireDataCoordinatorReadLease(owner) {
+  const generation = owner._captureOperationGeneration();
+  const domain = domainFor(owner);
+  /** @type {() => void} */
+  let openGate = () => {};
+  let released = false;
+  /** @type {Promise<void>} */
+  const held = new Promise((resolve) => {
+    openGate = () => resolve();
+  });
+  const acquired = domain.tail.then(() => {
+    owner._assertCurrentOperation(generation);
+    if (domain.owner !== owner) throw new Error("operation_cancelled");
+    const snapshot = owner.getCurrentState();
+    if (!snapshot.ready) throw new Error("data_owner_not_ready");
+    if (
+      snapshot.authorityEpoch !== owner._stateAuthorityEpoch ||
+      snapshot.revision !== owner._stateRevision
+    ) {
+      throw new Error("operation_cancelled");
+    }
+    const lease = {
+      authorityEpoch: snapshot.authorityEpoch,
+      revision: snapshot.revision,
+      value:
+        /** @type {import('../../types/data-contracts.js').ArtifactProjectProjection} */ (
+          structuredClone({
+            profiles: snapshot.profiles,
+            currentProfile: snapshot.currentProfile,
+          })
+        ),
+      release() {
+        if (released) return;
+        released = true;
+        openGate();
+      },
+    };
+    return lease;
+  });
+  domain.tail = acquired.then(
+    () => held,
+    () => undefined,
+  );
+  return acquired;
+}
+
 /** @param {DataCoordinator} owner @param {import('../../types/rpc/data.js').ProfileMutationPrecondition | undefined} precondition */
 export function assertDataCoordinatorPrecondition(owner, precondition) {
   if (

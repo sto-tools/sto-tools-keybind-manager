@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ProjectManagementService from "../../../src/js/components/services/ProjectManagementService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
-import { createServiceFixture } from "../../fixtures/index.js";
+import {
+  createCurrentArtifactSerializerFixture,
+  createServiceFixture,
+} from "../../fixtures/index.js";
 import {
   createRequestBackedPreferencesTransition,
   mockProjectRestoreActions,
@@ -11,11 +14,14 @@ import {
 describe("ProjectManagementService restore RPC boundary", () => {
   let fixture;
   let service;
+  let currentArtifactSerializer;
 
   beforeEach(() => {
     fixture = createServiceFixture();
+    currentArtifactSerializer = createCurrentArtifactSerializerFixture();
     service = new ProjectManagementService({
       eventBus: fixture.eventBus,
+      currentArtifactSerializer,
       i18n: {
         t: (key, params = {}) =>
           key === "backup_restore_failed"
@@ -34,7 +40,32 @@ describe("ProjectManagementService restore RPC boundary", () => {
     vi.useRealTimers();
     if (!service.destroyed) service.destroy();
     fixture.destroy();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it("downloads only the injected fixed artifact without a storage or repository capability", async () => {
+    let parts = [];
+    vi.stubGlobal(
+      "Blob",
+      class CapturedBlob {
+        constructor(nextParts) {
+          parts = [...nextParts];
+        }
+      },
+    );
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    await expect(service.backupApplicationState()).resolves.toEqual({
+      success: true,
+      filename: "STO_Tools_Backup_2026-07-18.json",
+    });
+
+    expect(parts.join("")).toBe(currentArtifactSerializer.calls[0].artifact);
+    expect(currentArtifactSerializer.calls).toHaveLength(1);
+    expect(service).not.toHaveProperty("storage");
+    expect(service).not.toHaveProperty("projectRepository");
+    expect(service).not.toHaveProperty("settingsRepository");
   });
 
   it("fails closed before import dispatch when the Preferences transition is unavailable", async () => {

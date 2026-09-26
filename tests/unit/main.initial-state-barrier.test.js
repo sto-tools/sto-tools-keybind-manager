@@ -15,6 +15,7 @@ const bootstrap = vi.hoisted(() => {
     ComponentStub,
     dataRpcTopics: new Set(),
     appDependencies: null,
+    dataCoordinatorOwner: null,
     devMonitorI18n: null,
     runtimeDiagnostics: null,
     syncOptions: null,
@@ -25,12 +26,16 @@ const bootstrap = vi.hoisted(() => {
     initialStateReady: Promise.resolve(),
     preferencesInitialStateReady: Promise.resolve(),
     preferencesOptions: null,
+    artifactCaptureOwners: null,
+    artifactCapturePort: null,
+    currentArtifactSerializer: null,
     rejectInitialState: () => {},
     resolveInitialState: () => {},
     reset() {
       state.operations.length = 0;
       state.dataRpcTopics.clear();
       state.appDependencies = null;
+      state.dataCoordinatorOwner = null;
       state.devMonitorI18n = null;
       state.runtimeDiagnostics = null;
       state.syncOptions = null;
@@ -39,6 +44,9 @@ const bootstrap = vi.hoisted(() => {
       state.appConstructorError = null;
       state.preferencesInitialStateReady = Promise.resolve();
       state.preferencesOptions = null;
+      state.artifactCaptureOwners = null;
+      state.artifactCapturePort = null;
+      state.currentArtifactSerializer = null;
       state.initialStateReady = new Promise((resolve, reject) => {
         state.resolveInitialState = resolve;
         state.rejectInitialState = reject;
@@ -57,7 +65,22 @@ vi.mock("../../src/js/data.js", () => ({
   localizeCommands: () => {
     bootstrap.operations.push("data:localize");
   },
-  stoData: { commands: {} },
+  stoData: { commands: {}, settings: { version: "test-version" } },
+}));
+
+vi.mock("../../src/js/components/services/projectArtifactCapture.js", () => ({
+  createArtifactCapturePort: (owners) => {
+    bootstrap.artifactCaptureOwners = owners;
+    bootstrap.artifactCapturePort = Object.freeze({ capture: vi.fn() });
+    return bootstrap.artifactCapturePort;
+  },
+  createCurrentProjectArtifactSerializer: (options) => {
+    bootstrap.currentArtifactSerializer = Object.freeze({
+      serialize: vi.fn(),
+      options,
+    });
+    return bootstrap.currentArtifactSerializer;
+  },
 }));
 
 vi.mock("i18next", () => ({
@@ -97,6 +120,7 @@ vi.mock("../../src/js/components/services/index.js", () => {
     constructor() {
       super();
       this.initialStateReady = bootstrap.initialStateReady;
+      bootstrap.dataCoordinatorOwner = this;
       bootstrap.operations.push("coordinator:construct");
     }
 
@@ -312,8 +336,17 @@ describe("main DataCoordinator startup barrier", () => {
     expect(bootstrap.appDependencies).toEqual(
       expect.objectContaining({
         applyTranslations: expect.any(Function),
+        currentArtifactSerializer: bootstrap.currentArtifactSerializer,
       }),
     );
+    expect(bootstrap.artifactCaptureOwners).toEqual({
+      preferencesOwner: bootstrap.appDependencies.preferencesService,
+      dataOwner: bootstrap.dataCoordinatorOwner,
+    });
+    expect(bootstrap.currentArtifactSerializer.options).toEqual({
+      capturePort: bootstrap.artifactCapturePort,
+      version: "test-version",
+    });
     expect(bootstrap.runtimeDiagnostics).toEqual({
       eventBus: expect.objectContaining({ emit: expect.any(Function) }),
       storageService: expect.anything(),
@@ -323,6 +356,9 @@ describe("main DataCoordinator startup barrier", () => {
       keyBrowserService: { name: "key-browser-service" },
     });
     expect(Object.isFrozen(bootstrap.runtimeDiagnostics)).toBe(true);
+    expect(bootstrap.runtimeDiagnostics).not.toHaveProperty(
+      "currentArtifactSerializer",
+    );
     for (const property of [
       "eventBus",
       "storageService",

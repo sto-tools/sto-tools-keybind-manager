@@ -61,6 +61,7 @@ export default class STOToolsKeybindManager {
    *   i18n?: any,
    *   storageService?: any,
    *   preferencesService?: import('./components/services/PreferencesService.js').default,
+   *   currentArtifactSerializer?: import('./types/storage-contracts.js').CurrentProjectArtifactSerializerPort,
    *   ui?: any,
    *   syncService?: any,
    *   applyTranslations?: (root?: Document | Element | null) => void
@@ -70,6 +71,7 @@ export default class STOToolsKeybindManager {
     i18n,
     storageService,
     preferencesService,
+    currentArtifactSerializer,
     ui,
     syncService,
     applyTranslations,
@@ -77,6 +79,7 @@ export default class STOToolsKeybindManager {
     this.i18n = i18n;
     this.storageService = storageService;
     this.preferencesService = preferencesService;
+    this.currentArtifactSerializer = currentArtifactSerializer;
     this.ui = ui;
     this.syncService = syncService;
     this.applyTranslations = applyTranslations ?? (() => {});
@@ -286,7 +289,7 @@ export default class STOToolsKeybindManager {
       this.importService.init();
 
       this.projectManagementService = create(ProjectManagementService, {
-        storage: storageService,
+        currentArtifactSerializer: this.currentArtifactSerializer,
         ui: stoUI,
         eventBus,
         i18n: this.i18n,
@@ -300,7 +303,7 @@ export default class STOToolsKeybindManager {
       this.projectManagementService.init();
 
       this.exportService = create(ExportService, {
-        storage: storageService,
+        currentArtifactSerializer: this.currentArtifactSerializer,
         eventBus,
         i18n: this.i18n,
       });

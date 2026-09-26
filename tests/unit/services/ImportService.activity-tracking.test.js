@@ -16,6 +16,18 @@ respond(undefined, "parser:parse-command-string", ({ commandString }) => {
   };
 });
 
+const sourceProfile = {
+  name: "Test Profile",
+  builds: {
+    space: { keys: {}, aliases: {} },
+    ground: { keys: {}, aliases: {} },
+  },
+  bindsets: {},
+  aliases: {},
+  keybindMetadata: {},
+  bindsetMetadata: {},
+};
+
 describe("ImportService - Activity Tracking Metadata Handling", () => {
   let fixture, importService;
 
@@ -26,7 +38,13 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
       storage: fixture.storage,
     });
     importService.init();
-    importService._cacheDataState(createDataCoordinatorState());
+    importService._cacheDataState(
+      createDataCoordinatorState({
+        currentProfile: "test-profile",
+        currentProfileData: sourceProfile,
+        profiles: { "test-profile": sourceProfile },
+      }),
+    );
     respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
 
     // Register responder for parser on the fixture event bus
@@ -81,19 +99,6 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
         },
         parseFile: vi.fn().mockResolvedValue(mockKBFResult),
       };
-
-      // Mock storage to return a test profile
-      fixture.storage.getProfile = vi.fn().mockReturnValue({
-        name: "Test Profile",
-        builds: {
-          space: { keys: {}, aliases: {} },
-          ground: { keys: {}, aliases: {} },
-        },
-        bindsets: {},
-        aliases: {},
-        keybindMetadata: {},
-        bindsetMetadata: {},
-      });
 
       const mockContent = "mock kbf content";
       const profileId = "test-profile";
@@ -165,19 +170,6 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
         parseFile: vi.fn().mockResolvedValue(mockKBFResult),
       };
 
-      // Mock storage to return a test profile
-      fixture.storage.getProfile = vi.fn().mockReturnValue({
-        name: "Test Profile",
-        builds: {
-          space: { keys: {}, aliases: {} },
-          ground: { keys: {}, aliases: {} },
-        },
-        bindsets: {},
-        aliases: {},
-        keybindMetadata: {},
-        bindsetMetadata: {},
-      });
-
       const mockContent = "mock kbf content";
       const profileId = "test-profile";
       const environment = "space";
@@ -240,19 +232,6 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
         parseFile: vi.fn().mockResolvedValue(mockKBFResult),
       };
 
-      // Mock storage to return a test profile
-      fixture.storage.getProfile = vi.fn().mockReturnValue({
-        name: "Test Profile",
-        builds: {
-          space: { keys: {}, aliases: {} },
-          ground: { keys: {}, aliases: {} },
-        },
-        bindsets: {},
-        aliases: {},
-        keybindMetadata: {},
-        bindsetMetadata: {},
-      });
-
       const mockContent = "mock kbf content";
       const profileId = "test-profile";
       const environment = "space";
@@ -305,19 +284,6 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
         },
         parseFile: vi.fn().mockResolvedValue(mockKBFResult),
       };
-
-      // Mock storage to return a test profile
-      fixture.storage.getProfile = vi.fn().mockReturnValue({
-        name: "Test Profile",
-        builds: {
-          space: { keys: {}, aliases: {} },
-          ground: { keys: {}, aliases: {} },
-        },
-        bindsets: {},
-        aliases: {},
-        keybindMetadata: {},
-        bindsetMetadata: {},
-      });
 
       const mockContent = "mock kbf content";
       const profileId = "test-profile";

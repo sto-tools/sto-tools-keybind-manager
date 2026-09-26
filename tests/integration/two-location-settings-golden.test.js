@@ -75,7 +75,7 @@ describe("two-location settings authority golden", () => {
     return preferences;
   }
 
-  it("uses standalone settings for runtime and export while preserving the embedded record", async () => {
+  it("uses standalone settings for export, refuses embedded fallback, and preserves both records", async () => {
     const rootText = localStorage.getItem(storage.storageKey);
     const settingsText = localStorage.getItem("sto_keybind_settings");
 
@@ -86,7 +86,10 @@ describe("two-location settings authority golden", () => {
 
     const artifact = JSON.parse(
       serializeProjectArtifact(
-        storage.getAllData(),
+        {
+          profiles: storage.getAllData().profiles,
+          currentProfile: storage.getAllData().currentProfile,
+        },
         preferences.getCurrentState().settings,
         {
           version: "1.0.0",
@@ -101,13 +104,19 @@ describe("two-location settings authority golden", () => {
     });
     expect(artifact.data.settings.currentProfile).toBe("canonical-profile");
 
-    const compatibilityArtifact = JSON.parse(
-      serializeProjectArtifact(storage.getAllData(), null, {
-        version: "1.0.0",
-        exported: "2026-07-21T12:00:00.000Z",
-      }),
-    );
-    expect(compatibilityArtifact.data.settings).toEqual(golden.root.settings);
+    expect(() =>
+      serializeProjectArtifact(
+        {
+          profiles: storage.getAllData().profiles,
+          currentProfile: storage.getAllData().currentProfile,
+        },
+        null,
+        {
+          version: "1.0.0",
+          exported: "2026-07-21T12:00:00.000Z",
+        },
+      ),
+    ).toThrowError("canonical_settings_required");
     expect(localStorage.getItem(storage.storageKey)).toBe(rootText);
     expect(localStorage.getItem("sto_keybind_settings")).toBe(settingsText);
   });

@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ComponentBase from "../../src/js/components/ComponentBase.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
+import {
+  createDataStateSnapshot,
+  getSnapshotProfile,
+  getSnapshotProfiles,
+} from "../../src/js/components/services/dataState.js";
 import { createServiceFixture } from "../fixtures/index.js";
 
 class DataStateConsumer extends ComponentBase {
@@ -65,6 +70,26 @@ describe("DataCoordinator state cache lifecycle", () => {
     await vi.waitFor(() => {
       expect(coordinator.getCurrentState().ready).toBe(true);
     });
+  }
+
+  function replacementSnapshot(
+    state,
+    { authorityEpoch, ready = true, revision },
+  ) {
+    return createDataStateSnapshot(
+      {
+        currentProfile: null,
+        currentEnvironment: "space",
+        profiles: {},
+        metadata: { lastModified: null, version: "1.0.0" },
+        ...state,
+      },
+      { authorityEpoch, ready, revision },
+    );
+  }
+
+  function publishSnapshot(state, reason = "initial-load") {
+    fixture.eventBus.emit("data:state-changed", { reason, state });
   }
 
   it("hydrates a consumer initialized before the state owner publishes", async () => {
@@ -181,5 +206,152 @@ describe("DataCoordinator state cache lifecycle", () => {
       revision: 2,
       profiles: { alpha: { description: "Accepted update" } },
     });
+  });
+
+  it("accepts a pre-ready replacement authority while selectors project empty and null", async () => {
+    const coordinator = createHarness();
+    const consumer = new DataStateConsumer(
+      fixture.eventBus,
+      "PreReadyReplacementConsumer",
+    );
+    components.push(consumer);
+    consumer.init();
+    coordinator.init();
+    await waitForReady(coordinator);
+
+    const predecessor = consumer.cache.dataState;
+    const preReady = replacementSnapshot(
+      {
+        currentProfile: "unaccepted",
+        profiles: { unaccepted: createProfile("unaccepted") },
+      },
+      {
+        authorityEpoch: predecessor.authorityEpoch + 1,
+        ready: false,
+        revision: 0,
+      },
+    );
+    publishSnapshot(preReady);
+
+    expect(consumer.cache.dataState).toBe(preReady);
+    expect(consumer.cache.dataState.authorityEpoch).toBeGreaterThan(
+      predecessor.authorityEpoch,
+    );
+    expect(getSnapshotProfiles(consumer.cache.dataState)).toEqual({});
+    expect(getSnapshotProfile(consumer.cache.dataState)).toBeNull();
+    expect(getSnapshotProfile(consumer.cache.dataState, "alpha")).toBeNull();
+  });
+
+  it("treats an accepted empty profile map as decisive", async () => {
+    const coordinator = createHarness();
+    const consumer = new DataStateConsumer(
+      fixture.eventBus,
+      "EmptyProfilesConsumer",
+    );
+    components.push(consumer);
+    consumer.init();
+    coordinator.init();
+    await waitForReady(coordinator);
+
+    const predecessor = consumer.cache.dataState;
+    const empty = replacementSnapshot(
+      {},
+      {
+        authorityEpoch: predecessor.authorityEpoch,
+        revision: predecessor.revision + 1,
+      },
+    );
+    publishSnapshot(empty, "storage-reset");
+
+    expect(consumer.cache.dataState).toBe(empty);
+    expect(getSnapshotProfiles(consumer.cache.dataState)).toEqual({});
+    expect(getSnapshotProfile(consumer.cache.dataState)).toBeNull();
+    expect(consumer.cache).toMatchObject({
+      currentProfile: null,
+      profile: null,
+      keys: {},
+      aliases: {},
+    });
+  });
+
+  it("treats an accepted null current profile as decisive while retaining explicit profile selection", async () => {
+    const coordinator = createHarness();
+    const consumer = new DataStateConsumer(
+      fixture.eventBus,
+      "NullCurrentProfileConsumer",
+    );
+    components.push(consumer);
+    consumer.init();
+    coordinator.init();
+    await waitForReady(coordinator);
+
+    const predecessor = consumer.cache.dataState;
+    const beta = createProfile("beta", "ground");
+    const noCurrentProfile = replacementSnapshot(
+      { profiles: { beta } },
+      {
+        authorityEpoch: predecessor.authorityEpoch,
+        revision: predecessor.revision + 1,
+      },
+    );
+    publishSnapshot(noCurrentProfile, "profile-deleted");
+
+    expect(consumer.cache.dataState).toBe(noCurrentProfile);
+    expect(getSnapshotProfile(consumer.cache.dataState)).toBeNull();
+    expect(getSnapshotProfile(consumer.cache.dataState, "beta")).toEqual(beta);
+    expect(consumer.cache.currentProfile).toBeNull();
+    expect(consumer.cache.profile).toBeNull();
+  });
+
+  it("accepts a replacement authority with a restarted revision and rejects its delayed predecessor", async () => {
+    const coordinator = createHarness();
+    const consumer = new DataStateConsumer(
+      fixture.eventBus,
+      "AuthorityReplacementConsumer",
+    );
+    components.push(consumer);
+    consumer.init();
+    coordinator.init();
+    await waitForReady(coordinator);
+
+    const predecessor = consumer.cache.dataState;
+    const replacement = replacementSnapshot(
+      {
+        currentProfile: "replacement",
+        currentEnvironment: "ground",
+        profiles: {
+          replacement: createProfile("replacement", "ground"),
+        },
+      },
+      {
+        authorityEpoch: predecessor.authorityEpoch + 1,
+        revision: 0,
+      },
+    );
+    publishSnapshot(replacement);
+
+    const delayedPredecessor = replacementSnapshot(
+      {
+        currentProfile: "delayed",
+        profiles: { delayed: createProfile("delayed") },
+      },
+      {
+        authorityEpoch: predecessor.authorityEpoch,
+        revision: predecessor.revision + 100,
+      },
+    );
+    publishSnapshot(delayedPredecessor, "profile-replaced");
+
+    expect(consumer.cache.dataState).toBe(replacement);
+    expect(consumer.cache.dataState).toMatchObject({
+      authorityEpoch: predecessor.authorityEpoch + 1,
+      revision: 0,
+      currentProfile: "replacement",
+      currentEnvironment: "ground",
+    });
+    expect(getSnapshotProfiles(consumer.cache.dataState)).not.toHaveProperty(
+      "delayed",
+    );
+    expect(consumer.cache.keys).toEqual({ F2: ["replacement-ground"] });
   });
 });

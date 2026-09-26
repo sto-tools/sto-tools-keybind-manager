@@ -1,5 +1,4 @@
 import ComponentBase from "../ComponentBase.js";
-import { serializeProjectArtifact } from "./projectArtifact.js";
 import {
   hasOwnDataField,
   isDataRecord,
@@ -12,7 +11,6 @@ import {
   materializeProjectImportSuccess,
 } from "./projectRestoreResult.js";
 import { classifyPreferencesActivationResult } from "./preferencesActivationResult.js";
-import { stoData } from "../../data.js";
 
 /** @param {unknown} error */
 function getErrorMessage(error) {
@@ -116,9 +114,9 @@ function decodeRestoreRequest(payload) {
  * for mix-in compatibility while the codebase migrates to service instances.
  */
 export default class ProjectManagementService extends ComponentBase {
-  /** @param {{ storage?: import('./serviceTypes.js').Storage | null, ui?: import('./serviceTypes.js').ToastUI | null, eventBus?: import('./serviceTypes.js').EventBus | null, i18n?: import('./serviceTypes.js').I18n | null, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null, importProjectWithinPreferencesTransition?: import('./ImportService.js').default['importProjectWithinPreferencesTransition'] | null }} [options] */
+  /** @param {{ currentArtifactSerializer?: import('../../types/storage-contracts.js').CurrentProjectArtifactSerializerPort | null, ui?: import('./serviceTypes.js').ToastUI | null, eventBus?: import('./serviceTypes.js').EventBus | null, i18n?: import('./serviceTypes.js').I18n | null, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null, importProjectWithinPreferencesTransition?: import('./ImportService.js').default['importProjectWithinPreferencesTransition'] | null }} [options] */
   constructor({
-    storage = null,
+    currentArtifactSerializer = null,
     ui = null,
     eventBus = null,
     i18n = null,
@@ -128,7 +126,7 @@ export default class ProjectManagementService extends ComponentBase {
     super(eventBus);
     this.componentName = "ProjectManagementService";
 
-    this.storage = storage;
+    this.currentArtifactSerializer = currentArtifactSerializer;
     this.ui = ui;
     this.i18n = i18n;
     this.runPreferencesTransition = runPreferencesTransition;
@@ -150,9 +148,7 @@ export default class ProjectManagementService extends ComponentBase {
     if (!this.eventBus) return;
 
     // Listen for backup/restore application state events from HeaderMenuUI
-    this.addEventListener("project:save", () => {
-      this.backupApplicationState();
-    });
+    this.addEventListener("project:save", () => this.backupApplicationState());
 
     this.addEventListener("project:open", () => {
       this.restoreApplicationState();
@@ -183,18 +179,11 @@ export default class ProjectManagementService extends ComponentBase {
   // Backup & Restore Application State (same format as sync folder)
   async backupApplicationState() {
     try {
-      if (!this.storage || !this.i18n) {
+      if (!this.currentArtifactSerializer || !this.i18n) {
         throw new Error("Project management dependencies are unavailable");
       }
-      const data = this.storage.getAllData();
-      const preferences = this.cache.preferencesState;
-      if (!preferences?.ready)
-        throw new Error("Preferences state is unavailable");
-      const exported = new Date().toISOString();
-      const jsonContent = serializeProjectArtifact(data, preferences.settings, {
-        version: stoData.settings.version,
-        exported,
-      });
+      const { artifact: jsonContent, exported } =
+        await this.currentArtifactSerializer.serialize();
       const blob = new Blob([jsonContent], { type: "application/json" });
       const url = URL.createObjectURL(blob);
 

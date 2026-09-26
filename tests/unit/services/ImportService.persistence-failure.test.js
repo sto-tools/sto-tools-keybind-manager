@@ -41,7 +41,13 @@ describe("ImportService persistence failures", () => {
       storage: fixture.storage,
     });
     service.init();
-    service._cacheDataState(createDataCoordinatorState());
+    service._cacheDataState(
+      createDataCoordinatorState({
+        currentProfile: profileId,
+        currentProfileData: profile,
+        profiles: { [profileId]: profile },
+      }),
+    );
     respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
     fixture.eventBus.emit(
       "preferences:state-changed",

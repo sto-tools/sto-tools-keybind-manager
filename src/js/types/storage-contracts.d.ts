@@ -1,7 +1,36 @@
 import type {
+  ArtifactCaptureResult,
+  ArtifactProjectProjection,
   CanonicalSettings,
   StoredApplicationData,
 } from "./data-contracts.js";
+
+export interface OwnerReadLease<Value = unknown> {
+  readonly authorityEpoch: number;
+  readonly revision: number;
+  readonly value: Value;
+  release(): void;
+}
+
+export interface ArtifactCapturePort {
+  capture(): Promise<ArtifactCaptureResult>;
+}
+
+export interface CurrentProjectArtifactSerialization {
+  artifact: string;
+  capture: ArtifactCaptureResult;
+  exported: string;
+}
+
+export interface CurrentProjectArtifactSerializerPort {
+  serialize(): Promise<CurrentProjectArtifactSerialization>;
+}
+
+export type CurrentProjectArtifactSerializer =
+  CurrentProjectArtifactSerializerPort;
+
+export type ProjectOwnerReadLease = OwnerReadLease<ArtifactProjectProjection>;
+export type PreferencesOwnerReadLease = OwnerReadLease<CanonicalSettings>;
 
 /** Adapter construction capability only; never the port injected into owners. */
 export type RepositoryStorageCapability = Pick<

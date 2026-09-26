@@ -1,5 +1,6 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import FileExplorerUI from "../../../src/js/components/ui/FileExplorerUI.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createUIComponentFixture } from "../../fixtures/ui/component.js";
 
 describe("FileExplorerUI – copy preview content", () => {
@@ -97,7 +98,7 @@ describe("FileExplorerUI – copy preview content", () => {
     }
   });
 
-  it("uses only injected storage when ambient storageService is poisoned", () => {
+  it("does not retain or read injected or ambient storage", () => {
     const descriptor = Object.getOwnPropertyDescriptor(
       globalThis,
       "storageService",
@@ -110,21 +111,25 @@ describe("FileExplorerUI – copy preview content", () => {
     });
 
     try {
-      const injected = { getProfile: vi.fn() };
-      const withInjection = new FileExplorerUI({
+      const injected = {
+        getAllData: vi.fn(() => {
+          throw new Error("injected storage must not be read");
+        }),
+        getProfile: vi.fn(() => {
+          throw new Error("injected storage must not be read");
+        }),
+      };
+      const explorer = new FileExplorerUI({
         eventBus: fixture.eventBus,
         storage: injected,
         document,
         i18n: fixture.i18n,
       });
-      const withoutInjection = new FileExplorerUI({
-        eventBus: fixture.eventBus,
-        document,
-        i18n: fixture.i18n,
-      });
 
-      expect(withInjection.storage).toBe(injected);
-      expect(withoutInjection.storage).toBeNull();
+      expect(explorer).not.toHaveProperty("storage");
+      explorer.buildTree();
+      expect(injected.getAllData).not.toHaveBeenCalled();
+      expect(injected.getProfile).not.toHaveBeenCalled();
     } finally {
       if (descriptor) {
         Object.defineProperty(globalThis, "storageService", descriptor);
@@ -183,7 +188,13 @@ describe("FileExplorerUI – copy preview content", () => {
       profileId: "missing-profile",
       environment: "space",
     };
-    component.storage = { getProfile: vi.fn(() => null) };
+    component._cacheDataState(
+      createDataCoordinatorState({
+        authorityEpoch: 3,
+        currentProfile: null,
+        profiles: {},
+      }),
+    );
     component.request = vi.fn();
     component.downloadFile = vi.fn();
     component.document = {
@@ -213,9 +224,13 @@ describe("FileExplorerUI – copy preview content", () => {
       name: "Alpha",
       builds: { space: { keys: { F1: ["FireAll"] } } },
     };
-    component.storage = {
-      getProfile: vi.fn(() => profile),
-    };
+    component._cacheDataState(
+      createDataCoordinatorState({
+        authorityEpoch: 4,
+        currentProfileData: profile,
+        profiles: { alpha: profile },
+      }),
+    );
     component.request = vi.fn(async (topic) => {
       if (topic === "export:generate-keybind-file") return 'F1 "FireAll"\n';
       if (topic === "export:generate-filename") return "Alpha_space.txt";

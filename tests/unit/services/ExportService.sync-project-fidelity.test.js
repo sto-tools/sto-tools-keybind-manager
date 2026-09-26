@@ -8,6 +8,7 @@ import ExportService from "../../../src/js/components/services/ExportService.js"
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
+import { createCurrentArtifactSerializerFixture } from "../../fixtures/services/projectArtifact.js";
 import {
   createDataCoordinatorState,
   createPreferencesStateChange,
@@ -76,7 +77,15 @@ describe("ExportService sync project fidelity", () => {
 
     const exporter = new ExportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      currentArtifactSerializer: createCurrentArtifactSerializerFixture({
+        project: {
+          profiles: structuredClone(profiles),
+          currentProfile,
+        },
+        settings: structuredClone(goldenProject.data.settings),
+        exported: goldenProject.exported,
+        version: goldenProject.version,
+      }),
       i18n: { t: (key) => key },
     });
     services.push(exporter);
@@ -114,15 +123,21 @@ describe("ExportService sync project fidelity", () => {
     const { fixture, exporter } = createSource();
     const generateAliasFile = exporter.generateAliasFile.bind(exporter);
     vi.spyOn(exporter, "generateAliasFile").mockImplementation(
-      async (profile) => {
+      async (profile, options) => {
         fixture.eventBus.emit(
           "preferences:state-changed",
           createPreferencesStateChange(
-            { ...goldenProject.data.settings, theme: "dark" },
+            {
+              ...goldenProject.data.settings,
+              bindToAliasMode: false,
+              bindsetsEnabled: false,
+              translateGeneratedMessages: false,
+              theme: "dark",
+            },
             { revision: 2 },
           ),
         );
-        return await generateAliasFile(profile);
+        return await generateAliasFile(profile, options);
       },
     );
 
@@ -131,14 +146,24 @@ describe("ExportService sync project fidelity", () => {
     expect(
       JSON.parse(await fixture.fsReadText("project.json")).data.settings,
     ).toEqual(goldenProject.data.settings);
+    expect(
+      await fixture.fsReadText(
+        "Canonical_Profile/Canonical_Profile_aliases.txt",
+      ),
+    ).toContain("sto_kb_");
     expect(exporter.cache.preferencesState.settings.theme).toBe("dark");
+    expect(exporter.cache.preferencesState.settings.bindToAliasMode).toBe(
+      false,
+    );
   });
 
   it("fails closed without a ready accepted Preferences snapshot before filesystem writes", async () => {
     const { fixture, exporter } = createSource();
-    exporter.cache.preferencesState = null;
+    exporter.currentArtifactSerializer = {
+      serialize: vi.fn().mockRejectedValue(new Error("preferences_not_ready")),
+    };
     await expect(exporter.syncToFolder(fixture.rootDir)).rejects.toThrow(
-      "Preferences state is unavailable",
+      "preferences_not_ready",
     );
     expect(await fixture.fsExists("project.json")).toBe(false);
     expect(fixture.settingsRepository.load).not.toHaveBeenCalled();

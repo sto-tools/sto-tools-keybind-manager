@@ -13,6 +13,10 @@ import {
 } from "./components/services/index.js";
 import DataService from "./components/services/DataService.js";
 import PreferencesService from "./components/services/PreferencesService.js";
+import {
+  createArtifactCapturePort,
+  createCurrentProjectArtifactSerializer,
+} from "./components/services/projectArtifactCapture.js";
 import LocalStorageSettingsRepository from "./components/storage/LocalStorageSettingsRepository.js";
 import {
   createDefaultPreferencesSettings,
@@ -153,6 +157,15 @@ const dataService = new DataService({
     return;
   }
 
+  const artifactCapturePort = createArtifactCapturePort({
+    preferencesOwner: preferencesService,
+    dataOwner: dataCoordinator,
+  });
+  const currentArtifactSerializer = createCurrentProjectArtifactSerializer({
+    capturePort: artifactCapturePort,
+    version: stoData.settings.version,
+  });
+
   // Preferences is bootstrap-owned even before the app exists. Keep every
   // remaining composition step inside its failure cleanup boundary.
   try {
@@ -225,7 +238,6 @@ const dataService = new DataService({
 
     const stoFileExplorer = new FileExplorerUI({
       eventBus,
-      storage: storageService,
       ui: stoUI,
       i18n: i18next,
     });
@@ -252,6 +264,7 @@ const dataService = new DataService({
       i18n: i18next,
       storageService,
       preferencesService,
+      currentArtifactSerializer,
       ui: stoUI,
       syncService: stoSync,
       applyTranslations,

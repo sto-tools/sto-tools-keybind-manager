@@ -59,11 +59,8 @@ export const expectedNamedMethodCalls = Object.freeze({
   "components/services/BindsetService.js|this|getProfile": 4,
   "components/services/DataCoordinator.js|this.storage|getAllData": 8,
   "components/services/dataCoordinatorProfileActions.js|owner.storage|getAllData": 6,
-  "components/services/ExportService.js|this.storage|getProfile": 1,
-  "components/services/ImportService.js|this.storage|getProfile": 3,
   "components/services/PreferencesService.js|this|getSettings": 1,
   "components/services/PreferencesService.js|this|saveSettings": 1,
-  "components/services/ProjectManagementService.js|this.storage|getAllData": 1,
   "components/services/StorageService.js|this|clearAllData": 1,
   "components/services/StorageService.js|this|createBackup": 1,
   "components/services/StorageService.js|this|getAllData": 4,
@@ -79,19 +76,12 @@ export const expectedNamedMethodCalls = Object.freeze({
   "components/services/storageWrites.js|storage|getProfile": 1,
   "components/services/storageWrites.js|storage|saveAllData": 2,
   "components/services/storageWrites.js|storage|saveProfile": 1,
-  "components/services/syncProjectMaterializer.js|service.storage|getAllData": 1,
-  "components/ui/FileExplorerUI.js|this.storage|getAllData": 1,
-  "components/ui/FileExplorerUI.js|this.storage|getProfile": 3,
   "components/ui/PreferencesUI.js|this|saveSettings": 1,
 });
 
 export const storageServiceCallClass = Object.freeze({
   "components/services/DataCoordinator.js|this.storage|getAllData": "external",
   "components/services/dataCoordinatorProfileActions.js|owner.storage|getAllData":
-    "external",
-  "components/services/ExportService.js|this.storage|getProfile": "external",
-  "components/services/ImportService.js|this.storage|getProfile": "external",
-  "components/services/ProjectManagementService.js|this.storage|getAllData":
     "external",
   "components/services/StorageService.js|this|clearAllData": "internal",
   "components/services/StorageService.js|this|createBackup": "internal",
@@ -110,16 +100,12 @@ export const storageServiceCallClass = Object.freeze({
   "components/services/storageWrites.js|storage|getProfile": "helper",
   "components/services/storageWrites.js|storage|saveAllData": "helper",
   "components/services/storageWrites.js|storage|saveProfile": "helper",
-  "components/services/syncProjectMaterializer.js|service.storage|getAllData":
-    "external",
-  "components/ui/FileExplorerUI.js|this.storage|getAllData": "external",
-  "components/ui/FileExplorerUI.js|this.storage|getProfile": "external",
 });
 
 export const expectedStorageServiceCallsByMethod = Object.freeze({
-  getAllData: 26,
+  getAllData: 23,
   saveAllData: 6,
-  getProfile: 8,
+  getProfile: 1,
   saveProfile: 2,
   deleteProfile: 1,
   getSettings: 0,
@@ -127,6 +113,35 @@ export const expectedStorageServiceCallsByMethod = Object.freeze({
   clearSettings: 0,
   createBackup: 1,
   clearAllData: 1,
+});
+
+// Tranche 6 closes these production read cohorts. ImportService deliberately
+// retains its project-import StorageService dependency until Tranche 7, so its
+// guard is limited to the retired accepted-profile read.
+export const closedReadCohortRules = Object.freeze({
+  "components/ui/FileExplorerUI.js": Object.freeze({
+    forbidStorageDependency: true,
+    forbidRepositoryDependency: true,
+  }),
+  "components/services/ExportService.js": Object.freeze({
+    forbidStorageDependency: true,
+    forbidRepositoryDependency: true,
+  }),
+  "components/services/ImportService.js": Object.freeze({
+    forbiddenStorageMethods: Object.freeze(["getProfile"]),
+  }),
+  "components/services/ProjectManagementService.js": Object.freeze({
+    forbidStorageDependency: true,
+    forbidRepositoryDependency: true,
+  }),
+  "components/services/syncProjectMaterializer.js": Object.freeze({
+    forbidStorageDependency: true,
+    forbidRepositoryDependency: true,
+  }),
+  "components/services/AutoSync.js": Object.freeze({
+    forbidStorageDependency: true,
+    forbidRepositoryDependency: true,
+  }),
 });
 
 export const routineStateQueryTopics = Object.freeze([
@@ -328,10 +343,6 @@ export const storageCallsiteDispositions = Object.freeze({
     [1, "workflow", "7"],
   "components/services/projectImportOrchestrator.js|importProjectToStorage|storage|saveAllData|restoredData":
     [1, "workflow", "7"],
-  "components/services/ProjectManagementService.js|backupApplicationState|this.storage|getAllData":
-    [1, "workflow", "6-7"],
-  "components/services/syncProjectMaterializer.js|materializeSyncProject|service.storage|getAllData":
-    [1, "workflow", "6"],
   "components/services/StorageService.js|onInit|this|getAllData|true": [
     1,
     "workflow",
@@ -347,25 +358,6 @@ export const storageCallsiteDispositions = Object.freeze({
     "workflow",
     "8",
   ],
-  "components/ui/FileExplorerUI.js|setupEventListeners|this.storage|getProfile|profileId":
-    [1, "projection", "6"],
-  "components/ui/FileExplorerUI.js|buildTree|this.storage|getAllData": [
-    1,
-    "projection",
-    "6",
-  ],
-  "components/ui/FileExplorerUI.js|generateBuildExport|this.storage|getProfile|profileId":
-    [1, "projection", "6"],
-  "components/ui/FileExplorerUI.js|generateAliasExport|this.storage|getProfile|profileId":
-    [1, "projection", "6"],
-  "components/services/ImportService.js|importKeybindFile|this.storage|getProfile|profileId":
-    [1, "projection", "6"],
-  "components/services/ImportService.js|importAliasFile|this.storage|getProfile|profileId":
-    [1, "projection", "6"],
-  "components/services/ImportService.js|importKBFFile|this.storage|getProfile|profileId":
-    [1, "projection", "6"],
-  "components/services/ExportService.js|getProfileFromCache|this.storage|getProfile|profileId":
-    [1, "compatibility", "6"],
   "components/services/StorageService.js|saveAllData|this|createBackup|savedAt":
     [1, "compatibility", "4"],
   "components/services/StorageService.js|getProfile|this|getAllData": [

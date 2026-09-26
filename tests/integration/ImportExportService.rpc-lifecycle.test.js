@@ -38,7 +38,6 @@ describe("ImportService and ExportService RPC lifecycle", () => {
   const createServicePair = () => {
     const exportService = new ExportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
       i18n: { t: (key) => key },
     });
     const importService = new ImportService({

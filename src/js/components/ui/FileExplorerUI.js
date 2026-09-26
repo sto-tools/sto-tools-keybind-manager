@@ -1,6 +1,10 @@
 import UIComponentBase from "../UIComponentBase.js";
 import FileSystemService from "../services/FileSystemService.js";
 import {
+  getSnapshotProfile,
+  getSnapshotProfiles,
+} from "../services/dataState.js";
+import {
   errorMessage,
   eventElement,
   resolveDocument,
@@ -20,7 +24,6 @@ export default class FileExplorerUI extends UIComponentBase {
   /**
    * @param {{
    *   eventBus?: import('./uiTypes.js').EventBus,
-   *   storage?: import('../services/StorageService.js').default,
    *   ui?: import('./uiTypes.js').UIServiceLike | null,
    *   fileSystem?: FileSystemService,
    *   document?: Document,
@@ -29,7 +32,6 @@ export default class FileExplorerUI extends UIComponentBase {
    */
   constructor({
     eventBus,
-    storage,
     ui = null,
     fileSystem,
     document = window.document,
@@ -38,7 +40,6 @@ export default class FileExplorerUI extends UIComponentBase {
     super(eventBus);
     this.componentName = "FileExplorerUI";
 
-    this.storage = storage ?? null;
     this.ui = ui ?? null;
     this.fileSystem = fileSystem || FileSystemService._getInstance();
     this.document = resolveDocument(document);
@@ -62,6 +63,18 @@ export default class FileExplorerUI extends UIComponentBase {
     // application-event consumer so teardown and replacement remain safe.
     this.addEventListener("file-explorer:open", () => {
       this.openExplorer();
+    });
+
+    this.addEventListener("data:state-changed", ({ state }) => {
+      const accepted = this.cache.dataState;
+      if (
+        !accepted ||
+        accepted.authorityEpoch !== state.authorityEpoch ||
+        accepted.revision !== state.revision
+      ) {
+        return;
+      }
+      this.buildTree();
     });
 
     // Delegate clicks on tree nodes
@@ -101,31 +114,29 @@ export default class FileExplorerUI extends UIComponentBase {
       if (!text.trim()) return;
 
       let filename = this.i18n.t("default_export_filename");
-      if (this.storage) {
-        const profile = this.storage.getProfile(profileId);
-        try {
-          if (!profile?.name) {
-            throw new Error(`Profile ${profileId} is unavailable`);
-          }
-          if (type === "build") {
-            filename = await this.request("export:generate-filename", {
-              profile,
-              extension: "txt",
-              environment: environment || undefined,
-            });
-          } else if (type === "aliases") {
-            filename = await this.request("export:generate-alias-filename", {
-              profile,
-              extension: "txt",
-            });
-          }
-        } catch (error) {
-          console.error(
-            "Failed to generate filename via ExportService:",
-            error,
-          );
-          // Keep default filename
+      const profile = getSnapshotProfile(this.cache.dataState, profileId);
+      try {
+        if (!profile?.name) {
+          throw new Error(`Profile ${profileId} is unavailable`);
         }
+        const namedProfile = /** @type {typeof profile & { name: string }} */ (
+          profile
+        );
+        if (type === "build") {
+          filename = await this.request("export:generate-filename", {
+            profile: namedProfile,
+            extension: "txt",
+            environment: environment || undefined,
+          });
+        } else if (type === "aliases") {
+          filename = await this.request("export:generate-alias-filename", {
+            profile: namedProfile,
+            extension: "txt",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to generate filename via ExportService:", error);
+        // Keep default filename
       }
       this.downloadFile(text, filename, "text/plain");
     });
@@ -146,16 +157,20 @@ export default class FileExplorerUI extends UIComponentBase {
 
   buildTree() {
     const treeEl = this.document.getElementById(this.treeId);
-    if (!treeEl || !this.storage) return;
+    if (!treeEl) return;
     treeEl.innerHTML = "";
+    this.selectedNode = null;
 
-    const data = this.storage.getAllData();
-    const profiles = data.profiles || {};
+    const profiles = getSnapshotProfiles(this.cache.dataState);
 
     Object.entries(profiles).forEach(([profileId, profile]) => {
-      const profileNode = this.createNode("profile", profile.name, {
-        profileId,
-      });
+      const profileNode = this.createNode(
+        "profile",
+        profile.name || profileId,
+        {
+          profileId,
+        },
+      );
 
       // Child container
       const childrenContainer = this.document.createElement("div");
@@ -223,7 +238,7 @@ export default class FileExplorerUI extends UIComponentBase {
 
     this.selectedNode = { type, profileId, environment };
 
-    if (!profileId || !this.storage) return;
+    if (!profileId) return;
 
     try {
       let exportContent = "";
@@ -253,8 +268,8 @@ export default class FileExplorerUI extends UIComponentBase {
    * @param {string | null} environment
    */
   async generateBuildExport(profileId, environment) {
-    if (!this.storage || !environment) return "";
-    const profile = this.storage.getProfile(profileId);
+    if (!environment) return "";
+    const profile = getSnapshotProfile(this.cache.dataState, profileId);
     if (!profile || !profile.builds || !profile.builds[environment]) return "";
 
     return await this.request("export:generate-keybind-file", {
@@ -271,8 +286,7 @@ export default class FileExplorerUI extends UIComponentBase {
 
   /** @param {string} profileId */
   async generateAliasExport(profileId) {
-    if (!this.storage) return "";
-    const rootProfile = this.storage.getProfile(profileId);
+    const rootProfile = getSnapshotProfile(this.cache.dataState, profileId);
     if (!rootProfile) return "";
 
     return await this.request("export:generate-alias-file", {

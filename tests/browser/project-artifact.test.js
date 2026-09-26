@@ -58,10 +58,24 @@ describe("Project artifact checked-bundle parity", () => {
   it("downloads and syncs byte-identical artifacts from the live owner state", async () => {
     const bus = runtime().eventBus;
     const storage = runtime().storageService;
+    const dataCoordinator = runtime().dataCoordinator;
     expect(bus?.hasListeners("project:save")).toBe(true);
     expect(bus?.hasListeners("rpc:export:sync-to-folder")).toBe(true);
     expect(storage).toBeTruthy();
-    if (!bus || !storage) return;
+    expect(dataCoordinator).toBeTruthy();
+    if (!bus || !storage || !dataCoordinator) return;
+
+    const dataSnapshot = dataCoordinator.getCurrentState();
+    expect(dataSnapshot.ready).toBe(true);
+    const legacyGetAllData = storage.getAllData;
+    const legacyGetProfile = storage.getProfile;
+    storage.getAllData = () => {
+      throw new Error("legacy storage project read must not run");
+    };
+    storage.getProfile = () => {
+      throw new Error("legacy storage profile read must not run");
+    };
+    let settingsSnapshot;
 
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-07-18T01:02:03.000Z"));
@@ -79,29 +93,32 @@ describe("Project artifact checked-bundle parity", () => {
       },
     );
 
-    await bus.emit("project:save");
-    expect(downloadedBlob).toBeInstanceOf(Blob);
-    expect(downloadedFileName).toBe("STO_Tools_Backup_2026-07-18.json");
-
-    const downloadedText = await downloadedBlob.text();
-    const rootSnapshot = structuredClone(storage.getAllData());
-    const settingsSnapshot = (await readPreferencesState(bus)).settings;
-    const changedSettings = {
-      ...settingsSnapshot,
-      artifactParityProbe: "changed-during-projection",
-    };
-    let settingsMutationAccepted = false;
-    const directory = createWritableDirectoryFixture({
-      onFirstProjectionWrite: async () => {
-        settingsMutationAccepted = await request(
-          bus,
-          "preferences:set-settings",
-          changedSettings,
-        );
-      },
-    });
-
     try {
+      await bus.emit("project:save", null, { synchronous: true });
+      expect(downloadedBlob).toBeInstanceOf(Blob);
+      expect(downloadedFileName).toBe("STO_Tools_Backup_2026-07-18.json");
+
+      const downloadedText = await downloadedBlob.text();
+      settingsSnapshot = (await readPreferencesState(bus)).settings;
+      const changedSettings = {
+        ...settingsSnapshot,
+        bindToAliasMode: !settingsSnapshot.bindToAliasMode,
+        bindsetsEnabled: !settingsSnapshot.bindsetsEnabled,
+        translateGeneratedMessages:
+          !settingsSnapshot.translateGeneratedMessages,
+        artifactParityProbe: "changed-during-projection",
+      };
+      let settingsMutationAccepted = false;
+      const directory = createWritableDirectoryFixture({
+        onFirstProjectionWrite: async () => {
+          settingsMutationAccepted = await request(
+            bus,
+            "preferences:set-settings",
+            changedSettings,
+          );
+        },
+      });
+
       await request(bus, "export:sync-to-folder", {
         dirHandle: directory.root,
       });
@@ -112,18 +129,38 @@ describe("Project artifact checked-bundle parity", () => {
       );
       const syncedText = directory.files.get("project.json");
       expect(syncedText).toBe(downloadedText);
+      const profile = Object.values(dataSnapshot.profiles).find((candidate) =>
+        Object.values(candidate.builds || {}).some(
+          (build) => Object.keys(build.keys || {}).length > 0,
+        ),
+      );
+      if (!profile?.name) throw new Error("projected_profile_required");
+      const sanitizedName = profile.name.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const aliasesText = directory.files.get(
+        `${sanitizedName}/${sanitizedName}_aliases.txt`,
+      );
+      expect(aliasesText).toBeTypeOf("string");
+      if (settingsSnapshot.bindToAliasMode) {
+        expect(aliasesText).toContain("sto_kb_");
+      } else {
+        expect(aliasesText).not.toContain("sto_kb_");
+      }
       expect(JSON.parse(downloadedText)).toEqual({
         version: expect.any(String),
         exported: "2026-07-18T01:02:03.000Z",
         type: "project",
         data: {
-          profiles: rootSnapshot.profiles,
+          profiles: dataSnapshot.profiles,
           settings: settingsSnapshot,
-          currentProfile: rootSnapshot.currentProfile,
+          currentProfile: dataSnapshot.currentProfile,
         },
       });
     } finally {
-      await request(bus, "preferences:set-settings", settingsSnapshot);
+      if (settingsSnapshot) {
+        await request(bus, "preferences:set-settings", settingsSnapshot);
+      }
+      storage.getAllData = legacyGetAllData;
+      storage.getProfile = legacyGetProfile;
     }
   });
 });

@@ -224,7 +224,23 @@ export interface CurrentProjectArtifactEnvelope {
   version: string;
   exported: string;
   type: "project";
-  data: Pick<StoredApplicationData, "profiles" | "settings" | "currentProfile">;
+  data: ArtifactProjectProjection & { settings: CanonicalSettings };
+}
+
+export interface ArtifactProjectProjection {
+  profiles: Record<string, ProfileData>;
+  currentProfile: string | null;
+}
+
+export interface ArtifactCaptureResult {
+  project: ArtifactProjectProjection;
+  settings: CanonicalSettings;
+  source: {
+    preferencesAuthorityEpoch: number;
+    preferencesRevision: number;
+    dataAuthorityEpoch: number;
+    dataRevision: number;
+  };
 }
 
 /** Compatibility name retained for callers that describe downloads only. */

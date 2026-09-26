@@ -1,11 +1,17 @@
-import { createPreferencesStateChange } from "../fixtures/core/componentState.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ExportService from "../../src/js/components/services/ExportService.js";
+import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
+import PreferencesService from "../../src/js/components/services/PreferencesService.js";
 import ProjectManagementService from "../../src/js/components/services/ProjectManagementService.js";
+import {
+  createArtifactCapturePort,
+  createCurrentProjectArtifactSerializer,
+} from "../../src/js/components/services/projectArtifactCapture.js";
+import { createDefaultPreferencesSettings } from "../../src/js/components/services/preferencesDefaults.js";
 import { respond } from "../../src/js/core/requestResponse.js";
 import { stoData } from "../../src/js/data.js";
 import { createServiceFixture } from "../fixtures/index.js";
@@ -59,23 +65,58 @@ describe("project artifact producer parity", () => {
       ),
     );
 
-    const exporter = new ExportService({
+    const i18n = {
+      language: "en",
+      t: (key) => key,
+      changeLanguage: vi.fn(async (language) => {
+        i18n.language = language;
+      }),
+    };
+    const preferencesOwner = new PreferencesService({
+      settingsRepository: fixture.settingsRepository,
+      defaults: createDefaultPreferencesSettings(),
+      eventBus: fixture.eventBus,
+      i18n,
+      localizeCommands: () => {},
+      applyTranslations: () => {},
+    });
+    const dataOwner = new DataCoordinator({
       eventBus: fixture.eventBus,
       storage: fixture.storage,
-      i18n: { t: (key) => key },
+      i18n,
+    });
+    services.push(preferencesOwner, dataOwner);
+    preferencesOwner.init();
+    await preferencesOwner.initialStateReady;
+    dataOwner.init();
+    await dataOwner.initialStateReady;
+    await preferencesOwner.setSetting("theme", "dark");
+    await preferencesOwner.setSetting("theme", "light");
+
+    const capturePort = createArtifactCapturePort({
+      preferencesOwner,
+      dataOwner,
+    });
+    const currentArtifactSerializer = createCurrentProjectArtifactSerializer({
+      capturePort,
+      version: stoData.settings.version,
+    });
+    fixture.storage.getAllData.mockImplementation(() => {
+      throw new Error("legacy storage read must not run after owner capture");
+    });
+    const exporter = new ExportService({
+      eventBus: fixture.eventBus,
+      currentArtifactSerializer,
+      i18n,
     });
     const projectManager = new ProjectManagementService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
-      i18n: { t: (key) => key },
+      currentArtifactSerializer,
+      i18n,
     });
     services.push(exporter, projectManager);
     exporter.init();
     projectManager.init();
-    fixture.eventBus.emit(
-      "preferences:state-changed",
-      createPreferencesStateChange(goldenProject.data.settings),
-    );
 
     /** @type {string[]} */
     let downloadedParts = [];
@@ -102,6 +143,10 @@ describe("project artifact producer parity", () => {
     expect(syncedProjectText).toBe(goldenProjectText);
     expect(JSON.parse(syncedProjectText).version).toBe(
       stoData.settings.version,
+    );
+    const capture = await capturePort.capture();
+    expect(capture.source.preferencesRevision).not.toBe(
+      capture.source.dataRevision,
     );
   });
 });
