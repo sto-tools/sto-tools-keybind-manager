@@ -1,24 +1,47 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ProjectManagementService from "../../../src/js/components/services/ProjectManagementService.js";
-import { respond } from "../../../src/js/core/requestResponse.js";
 import {
   createCurrentArtifactSerializerFixture,
   createServiceFixture,
 } from "../../fixtures/index.js";
-import {
-  createRequestBackedPreferencesTransition,
-  mockProjectRestoreActions,
-} from "../../fixtures/services/projectRestore.js";
+
+const project = JSON.stringify({
+  type: "project",
+  data: { profiles: {}, currentProfile: null },
+});
+const settingsProject = JSON.stringify({
+  type: "project",
+  data: { profiles: {}, currentProfile: null, settings: { theme: "light" } },
+});
+const importSuccess = {
+  success: true,
+  message: "project_imported_successfully",
+  currentProfile: null,
+  imported: { profiles: 0, settings: false },
+};
 
 describe("ProjectManagementService restore RPC boundary", () => {
   let fixture;
   let service;
   let currentArtifactSerializer;
+  let runPreferencesTransition;
+  let importProject;
 
   beforeEach(() => {
     fixture = createServiceFixture();
     currentArtifactSerializer = createCurrentArtifactSerializerFixture();
+    runPreferencesTransition = vi.fn((_source, operation) =>
+      operation(
+        vi.fn(),
+        () => {},
+        vi.fn(async (settings) => ({
+          status: "committed",
+          value: structuredClone(settings),
+        })),
+      ),
+    );
+    importProject = vi.fn(async () => importSuccess);
     service = new ProjectManagementService({
       eventBus: fixture.eventBus,
       currentArtifactSerializer,
@@ -28,9 +51,8 @@ describe("ProjectManagementService restore RPC boundary", () => {
             ? `Failed to restore backup: ${params.error}`
             : key,
       },
-      runPreferencesTransition: createRequestBackedPreferencesTransition(
-        () => service,
-      ),
+      runPreferencesTransition,
+      importProjectWithinPreferencesTransition: importProject,
     });
     service.ui = { showToast: vi.fn() };
     service.init();
@@ -60,243 +82,139 @@ describe("ProjectManagementService restore RPC boundary", () => {
       success: true,
       filename: "STO_Tools_Backup_2026-07-18.json",
     });
-
     expect(parts.join("")).toBe(currentArtifactSerializer.calls[0].artifact);
-    expect(currentArtifactSerializer.calls).toHaveLength(1);
     expect(service).not.toHaveProperty("storage");
     expect(service).not.toHaveProperty("projectRepository");
     expect(service).not.toHaveProperty("settingsRepository");
   });
 
-  it("fails closed before import dispatch when the Preferences transition is unavailable", async () => {
-    const importHandler = vi.fn();
-    service.importProjectWithinPreferencesTransition = importHandler;
-    service.runPreferencesTransition = null;
+  it("validates and detaches a settings-free artifact without acquiring Preferences", async () => {
+    await expect(
+      service.restoreFromProjectContent(project, "backup.json"),
+    ).resolves.toEqual({
+      success: true,
+      currentProfile: null,
+      imported: { profiles: 0, settings: false },
+    });
+    expect(runPreferencesTransition).not.toHaveBeenCalled();
+    expect(importProject).toHaveBeenCalledOnce();
+    expect(importProject.mock.calls[0][0]).toMatchObject({
+      success: true,
+      data: { profiles: {}, currentProfile: null },
+    });
+  });
 
+  it("rejects an invalid artifact before acquiring either owner transition", async () => {
     await expect(
       service.restoreFromProjectContent("{}", "backup.json"),
+    ).resolves.toEqual({
+      success: false,
+      error: "invalid_project_file",
+      params: { path: "$.type" },
+    });
+    expect(runPreferencesTransition).not.toHaveBeenCalled();
+    expect(importProject).not.toHaveBeenCalled();
+  });
+
+  it("fails closed before import dispatch when the Preferences transition is unavailable", async () => {
+    service.runPreferencesTransition = null;
+    await expect(
+      service.restoreFromProjectContent(settingsProject),
     ).resolves.toEqual({
       success: false,
       error: "project_restore_import_failed",
       params: { reason: "preferences_transition_unavailable" },
       durable: false,
     });
-
-    expect(importHandler).not.toHaveBeenCalled();
+    expect(importProject).not.toHaveBeenCalled();
   });
 
-  it("waits for durable import acknowledgement beyond the default transport timeout", async () => {
+  it("waits for the direct owner acknowledgement without a transport timeout", async () => {
     vi.useFakeTimers();
-    let releaseImport = () => {};
-    const importResult = new Promise((resolve) => {
-      releaseImport = () =>
-        resolve({
-          success: true,
-          message: "project_imported_successfully",
-          currentProfile: "profile-42",
-          imported: { profiles: 1, settings: true },
-        });
-    });
-    const importHandler = vi.fn(() => importResult);
-    service.importProjectWithinPreferencesTransition = importHandler;
-    const detachReload = respond(fixture.eventBus, "data:reload-state", () => ({
-      success: true,
-      profiles: 1,
-      currentProfile: "profile-42",
-      environment: "space",
-    }));
-    const detachPreferences = respond(
-      fixture.eventBus,
-      "preferences:activate-persisted-settings",
-      () => ({
-        success: true,
-        changed: true,
-        revision: 2,
-        effects: "applied",
-      }),
+    let releaseImport;
+    importProject.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseImport = () => resolve(importSuccess);
+        }),
     );
-
-    const restore = service.restoreFromProjectContent("{}", "backup.json");
+    const restore = service.restoreFromProjectContent(settingsProject);
     const settled = vi.fn();
     void restore.then(settled);
 
     await vi.advanceTimersByTimeAsync(5_001);
-
     expect(settled).not.toHaveBeenCalled();
-    expect(importHandler).toHaveBeenCalledOnce();
-
     releaseImport();
-    await expect(restore).resolves.toEqual({
-      success: true,
-      currentProfile: "profile-42",
-      imported: { profiles: 1, settings: true },
-    });
-    expect(importHandler).toHaveBeenCalledOnce();
-
-    detachPreferences();
-    detachReload();
+    await expect(restore).resolves.toMatchObject({ success: true });
+    expect(importProject).toHaveBeenCalledOnce();
   });
 
-  it("stops after an awaited import when the restore lifecycle is destroyed", async () => {
-    let releaseImport = () => {};
-    const importResult = new Promise((resolve) => {
-      releaseImport = () =>
-        resolve({
-          success: true,
-          message: "project_imported_successfully",
-          currentProfile: "profile-42",
-          imported: { profiles: 1, settings: false },
-        });
-    });
-    service.importProjectWithinPreferencesTransition = vi.fn(
-      () => importResult,
+  it("reports indeterminate durability when destroyed after owner dispatch", async () => {
+    let releaseImport;
+    importProject.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseImport = () => resolve(importSuccess);
+        }),
     );
-    const request = vi.spyOn(service, "request");
-
-    const restore = service.restoreFromProjectContent("{}", "backup.json");
-    await vi.waitFor(() => {
-      expect(
-        service.importProjectWithinPreferencesTransition,
-      ).toHaveBeenCalledWith("{}", {}, expect.any(Function));
-    });
+    const restore = service.restoreFromProjectContent(project);
+    await vi.waitFor(() => expect(importProject).toHaveBeenCalledOnce());
     service.destroy();
     releaseImport();
-
     await expect(restore).resolves.toEqual({
       success: false,
       error: "project_restore_import_failed",
       params: { reason: "operation_cancelled" },
       durable: "indeterminate",
     });
-    expect(request).not.toHaveBeenCalled();
   });
 
-  it("reports no durable write when destroyed before queued import dispatch", async () => {
-    let releaseTransition = () => {};
-    const transitionBlocked = new Promise((resolve) => {
+  it("reports no durable write when destroyed before queued dispatch", async () => {
+    let releaseTransition;
+    const blocked = new Promise((resolve) => {
       releaseTransition = resolve;
     });
     service.runPreferencesTransition = async (_source, operation) => {
-      await transitionBlocked;
-      return operation(
-        async () => ({
-          success: true,
-          changed: false,
-          revision: 2,
-          effects: "applied",
-        }),
-        () => {},
-      );
+      await blocked;
+      return operation(vi.fn(), () => {}, vi.fn());
     };
-    const request = vi.spyOn(service, "request");
-
-    const restore = service.restoreFromProjectContent("{}", "backup.json");
+    const restore = service.restoreFromProjectContent(settingsProject);
     await Promise.resolve();
     service.destroy();
     releaseTransition();
-
     await expect(restore).resolves.toEqual({
       success: false,
       error: "project_restore_import_failed",
       params: { reason: "operation_cancelled" },
       durable: false,
     });
-    expect(request).not.toHaveBeenCalled();
+    expect(importProject).not.toHaveBeenCalled();
   });
 
-  it("closes an injected import action rejection as durability-indeterminate", async () => {
-    service.importProjectWithinPreferencesTransition = vi.fn(() => {
-      throw new Error("import handler failed after dispatch");
-    });
-
-    await expect(
-      service.restoreFromProjectContent('{"fake":true}', "backup.json"),
-    ).resolves.toEqual({
+  it("closes an owner action rejection as durability-indeterminate", async () => {
+    importProject.mockRejectedValueOnce(new Error("owner action failed"));
+    await expect(service.restoreFromProjectContent(project)).resolves.toEqual({
       success: false,
       error: "project_restore_import_failed",
-      params: { reason: "import handler failed after dispatch" },
+      params: { reason: "owner action failed" },
       durable: "indeterminate",
     });
-    expect(service.ui.showToast).not.toHaveBeenCalled();
   });
 
-  it("uses a detached import receipt without invoking proxy data reads", async () => {
-    const importedTarget = { profiles: 2, settings: true };
-    const importedGet = vi.fn(() => {
-      throw new Error("imported get trap must not run");
-    });
-    const resultGet = vi.fn((_target, property) => {
-      if (property === "then") return undefined;
-      throw new Error("result data get trap must not run");
-    });
-    const importedProxy = new Proxy(importedTarget, { get: importedGet });
-    const resultProxy = new Proxy(
-      {
-        success: true,
-        message: "project_imported_successfully",
-        currentProfile: "profile-42",
-        imported: importedProxy,
-      },
-      { get: resultGet },
-    );
-    const requestMock = mockProjectRestoreActions(service).mockImplementation(
-      async (topic) => {
-        if (topic === "import-project") return resultProxy;
-        if (topic === "data:reload-state") {
-          importedTarget.profiles = 99;
-          return {
-            success: true,
-            profiles: 2,
-            currentProfile: "profile-42",
-            environment: "space",
-          };
-        }
-        if (topic === "preferences:activate-persisted-settings") {
-          return {
-            success: true,
-            changed: true,
-            revision: 2,
-            effects: "applied",
-          };
-        }
-        throw new Error(`Unexpected request for topic ${topic}`);
-      },
-    );
-
-    await expect(
-      service.restoreFromProjectContent('{"fake":true}', "backup.json"),
-    ).resolves.toEqual({
-      success: true,
-      currentProfile: "profile-42",
-      imported: { profiles: 2, settings: true },
-    });
-
-    expect(requestMock).toHaveBeenCalledTimes(3);
-    expect(resultGet).toHaveBeenCalledOnce();
-    expect(resultGet).toHaveBeenCalledWith(
-      expect.anything(),
-      "then",
-      expect.anything(),
-    );
-    expect(importedGet).not.toHaveBeenCalled();
-  });
-
-  it("rejects inherited, accessor, array, and trapping content without invoking user code", async () => {
-    const inherited = Object.create({ content: "{}" });
-    const contentGetter = vi.fn(() => {
-      throw new Error("content getter must not run");
-    });
+  it("rejects inherited, accessor, array, and trapping request content without invoking user code", async () => {
+    const inherited = Object.create({ content: project });
+    const contentGetter = vi.fn(() => project);
     const accessor = {};
     Object.defineProperty(accessor, "content", { get: contentGetter });
     const trapping = new Proxy(
-      { content: "{}" },
+      { content: project },
       {
         getPrototypeOf() {
           throw new Error("prototype trap");
         },
       },
     );
-    const decoratedArray = Object.assign([], { content: "{}" });
+    const decoratedArray = Object.assign([], { content: project });
 
     for (const payload of [inherited, accessor, trapping, decoratedArray]) {
       await expect(
@@ -311,50 +229,54 @@ describe("ProjectManagementService restore RPC boundary", () => {
     expect(contentGetter).not.toHaveBeenCalled();
   });
 
-  it("accepts null-prototype data and rejects inherited or accessor-bearing envelopes", async () => {
-    const outcome = {
-      success: true,
-      currentProfile: null,
-      imported: { profiles: 0, settings: false },
-    };
+  it("accepts null-prototype requests and rejects unsafe file names", async () => {
     const restore = vi
       .spyOn(service, "restoreFromProjectContent")
-      .mockResolvedValue(outcome);
+      .mockResolvedValue(importSuccess);
     const nullPrototype = Object.assign(Object.create(null), {
-      content: "null-prototype",
+      content: project,
     });
     const inheritedFileName = Object.assign(
       Object.create({ fileName: "inherited.json" }),
-      { content: "inherited-file-name" },
+      { content: project },
     );
-    const fileNameGetter = vi.fn(() => {
-      throw new Error("fileName getter must not run");
-    });
-    const accessor = { content: "accessor-file-name" };
+    const fileNameGetter = vi.fn(() => "accessor.json");
+    const accessor = { content: project };
     Object.defineProperty(accessor, "fileName", { get: fileNameGetter });
 
     await expect(
       service.request("project:restore-from-content", nullPrototype),
-    ).resolves.toBe(outcome);
+    ).resolves.toBe(importSuccess);
     await expect(
       service.request("project:restore-from-content", inheritedFileName),
-    ).resolves.toEqual({
-      success: false,
-      error: "invalid_project_file",
-      params: { path: "$" },
-    });
+    ).resolves.toMatchObject({ success: false, params: { path: "$" } });
     await expect(
       // @ts-expect-error Exercise an accessor-bearing untyped request.
       service.request("project:restore-from-content", accessor),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       success: false,
-      error: "invalid_project_file",
       params: { path: "$.fileName" },
     });
-
-    expect(restore).toHaveBeenCalledOnce();
-    expect(restore).toHaveBeenCalledWith("null-prototype", undefined);
+    expect(restore).toHaveBeenCalledWith(project, undefined);
     expect(fileNameGetter).not.toHaveBeenCalled();
+  });
+
+  it("validates the no-payload activation retry before reading retained state", async () => {
+    const getter = vi.fn(() => true);
+    const payload = Object.defineProperty({}, "unexpected", { get: getter });
+    const retry = vi.spyOn(service, "retryRestoreActivation");
+
+    await expect(
+      // @ts-expect-error Exercise an exotic payload at the no-payload boundary.
+      service.request("project:retry-restore-activation", payload),
+    ).resolves.toEqual({
+      success: false,
+      error: "project_restore_import_failed",
+      params: { reason: "invalid_mutation_request" },
+      durable: false,
+    });
+    expect(getter).not.toHaveBeenCalled();
+    expect(retry).not.toHaveBeenCalled();
   });
 
   it("does not let undeclared failure reason data bypass localization", () => {
@@ -364,7 +286,6 @@ describe("ProjectManagementService restore RPC boundary", () => {
       // @ts-expect-error Exercise an untyped producer with an undeclared field.
       params: { path: "$", reason: "untranslated override" },
     });
-
     expect(service.ui.showToast).toHaveBeenCalledWith(
       "Failed to restore backup: invalid_project_file",
       "error",

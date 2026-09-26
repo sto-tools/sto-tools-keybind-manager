@@ -14,13 +14,6 @@ const RESTORE_SUCCESS = {
   currentProfile: null,
   imported: { profiles: 0, settings: false },
 };
-const RELOAD_SUCCESS = {
-  success: true,
-  profiles: 0,
-  currentProfile: null,
-  environment: "space",
-};
-
 describe("SyncService restore startup retry", () => {
   let fixture;
   let service;
@@ -167,7 +160,7 @@ describe("SyncService restore startup retry", () => {
 
     expect(request).toHaveBeenCalledOnce();
     expect(service.pendingSyncAction).toBe("import");
-    expect(service.deferredImportContent).toEqual(PROJECT_FILE);
+    expect(service.deferredImportContent).toBeNull();
     expect(ui.showToast).toHaveBeenCalledOnce();
     expect(ui.showToast).toHaveBeenCalledWith(
       "failed_to_import_project:owner reload unavailable",
@@ -263,7 +256,7 @@ describe("SyncService restore startup retry", () => {
         imported: { profiles: 0, settings: false },
         activation: { data: "pending", preferences: "not-required" },
       })
-      .mockResolvedValueOnce(RELOAD_SUCCESS);
+      .mockResolvedValueOnce(RESTORE_SUCCESS);
     service.invokeRequest = request;
     stageImport();
 
@@ -283,7 +276,7 @@ describe("SyncService restore startup retry", () => {
     expect(service.checkSyncFolderPermission).toHaveBeenCalledOnce();
     expect(request.mock.calls).toEqual([
       ["project:restore-from-content", PROJECT_FILE, 0],
-      ["data:reload-state", undefined, 0],
+      ["project:retry-restore-activation", undefined, 0],
     ]);
     expect(service.pendingSyncAction).toBeNull();
     expect(service.deferredImportContent).toBeNull();

@@ -18,7 +18,7 @@ import {
   resolveImportBindsetsEnabled,
 } from "./importProfileCommit.js";
 import {
-  importProjectToStorage,
+  importPreparedProject,
   importProjectWithPreferencesTransition,
 } from "./projectImportOrchestrator.js";
 import {
@@ -56,17 +56,17 @@ const getErrorMessage = (error) =>
   error instanceof Error ? error.message : String(error);
 
 export default class ImportService extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, storage?: import('./serviceTypes.js').Storage, i18n?: import('./serviceTypes.js').I18n, ui?: import('./serviceTypes.js').ToastUI, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null }} [options] */
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, replaceProjectFromImport?: ((projectData: import('../../types/data-contracts.js').CanonicalProjectData, options?: {persistImportedSettings?: import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences}) => Promise<unknown> | unknown) | null, i18n?: import('./serviceTypes.js').I18n, ui?: import('./serviceTypes.js').ToastUI, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null }} [options] */
   constructor({
     eventBus,
-    storage,
+    replaceProjectFromImport = null,
     i18n,
     ui,
     runPreferencesTransition = null,
   } = {}) {
     super(eventBus);
     this.componentName = "ImportService";
-    this.storage = storage;
+    this.replaceProjectFromImport = replaceProjectFromImport;
     this.i18n = i18n;
     this.ui = ui;
     this.runPreferencesTransition = runPreferencesTransition;
@@ -496,20 +496,17 @@ export default class ImportService extends ComponentBase {
   /**
    * Direct composition capability for a caller already holding the Preferences
    * lease. It never acquires a second lease or activates the staged settings.
-   * @param {unknown} content
-   * @param {unknown} options
-   * @param {import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences} persistImportedSettings
-   * @returns {Promise<import('../../types/rpc/import-export.js').ProjectImportResult>}
+   * @param {unknown} prepared A value returned by prepareProjectImport.
+   * @param {import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences} [persistImportedSettings]
+   * @returns {Promise<unknown>}
    */
   async importProjectWithinPreferencesTransition(
-    content,
-    options = {},
+    prepared,
     persistImportedSettings,
   ) {
-    return importProjectToStorage(
-      this.storage,
-      content,
-      options,
+    return importPreparedProject(
+      this.replaceProjectFromImport,
+      prepared,
       persistImportedSettings,
     );
   }

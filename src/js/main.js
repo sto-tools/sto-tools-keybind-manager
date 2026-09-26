@@ -264,6 +264,12 @@ const dataService = new DataService({
       i18n: i18next,
       storageService,
       preferencesService,
+      importedProjectOwnerAction:
+        dataCoordinator.replaceProjectFromImport.bind(dataCoordinator),
+      importedProjectActivationAction:
+        dataCoordinator.activateProjectFromImport.bind(dataCoordinator),
+      importedSettingsActivationAction:
+        preferencesService.activateImportedSettings.bind(preferencesService),
       currentArtifactSerializer,
       ui: stoUI,
       syncService: stoSync,

@@ -211,6 +211,22 @@ describe("ProjectManagementService restore UI and ownership", () => {
     );
   });
 
+  it("settles a direct restore as cancelled when the file chooser is dismissed", async () => {
+    const input = document.createElement("input");
+    input.click = vi.fn(() => {
+      input.oncancel?.(new Event("cancel"));
+    });
+    vi.spyOn(document, "createElement").mockReturnValue(input);
+
+    await expect(service.restoreApplicationState()).resolves.toEqual({
+      success: false,
+      cancelled: true,
+    });
+
+    expect(input.click).toHaveBeenCalledOnce();
+    expect(service.ui.showToast).not.toHaveBeenCalled();
+  });
+
   it("interpolates a localized detail for a malformed direct restore result", () => {
     // @ts-expect-error Exercise an untyped response at the notification seam.
     service.notifyRestoreOutcome({ success: true });

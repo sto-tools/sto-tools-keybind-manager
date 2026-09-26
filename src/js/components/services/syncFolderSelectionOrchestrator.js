@@ -81,11 +81,15 @@ async function chooseProjectAction(service, probe, isCurrentSelection) {
   /** @param {string} message @param {string} title @param {string} context */
   const confirm = async (message, title, context) => {
     try {
-      return await service.invokeRequest(
+      const result = await service.invokeRequest(
         "ui:confirm",
         { message, title, type: "warning", context },
         0,
       );
+      if (result !== true && result !== false) {
+        throw new TypeError("invalid_sync_confirmation_response");
+      }
+      return result;
     } catch (error) {
       console.warn("[SyncService] confirmation unavailable", error);
       throw translatedError(service, "sync_folder_confirmation_unavailable");

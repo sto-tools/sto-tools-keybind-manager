@@ -57,7 +57,7 @@ export const unusedRepositoryScalarWrites = Object.freeze({
 // hide an unregistered persistence access.
 export const expectedNamedMethodCalls = Object.freeze({
   "components/services/BindsetService.js|this|getProfile": 4,
-  "components/services/DataCoordinator.js|this.storage|getAllData": 8,
+  "components/services/DataCoordinator.js|this.storage|getAllData": 7,
   "components/services/dataCoordinatorProfileActions.js|owner.storage|getAllData": 6,
   "components/services/PreferencesService.js|this|getSettings": 1,
   "components/services/PreferencesService.js|this|saveSettings": 1,
@@ -66,11 +66,11 @@ export const expectedNamedMethodCalls = Object.freeze({
   "components/services/StorageService.js|this|getAllData": 4,
   "components/services/StorageService.js|this|saveAllData": 3,
   "components/services/dataCoordinatorInitialState.js|coordinator.storage|getAllData": 2,
+  "components/services/dataCoordinatorProfileNormalization.js|owner.storage|getAllData": 1,
+  "components/services/dataCoordinatorProjectImport.js|owner.storage|getAllData": 3,
+  "components/services/dataCoordinatorProjectImport.js|owner.storage|saveAllData": 1,
   "components/services/dataCoordinatorResponders.js|coordinator|deleteProfile": 1,
   "components/services/preferencesOwnerMutationOperations.js|owner|getSettings": 11,
-  "components/services/projectImportOrchestrator.js|storage|getAllData": 2,
-  "components/services/projectImportOrchestrator.js|storage|saveAllData": 1,
-  "components/services/projectImportOrchestrator.js|storage|saveProfile": 1,
   "components/services/storageWrites.js|storage|deleteProfile": 1,
   "components/services/storageWrites.js|storage|getAllData": 1,
   "components/services/storageWrites.js|storage|getProfile": 1,
@@ -89,11 +89,11 @@ export const storageServiceCallClass = Object.freeze({
   "components/services/StorageService.js|this|saveAllData": "internal",
   "components/services/dataCoordinatorInitialState.js|coordinator.storage|getAllData":
     "external",
-  "components/services/projectImportOrchestrator.js|storage|getAllData":
+  "components/services/dataCoordinatorProfileNormalization.js|owner.storage|getAllData":
     "external",
-  "components/services/projectImportOrchestrator.js|storage|saveAllData":
+  "components/services/dataCoordinatorProjectImport.js|owner.storage|getAllData":
     "external",
-  "components/services/projectImportOrchestrator.js|storage|saveProfile":
+  "components/services/dataCoordinatorProjectImport.js|owner.storage|saveAllData":
     "external",
   "components/services/storageWrites.js|storage|deleteProfile": "helper",
   "components/services/storageWrites.js|storage|getAllData": "helper",
@@ -103,10 +103,10 @@ export const storageServiceCallClass = Object.freeze({
 });
 
 export const expectedStorageServiceCallsByMethod = Object.freeze({
-  getAllData: 23,
+  getAllData: 24,
   saveAllData: 6,
   getProfile: 1,
-  saveProfile: 2,
+  saveProfile: 1,
   deleteProfile: 1,
   getSettings: 0,
   saveSettings: 0,
@@ -115,9 +115,7 @@ export const expectedStorageServiceCallsByMethod = Object.freeze({
   clearAllData: 1,
 });
 
-// Tranche 6 closes these production read cohorts. ImportService deliberately
-// retains its project-import StorageService dependency until Tranche 7, so its
-// guard is limited to the retired accepted-profile read.
+// These production workflow cohorts have no storage or repository capability.
 export const closedReadCohortRules = Object.freeze({
   "components/ui/FileExplorerUI.js": Object.freeze({
     forbidStorageDependency: true,
@@ -128,9 +126,26 @@ export const closedReadCohortRules = Object.freeze({
     forbidRepositoryDependency: true,
   }),
   "components/services/ImportService.js": Object.freeze({
-    forbiddenStorageMethods: Object.freeze(["getProfile"]),
+    forbidStorageDependency: true,
+    forbidRepositoryDependency: true,
+  }),
+  "components/services/projectImportOrchestrator.js": Object.freeze({
+    forbidStorageDependency: true,
+    forbidRepositoryDependency: true,
   }),
   "components/services/ProjectManagementService.js": Object.freeze({
+    forbidStorageDependency: true,
+    forbidRepositoryDependency: true,
+  }),
+  "components/services/SyncService.js": Object.freeze({
+    forbidStorageDependency: true,
+    forbidRepositoryDependency: true,
+  }),
+  "components/services/syncDecisionOrchestrator.js": Object.freeze({
+    forbidStorageDependency: true,
+    forbidRepositoryDependency: true,
+  }),
+  "components/services/syncFolderSelectionOrchestrator.js": Object.freeze({
     forbidStorageDependency: true,
     forbidRepositoryDependency: true,
   }),
@@ -234,6 +249,7 @@ export const rpcActionTopics = Object.freeze([
   "preferences:set-setting",
   "preferences:set-settings",
   "project:restore-from-content",
+  "project:retry-restore-activation",
   "selection:select-alias",
   "selection:select-key",
   "sync:select-folder",
@@ -331,18 +347,18 @@ export const storageCallsiteDispositions = Object.freeze({
     [2, "owner", "4"],
   "components/services/DataCoordinator.js|_createFallbackProfiles|this.storage|getAllData":
     [2, "owner", "4"],
-  "components/services/DataCoordinator.js|_normalizeAllProfiles|this.storage|getAllData":
+  "components/services/dataCoordinatorProfileNormalization.js|normalizeCoordinatorProfiles|owner.storage|getAllData":
     [1, "owner", "4"],
   "components/services/DataCoordinator.js|_reloadState|this.storage|getAllData":
     [2, "owner", "4"],
   "components/services/dataCoordinatorInitialState.js|loadInitialCoordinatorState|coordinator.storage|getAllData":
     [2, "owner", "4"],
-  "components/services/projectImportOrchestrator.js|importProjectToStorage|storage|getAllData":
-    [2, "workflow", "7"],
-  "components/services/projectImportOrchestrator.js|importProjectToStorage|storage|saveProfile|profileId|profile":
-    [1, "workflow", "7"],
-  "components/services/projectImportOrchestrator.js|importProjectToStorage|storage|saveAllData|restoredData":
-    [1, "workflow", "7"],
+  "components/services/dataCoordinatorProjectImport.js|replaceProjectFromImport|owner.storage|getAllData":
+    [2, "owner", "4"],
+  "components/services/dataCoordinatorProjectImport.js|replaceProjectFromImport|owner.storage|saveAllData|nextRoot":
+    [1, "owner", "4"],
+  "components/services/dataCoordinatorProjectImport.js|activateImportedProject|owner.storage|getAllData|true":
+    [1, "owner", "7"],
   "components/services/StorageService.js|onInit|this|getAllData|true": [
     1,
     "workflow",

@@ -10,6 +10,9 @@ describe("Project restore checked-bundle boundary", () => {
     const storage = runtime().storageService;
 
     expect(bus?.hasListeners("rpc:project:restore-from-content")).toBe(true);
+    expect(bus?.hasListeners("rpc:project:retry-restore-activation")).toBe(
+      true,
+    );
     expect(coordinator?.getCurrentState?.().ready).toBe(true);
     expect(storage).toBeTruthy();
     if (!bus || !coordinator || !storage) return;
@@ -60,14 +63,19 @@ describe("Project restore checked-bundle boundary", () => {
       bus.on("environment:changed", (event) => environmentEvents.push(event)),
       bus.on("toast:show", (event) => toastEvents.push(event)),
     ];
-    const originalReload = coordinator.reloadState.bind(coordinator);
-    const reload = vi
-      .spyOn(coordinator, "reloadState")
-      .mockImplementation(originalReload);
-    reload.mockResolvedValueOnce({
-      success: false,
-      error: "browser reload blocked",
-    });
+    const saveAllData = vi.spyOn(storage, "saveAllData");
+    const originalGetAllData = storage.getAllData.bind(storage);
+    let rejectImportedAdoption = true;
+    const getAllData = vi
+      .spyOn(storage, "getAllData")
+      .mockImplementation((...args) => {
+        const root = originalGetAllData(...args);
+        if (rejectImportedAdoption && root.currentProfile === profileId) {
+          rejectImportedAdoption = false;
+          throw new Error("browser reload blocked");
+        }
+        return root;
+      });
 
     try {
       await expect(
@@ -78,7 +86,7 @@ describe("Project restore checked-bundle boundary", () => {
       ).resolves.toEqual({
         success: false,
         error: "project_restore_reload_failed",
-        params: { reason: "browser reload blocked" },
+        params: { reason: "Failed to load profile data" },
         durable: true,
         currentProfile: profileId,
         imported: { profiles: 1, settings: false },
@@ -93,12 +101,10 @@ describe("Project restore checked-bundle boundary", () => {
         profiles: { [profileId]: { name: "Browser reload failure probe" } },
       });
       expect(toastEvents).toEqual([]);
+      expect(saveAllData).toHaveBeenCalledOnce();
 
       await expect(
-        request(bus, "project:restore-from-content", {
-          content,
-          fileName: "browser-project.json",
-        }),
+        request(bus, "project:retry-restore-activation"),
       ).resolves.toEqual({
         success: true,
         currentProfile: profileId,
@@ -127,9 +133,11 @@ describe("Project restore checked-bundle boundary", () => {
         environment: "ground",
       });
       expect(toastEvents).toEqual([]);
+      expect(saveAllData).toHaveBeenCalledOnce();
     } finally {
       for (const detach of detachers) detach();
-      reload.mockRestore();
+      getAllData.mockRestore();
+      saveAllData.mockRestore();
       localStorage.clear();
       for (const entry of savedStorage) {
         const [key, value] = entry;

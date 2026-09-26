@@ -146,6 +146,48 @@ describe("SyncService folder compensation saga", () => {
     );
   });
 
+  it("restores the exact prior dirty state when settings persistence fails", async () => {
+    const priorHandle = createSelectedHandle("Prior Fleet Builds");
+    durableHandle = priorHandle;
+    transitionState.transitionPending = true;
+    const handle = createSelectedHandle();
+    selectHandle(handle);
+    persistFolderSettings.mockResolvedValue(false);
+
+    await expect(service.setSyncFolder(false)).resolves.toBeNull();
+
+    expect(fs.restoreSyncDirectoryState).toHaveBeenCalledWith({
+      handle: priorHandle,
+      transitionPending: true,
+    });
+    expect(durableHandle).toBe(priorHandle);
+    expect(transitionState.transitionPending).toBe(true);
+  });
+
+  it("rejects a malformed confirmation without installing a capability", async () => {
+    const handle = createSelectedHandle();
+    const content = '{"type":"project","data":{"profiles":{}}}';
+    handle.getFileHandle.mockResolvedValue({
+      kind: "file",
+      name: "project.json",
+      getFile: vi.fn().mockResolvedValue({
+        size: new TextEncoder().encode(content).byteLength,
+        text: vi.fn().mockResolvedValue(content),
+      }),
+    });
+    selectHandle(handle);
+    service.invokeRequest = vi.fn().mockResolvedValue({ confirmed: true });
+
+    await expect(service.setSyncFolder(false)).resolves.toBeNull();
+
+    expect(fs.beginSyncDirectoryTransition).not.toHaveBeenCalled();
+    expect(persistFolderSettings).not.toHaveBeenCalled();
+    expect(ui.showToast).toHaveBeenCalledWith(
+      "failed_to_set_sync_folder:sync_folder_confirmation_unavailable",
+      "error",
+    );
+  });
+
   it("restores the prior handle when destruction occurs during the handle write", async () => {
     const priorHandle = createSelectedHandle("Prior Fleet Builds");
     durableHandle = priorHandle;

@@ -13,13 +13,8 @@ import {
   createLocalStorageFixture,
 } from "../fixtures/core/index.js";
 import { createRealEventBusFixture } from "../fixtures/core/eventBus.js";
+import { rejectFinalProjectRootWrite } from "../fixtures/services/projectRestore.js";
 import {
-  assertMundaneSettingsFinalRootFailure,
-  rejectFinalProjectRootWrite,
-} from "../fixtures/services/projectRestore.js";
-import {
-  assertResetSerializesProjectRestore,
-  assertSyncRetriesOnlyDurableActivation,
   destinationRoot,
   importedProject,
 } from "../fixtures/services/projectImportOwnerChain.js";
@@ -30,13 +25,12 @@ describe("project import authoritative owner chain", () => {
   let storage;
   let settingsRepository;
   let coordinator;
+  let importedProjectOwnerAction;
   let importer;
   let projectManager;
   let preferences;
-  let sync;
 
   beforeEach(async () => {
-    sync = null;
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
@@ -64,9 +58,12 @@ describe("project import authoritative owner chain", () => {
       i18n: { t: (key) => key },
       defaultProfiles: {},
     });
+    importedProjectOwnerAction = vi.fn((...args) =>
+      coordinator.replaceProjectFromImport(...args),
+    );
     importer = new ImportService({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      replaceProjectFromImport: importedProjectOwnerAction,
     });
     const preferencesI18n = {
       language: "en",
@@ -87,11 +84,14 @@ describe("project import authoritative owner chain", () => {
       importProjectWithinPreferencesTransition: (...args) =>
         importer.importProjectWithinPreferencesTransition(...args),
       eventBus: eventBusFixture.eventBus,
-      storage,
       ui: { showToast: vi.fn() },
       i18n: { t: (key) => key },
       runPreferencesTransition: (source, operation) =>
         preferences.runExternalActivationTransition(source, operation),
+      activateProjectFromImport: (...args) =>
+        coordinator.activateProjectFromImport(...args),
+      activateImportedSettings: (...args) =>
+        preferences.activateImportedSettings(...args),
     });
 
     preferences.init();
@@ -110,7 +110,6 @@ describe("project import authoritative owner chain", () => {
   });
 
   afterEach(() => {
-    if (sync && !sync.destroyed) sync.destroy();
     projectManager?.destroy();
     importer?.destroy();
     preferences?.destroy();
@@ -179,6 +178,13 @@ describe("project import authoritative owner chain", () => {
       }),
     ]);
     expect(switchProfile).not.toHaveBeenCalled();
+    expect(importedProjectOwnerAction).toHaveBeenCalledOnce();
+    expect(importedProjectOwnerAction.mock.calls[0][0]).toMatchObject(
+      importedProject.data,
+    );
+    expect(importedProjectOwnerAction.mock.calls[0][0]).not.toBe(
+      importedProject.data,
+    );
     expect(storage.getAllData()).toMatchObject({
       currentProfile: "imported",
       profiles: {
@@ -199,11 +205,54 @@ describe("project import authoritative owner chain", () => {
   });
 
   it("serializes application reset behind an in-flight project restore", async () => {
-    await assertResetSerializesProjectRestore({
-      storage,
-      projectManager,
-      coordinator,
-      preferences,
+    const saveAllData = storage.saveAllData.bind(storage);
+    let releaseRootWrite = () => {};
+    let markRootWriteStarted = () => {};
+    const rootWriteStarted = new Promise((resolve) => {
+      markRootWriteStarted = resolve;
+    });
+    const rootWriteBlocked = new Promise((resolve) => {
+      releaseRootWrite = resolve;
+    });
+    const rootWrites = vi
+      .spyOn(storage, "saveAllData")
+      .mockImplementationOnce(async (...args) => {
+        markRootWriteStarted();
+        await rootWriteBlocked;
+        return saveAllData(...args);
+      });
+    const profileWrites = vi.spyOn(storage, "saveProfile");
+    const clearAllData = vi.spyOn(storage, "clearAllData");
+
+    const restore = projectManager.restoreFromProjectContent(
+      JSON.stringify(importedProject),
+      "project.json",
+    );
+    await rootWriteStarted;
+
+    const reset = storage.handleAppReset();
+    await Promise.resolve();
+    expect(clearAllData).not.toHaveBeenCalled();
+
+    releaseRootWrite();
+    await expect(restore).resolves.toEqual({
+      success: true,
+      currentProfile: "imported",
+      imported: { profiles: 1, settings: true },
+    });
+    await expect(reset).resolves.toBe(true);
+
+    expect(rootWrites).toHaveBeenCalledOnce();
+    expect(profileWrites).not.toHaveBeenCalled();
+    expect(clearAllData).toHaveBeenCalledOnce();
+    expect(localStorage.getItem(storage.storageKey)).toBeNull();
+    expect(localStorage.getItem(storage.backupKey)).toBeNull();
+    expect(coordinator.getCurrentState()).toMatchObject({
+      currentProfile: null,
+      profiles: {},
+    });
+    expect(preferences.getCurrentState()).toMatchObject({
+      settings: { theme: "default", language: "en" },
     });
   });
 
@@ -215,7 +264,6 @@ describe("project import authoritative owner chain", () => {
       importProjectWithinPreferencesTransition: (...args) =>
         importer.importProjectWithinPreferencesTransition(...args),
       eventBus: realEventBusFixture.eventBus,
-      storage,
       ui: { showToast },
       i18n: { t: (key) => key },
       runPreferencesTransition: (source, operation) =>
@@ -329,9 +377,9 @@ describe("project import authoritative owner chain", () => {
       success: false,
       error: "storage_write_failed",
       params: { operation: "project" },
-      partial: true,
+      partial: false,
       committed: {
-        profiles: ["imported"],
+        profiles: [],
         settings: false,
         project: false,
       },
@@ -341,9 +389,9 @@ describe("project import authoritative owner chain", () => {
       currentProfile: "existing",
       profiles: {
         existing: { name: "Existing" },
-        imported: { name: "Imported" },
       },
     });
+    expect(durableRoot.profiles).not.toHaveProperty("imported");
     expect(storage.getAllData()).toMatchObject(durableRoot);
     expect(coordinator.getCurrentState()).toBe(beforeState);
     expect(stateChanged).not.toHaveBeenCalled();
@@ -351,24 +399,74 @@ describe("project import authoritative owner chain", () => {
   });
 
   it("keeps acknowledged mundane settings after final-root failure and activates them on restart", async () => {
-    preferences = await assertMundaneSettingsFinalRootFailure({
-      settingsRepository,
-      storage,
-      coordinator,
-      eventBus: eventBusFixture.eventBus,
-      projectManager,
-      importedProject,
-      preferences,
+    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeDataState = coordinator.getCurrentState();
+    const beforePreferencesState = preferences.getCurrentState();
+    const dataPublications = vi.fn();
+    eventBusFixture.eventBus.on("data:state-changed", dataPublications);
+    rejectFinalProjectRootWrite(storage);
+
+    await expect(
+      projectManager.restoreFromProjectContent(JSON.stringify(importedProject)),
+    ).resolves.toEqual({
+      success: false,
+      error: "storage_write_failed",
+      params: { operation: "project" },
+      partial: true,
+      committed: { profiles: [], settings: true, project: false },
     });
+
+    expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+    expect(coordinator.getCurrentState()).toBe(beforeDataState);
+    expect(preferences.getCurrentState()).toBe(beforePreferencesState);
+    expect(dataPublications).not.toHaveBeenCalled();
+    expect(settingsRepository.load().value).toMatchObject({
+      theme: "light",
+      language: "de",
+    });
+
+    preferences.destroy();
+    const successorI18n = {
+      language: "en",
+      t: (key) => key,
+      changeLanguage: vi.fn(async (language) => {
+        successorI18n.language = language;
+      }),
+    };
+    const successor = new PreferencesService({
+      eventBus: eventBusFixture.eventBus,
+      settingsRepository,
+      i18n: successorI18n,
+      localizeCommands: () => {},
+      applyTranslations: () => {},
+    });
+    successor.init();
+    await successor.initialStateReady;
+    preferences = successor;
+
+    expect(successor.getCurrentState()).toMatchObject({
+      ready: true,
+      settings: { theme: "light", language: "de" },
+    });
+    expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
   });
 
   it("reports durable import evidence when owner reload fails and converges on retry", async () => {
     const beforeState = coordinator.getCurrentState();
     const stateChanged = vi.fn();
     eventBusFixture.eventBus.on("data:state-changed", stateChanged);
-    const reloadState = vi
-      .spyOn(coordinator, "reloadState")
-      .mockResolvedValueOnce({ success: false, error: "reload blocked" });
+    const saveAllData = vi.spyOn(storage, "saveAllData");
+    const settingsWrites = vi.spyOn(settingsRepository, "replace");
+    const getAllData = storage.getAllData.bind(storage);
+    let rejectImportedAdoption = true;
+    vi.spyOn(storage, "getAllData").mockImplementation((...args) => {
+      const root = getAllData(...args);
+      if (rejectImportedAdoption && root.currentProfile === "imported") {
+        rejectImportedAdoption = false;
+        throw new Error("reload blocked");
+      }
+      return root;
+    });
     const content = JSON.stringify(importedProject);
 
     await expect(
@@ -376,13 +474,15 @@ describe("project import authoritative owner chain", () => {
     ).resolves.toEqual({
       success: false,
       error: "project_restore_reload_failed",
-      params: { reason: "reload blocked" },
+      params: { reason: "failed_to_load_profile_data" },
       durable: true,
       currentProfile: "imported",
       imported: { profiles: 1, settings: true },
       activation: { data: "pending", preferences: "pending" },
     });
-    expect(reloadState).toHaveBeenCalledOnce();
+    expect(importedProjectOwnerAction).toHaveBeenCalledOnce();
+    expect(saveAllData).toHaveBeenCalledOnce();
+    expect(settingsWrites).toHaveBeenCalledOnce();
     expect(coordinator.getCurrentState()).toBe(beforeState);
     expect(stateChanged).not.toHaveBeenCalled();
     expect(storage.getAllData()).toMatchObject({
@@ -390,31 +490,19 @@ describe("project import authoritative owner chain", () => {
       profiles: { imported: { name: "Imported" } },
     });
 
-    await expect(
-      projectManager.restoreFromProjectContent(content, "project.json"),
-    ).resolves.toEqual({
+    await expect(projectManager.retryRestoreActivation()).resolves.toEqual({
       success: true,
       currentProfile: "imported",
       imported: { profiles: 1, settings: true },
     });
-    expect(reloadState).toHaveBeenCalledTimes(2);
+    expect(importedProjectOwnerAction).toHaveBeenCalledOnce();
+    expect(saveAllData).toHaveBeenCalledOnce();
+    expect(settingsWrites).toHaveBeenCalledOnce();
     expect(stateChanged).toHaveBeenCalledOnce();
     expect(coordinator.getCurrentState()).toMatchObject({
       currentProfile: "imported",
       currentEnvironment: "ground",
     });
     expect(projectManager.ui.showToast).not.toHaveBeenCalled();
-  });
-
-  it("retries only durable activation after a sync import reload failure", async () => {
-    sync = await assertSyncRetriesOnlyDurableActivation({
-      settingsRepository,
-      eventBusFixture,
-      storage,
-      coordinator,
-      importer,
-      projectManager,
-      preferences,
-    });
   });
 });

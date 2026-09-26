@@ -29,6 +29,86 @@ export interface CurrentProjectArtifactSerializerPort {
 export type CurrentProjectArtifactSerializer =
   CurrentProjectArtifactSerializerPort;
 
+export type DurableStageStatus = "complete" | "pending" | "skipped" | "failed";
+
+export type StorageWorkflowErrorCode =
+  | "invalid_data"
+  | "storage_write_failed"
+  | "verification_failed"
+  | "operation_cancelled";
+
+export interface DurableStageReceipt {
+  status: DurableStageStatus;
+  committed: boolean | "indeterminate";
+  fingerprint?: string;
+  error?: StorageWorkflowErrorCode;
+}
+
+export interface ProjectRestoreReceipt {
+  validation: DurableStageReceipt;
+  settings: DurableStageReceipt;
+  project: DurableStageReceipt;
+  preferencesActivation: DurableStageReceipt;
+  dataActivation: DurableStageReceipt;
+}
+
+export type ImportedProjectOwnerResult =
+  | {
+      success: true;
+      currentProfile: string | null;
+      importedProfiles: number;
+      receipt: ProjectRestoreReceipt;
+      activationMaterial: {
+        project: ArtifactProjectProjection;
+        settings?: CanonicalSettings;
+      };
+    }
+  | {
+      success: false;
+      error: "invalid_project_file";
+      params: { path: string };
+      durable: false;
+      receipt: ProjectRestoreReceipt;
+    }
+  | {
+      success: false;
+      error: "storage_write_failed" | "operation_cancelled";
+      stage: "settings" | "project" | "dataActivation";
+      durable: false | "indeterminate" | true;
+      receipt: ProjectRestoreReceipt;
+      activationMaterial?: {
+        project: ArtifactProjectProjection;
+        settings?: CanonicalSettings;
+      };
+    };
+
+export interface ImportedProjectOwnerActionOptions {
+  persistImportedSettings?: (patch: unknown) => Promise<SettingsWriteResult>;
+}
+
+export type ImportedProjectOwnerAction = (
+  projectData: unknown,
+  options?: ImportedProjectOwnerActionOptions,
+) => Promise<ImportedProjectOwnerResult>;
+
+export type ImportedProjectActivationResult =
+  | {
+      success: true;
+      currentProfile: string | null;
+      receipt: DurableStageReceipt;
+    }
+  | {
+      success: false;
+      error: "invalid_project_activation" | "operation_cancelled";
+      retryable: true;
+      receipt: DurableStageReceipt;
+    };
+
+export type ImportedProjectActivationAction = (
+  project: unknown,
+  options: { fingerprint: string },
+) => Promise<ImportedProjectActivationResult>;
+
 export type ProjectOwnerReadLease = OwnerReadLease<ArtifactProjectProjection>;
 export type PreferencesOwnerReadLease = OwnerReadLease<CanonicalSettings>;
 

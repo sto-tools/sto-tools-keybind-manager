@@ -1,18 +1,54 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import ImportService from "../../../src/js/components/services/ImportService.js";
 import ProjectManagementService from "../../../src/js/components/services/ProjectManagementService.js";
 import { createServiceFixture } from "../../fixtures/index.js";
-import {
-  createRequestBackedPreferencesTransition,
-  mockProjectRestoreActions,
-} from "../../fixtures/services/projectRestore.js";
+import { createProjectImportOwnerAction } from "../../fixtures/services/importProjectOwner.js";
+
+const projectText = (settings = true) =>
+  JSON.stringify({
+    type: "project",
+    data: {
+      profiles: {
+        "profile-42": { name: "Profile 42" },
+        secondary: { name: "Secondary" },
+      },
+      currentProfile: "profile-42",
+      ...(settings ? { settings: { theme: "light" } } : {}),
+    },
+  });
 
 describe("ProjectManagementService Preferences activation", () => {
   let fixture;
+  let importer;
   let service;
+  let replaceProjectFromImport;
+  let activatePersistedSettings;
+  let persistImportedSettings;
+  let runPreferencesTransition;
 
   beforeEach(() => {
     fixture = createServiceFixture();
+    replaceProjectFromImport = createProjectImportOwnerAction(fixture);
+    activatePersistedSettings = vi.fn(async () => ({
+      success: true,
+      changed: true,
+      revision: 2,
+      effects: "applied",
+    }));
+    persistImportedSettings = vi.fn(async (settings) => ({
+      status: "committed",
+      value: structuredClone(settings),
+      write: { status: "acknowledged" },
+      verification: { status: "verified" },
+    }));
+    runPreferencesTransition = vi.fn((_source, operation) =>
+      operation(activatePersistedSettings, () => {}, persistImportedSettings),
+    );
+    importer = new ImportService({
+      eventBus: fixture.eventBus,
+      replaceProjectFromImport,
+    });
     service = new ProjectManagementService({
       eventBus: fixture.eventBus,
       i18n: {
@@ -23,47 +59,19 @@ describe("ProjectManagementService Preferences activation", () => {
               ? `Import failed: ${params.error}`
               : key,
       },
-      runPreferencesTransition: createRequestBackedPreferencesTransition(
-        () => service,
-      ),
+      runPreferencesTransition,
+      importProjectWithinPreferencesTransition:
+        importer.importProjectWithinPreferencesTransition.bind(importer),
     });
     service.init();
   });
 
   afterEach(() => {
     if (!service.destroyed) service.destroy();
+    importer.destroy();
     fixture.destroy();
     vi.restoreAllMocks();
   });
-
-  function installRestoreRequests(preferencesReply, importedSettings = true) {
-    return mockProjectRestoreActions(service).mockImplementation(
-      async (topic, payload) => {
-        if (topic === "import-project") {
-          return {
-            success: true,
-            message: "project_imported_successfully",
-            currentProfile: "profile-42",
-            imported: { profiles: 2, settings: importedSettings },
-          };
-        }
-        if (topic === "data:reload-state") {
-          return {
-            success: true,
-            profiles: 2,
-            currentProfile: "profile-42",
-            environment: "space",
-          };
-        }
-        if (topic === "preferences:activate-persisted-settings") {
-          expect(payload).toEqual({ source: "project-restore" });
-          if (preferencesReply instanceof Error) throw preferencesReply;
-          return preferencesReply;
-        }
-        throw new Error(`Unexpected request for topic ${topic}`);
-      },
-    );
-  }
 
   it.each([
     [
@@ -76,23 +84,23 @@ describe("ProjectManagementService Preferences activation", () => {
       },
       "settings activation unavailable",
     ],
-    [
-      "malformed reply",
-      { success: true },
-      "Import failed: Failed to load profile data",
-    ],
+    ["malformed reply", { success: true }, "Failed to load profile data"],
     [
       "transport failure",
       new Error("preferences responder unavailable"),
       "preferences responder unavailable",
     ],
   ])(
-    "retains only Preferences activation for the %s case",
+    "retains only Preferences activation after the owner action for the %s case",
     async (_label, preferencesReply, reason) => {
-      const request = installRestoreRequests(preferencesReply);
+      activatePersistedSettings.mockImplementationOnce(async () => {
+        if (preferencesReply instanceof Error) throw preferencesReply;
+        return preferencesReply;
+      });
+      const request = vi.spyOn(service, "request");
 
       await expect(
-        service.restoreFromProjectContent('{"fake":true}', "backup.json"),
+        service.restoreFromProjectContent(projectText(), "backup.json"),
       ).resolves.toEqual({
         success: false,
         error: "project_restore_reload_failed",
@@ -102,27 +110,30 @@ describe("ProjectManagementService Preferences activation", () => {
         imported: { profiles: 2, settings: true },
         activation: { data: "complete", preferences: "pending" },
       });
-      expect(request.mock.calls.map(([topic]) => topic)).toEqual([
-        "import-project",
-        "data:reload-state",
-        "preferences:activate-persisted-settings",
-      ]);
+      expect(runPreferencesTransition).toHaveBeenCalledOnce();
+      expect(persistImportedSettings).toHaveBeenCalledOnce();
+      expect(replaceProjectFromImport).toHaveBeenCalledOnce();
+      expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
+      expect(activatePersistedSettings).toHaveBeenCalledOnce();
+      expect(request).not.toHaveBeenCalled();
     },
   );
 
-  it("does not request Preferences activation when settings were not imported", async () => {
-    const request = installRestoreRequests(undefined, false);
+  it("does not acquire or request Preferences activation when settings were not imported", async () => {
+    const request = vi.spyOn(service, "request");
 
     await expect(
-      service.restoreFromProjectContent('{"fake":true}', "backup.json"),
+      service.restoreFromProjectContent(projectText(false), "backup.json"),
     ).resolves.toEqual({
       success: true,
       currentProfile: "profile-42",
       imported: { profiles: 2, settings: false },
     });
-    expect(request.mock.calls.map(([topic]) => topic)).toEqual([
-      "import-project",
-      "data:reload-state",
-    ]);
+    expect(runPreferencesTransition).not.toHaveBeenCalled();
+    expect(persistImportedSettings).not.toHaveBeenCalled();
+    expect(activatePersistedSettings).not.toHaveBeenCalled();
+    expect(replaceProjectFromImport).toHaveBeenCalledOnce();
+    expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
+    expect(request).not.toHaveBeenCalled();
   });
 });

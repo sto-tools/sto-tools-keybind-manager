@@ -45,7 +45,31 @@ describe("settings-only project restore owner chain", () => {
   let projectManager;
   let preferencesI18n;
 
+  async function restartPreferencesOwner() {
+    preferences.destroy();
+    preferencesI18n = {
+      language: "en",
+      t: (key) => key,
+      changeLanguage: vi.fn(async (language) => {
+        preferencesI18n.language = language;
+      }),
+    };
+    preferences = new PreferencesService({
+      eventBus: eventBusFixture.eventBus,
+      settingsRepository,
+      i18n: preferencesI18n,
+      localizeCommands: vi.fn(),
+      applyTranslations: vi.fn(),
+    });
+    preferences.init();
+    await preferences.initialStateReady;
+    return preferences;
+  }
+
   beforeEach(async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     eventBusFixture = createEventBusFixture();
     localStorageFixture = createLocalStorageFixture({
       initialData: {
@@ -74,7 +98,8 @@ describe("settings-only project restore owner chain", () => {
     });
     importer = new ImportService({
       eventBus: eventBusFixture.eventBus,
-      storage,
+      replaceProjectFromImport: (...args) =>
+        coordinator.replaceProjectFromImport(...args),
     });
     preferencesI18n = {
       language: "en",
@@ -95,10 +120,13 @@ describe("settings-only project restore owner chain", () => {
       importProjectWithinPreferencesTransition: (...args) =>
         importer.importProjectWithinPreferencesTransition(...args),
       eventBus: eventBusFixture.eventBus,
-      storage,
       i18n: { t: (key) => key },
       runPreferencesTransition: (source, operation) =>
         preferences.runExternalActivationTransition(source, operation),
+      activateProjectFromImport: (...args) =>
+        coordinator.activateProjectFromImport(...args),
+      activateImportedSettings: (...args) =>
+        preferences.activateImportedSettings(...args),
     });
 
     preferences.init();
@@ -240,5 +268,209 @@ describe("settings-only project restore owner chain", () => {
       },
     });
     expect(preferencesI18n.language).toBe("de");
+  });
+
+  it.each(["write-indeterminate", "verification-failed"])(
+    "reports a real SettingsRepository %s boundary and converges on owner restart",
+    async (mode) => {
+      const beforeRoot = localStorage.getItem(storage.storageKey);
+      const beforeData = coordinator.getCurrentState();
+      const beforePreferences = preferences.getCurrentState();
+      const rootWrites = vi.spyOn(storage, "saveAllData");
+      const originalSetItem = localStorage.setItem;
+      const originalGetItem = localStorage.getItem;
+      const previousSettings = originalGetItem.call(
+        localStorage,
+        "sto_keybind_settings",
+      );
+      let importedSettingsWritten = false;
+
+      localStorage.setItem = (key, value) => {
+        originalSetItem.call(localStorage, key, value);
+        if (key !== "sto_keybind_settings") return;
+        importedSettingsWritten = true;
+        if (mode === "write-indeterminate") {
+          throw new DOMException("quota after write", "QuotaExceededError");
+        }
+      };
+      if (mode === "verification-failed") {
+        localStorage.getItem = (key) => {
+          if (key === "sto_keybind_settings" && importedSettingsWritten) {
+            importedSettingsWritten = false;
+            return previousSettings;
+          }
+          return originalGetItem.call(localStorage, key);
+        };
+      }
+
+      let result;
+      try {
+        result = await projectManager.restoreFromProjectContent(
+          JSON.stringify(settingsOnlyProject),
+          "settings-only.json",
+        );
+      } finally {
+        localStorage.setItem = originalSetItem;
+        localStorage.getItem = originalGetItem;
+      }
+
+      expect(result).toEqual({
+        success: false,
+        error: "storage_write_failed",
+        params: { operation: "settings" },
+        partial: false,
+        committed: { profiles: [], settings: false, project: false },
+      });
+      expect(rootWrites).not.toHaveBeenCalled();
+      expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+      expect(coordinator.getCurrentState()).toBe(beforeData);
+      expect(preferences.getCurrentState()).toBe(beforePreferences);
+      expect(settingsRepository.load().value).toMatchObject({
+        theme: "light",
+        language: "de",
+      });
+
+      const successor = await restartPreferencesOwner();
+      expect(successor.getCurrentState()).toMatchObject({
+        ready: true,
+        settings: { theme: "light", language: "de" },
+      });
+      expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+    },
+  );
+
+  it("recovers on Preferences restart after Data commits but settings activation fails", async () => {
+    const beforePreferences = preferences.getCurrentState();
+    const prepareTransition =
+      preferences._prepareSettingsTransition.bind(preferences);
+    let preparations = 0;
+    vi.spyOn(preferences, "_prepareSettingsTransition").mockImplementation(
+      (...args) => {
+        preparations += 1;
+        if (preparations === 2) throw new Error("activation blocked");
+        return prepareTransition(...args);
+      },
+    );
+    const rootWrites = vi.spyOn(storage, "saveAllData");
+    const settingsWrites = vi.spyOn(settingsRepository, "replace");
+
+    await expect(
+      projectManager.restoreFromProjectContent(
+        JSON.stringify(settingsOnlyProject),
+        "settings-only.json",
+      ),
+    ).resolves.toEqual({
+      success: false,
+      error: "project_restore_reload_failed",
+      params: { reason: "activation blocked" },
+      durable: true,
+      currentProfile: "existing",
+      imported: { profiles: 0, settings: true },
+      activation: { data: "complete", preferences: "pending" },
+    });
+    expect(rootWrites).toHaveBeenCalledOnce();
+    expect(settingsWrites).toHaveBeenCalledOnce();
+    expect(coordinator.getCurrentState()).toMatchObject({
+      currentProfile: "existing",
+    });
+    expect(preferences.getCurrentState()).toBe(beforePreferences);
+
+    const successor = await restartPreferencesOwner();
+    expect(successor.getCurrentState()).toMatchObject({
+      ready: true,
+      settings: { theme: "light", language: "de" },
+    });
+    expect(rootWrites).toHaveBeenCalledOnce();
+  });
+
+  it("preserves the settings receipt when Data lifecycle cancellation precedes the root write", async () => {
+    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforePreferences = preferences.getCurrentState();
+    const replaceSettings = settingsRepository.replace.bind(settingsRepository);
+    const settingsWrites = vi
+      .spyOn(settingsRepository, "replace")
+      .mockImplementationOnce((...args) => {
+        const result = replaceSettings(...args);
+        coordinator.destroy();
+        return result;
+      });
+    const rootWrites = vi.spyOn(storage, "saveAllData");
+
+    await expect(
+      projectManager.restoreFromProjectContent(
+        JSON.stringify(settingsOnlyProject),
+        "settings-only.json",
+      ),
+    ).resolves.toEqual({
+      success: false,
+      error: "storage_write_failed",
+      params: { operation: "project" },
+      partial: true,
+      committed: { profiles: [], settings: true, project: false },
+    });
+    expect(settingsWrites).toHaveBeenCalledOnce();
+    expect(rootWrites).not.toHaveBeenCalled();
+    expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+    expect(preferences.getCurrentState()).toBe(beforePreferences);
+    expect(coordinator.getCurrentState()).toMatchObject({
+      ready: false,
+      currentProfile: "existing",
+    });
+
+    const successor = await restartPreferencesOwner();
+    expect(successor.getCurrentState()).toMatchObject({
+      ready: true,
+      settings: { theme: "light", language: "de" },
+    });
+    expect(rootWrites).not.toHaveBeenCalled();
+  });
+
+  it("refuses retained Preferences activation after an intervening durable owner mutation", async () => {
+    const prepareTransition =
+      preferences._prepareSettingsTransition.bind(preferences);
+    let preparations = 0;
+    vi.spyOn(preferences, "_prepareSettingsTransition").mockImplementation(
+      (...args) => {
+        preparations += 1;
+        if (preparations === 2) throw new Error("activation blocked");
+        return prepareTransition(...args);
+      },
+    );
+    const rootWrites = vi.spyOn(storage, "saveAllData");
+    const settingsWrites = vi.spyOn(settingsRepository, "replace");
+
+    await expect(
+      projectManager.restoreFromProjectContent(
+        JSON.stringify(settingsOnlyProject),
+        "settings-only.json",
+      ),
+    ).resolves.toMatchObject({
+      success: false,
+      error: "project_restore_reload_failed",
+      durable: true,
+      activation: { data: "complete", preferences: "pending" },
+    });
+    expect(rootWrites).toHaveBeenCalledOnce();
+    expect(settingsWrites).toHaveBeenCalledOnce();
+
+    await expect(preferences.setSetting("theme", "default")).resolves.toBe(
+      true,
+    );
+    const stateAfterInterveningMutation = preferences.getCurrentState();
+    expect(settingsWrites).toHaveBeenCalledTimes(2);
+
+    await expect(projectManager.retryRestoreActivation()).resolves.toEqual({
+      success: false,
+      error: "project_restore_reload_failed",
+      params: { reason: "preferences_settings_fingerprint_mismatch" },
+      durable: true,
+      currentProfile: "existing",
+      imported: { profiles: 0, settings: true },
+      activation: { data: "complete", preferences: "pending" },
+    });
+    expect(rootWrites).toHaveBeenCalledOnce();
+    expect(settingsWrites).toHaveBeenCalledTimes(2);
+    expect(preferences.getCurrentState()).toBe(stateAfterInterveningMutation);
+    expect(settingsRepository.load().value.theme).toBe("default");
   });
 });

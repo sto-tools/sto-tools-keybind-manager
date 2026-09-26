@@ -32,6 +32,7 @@ import {
   runExternalPreferencesActivation,
   savePreferenceSettings,
 } from "./preferencesOwnerMutationOperations.js";
+import { activateImportedPreferences } from "./preferencesImportActivation.js";
 import {
   createPreferencesStateSnapshot,
   isCurrentPreferencesStateAuthority,
@@ -347,6 +348,16 @@ export default class PreferencesService extends ComponentBase {
    */
   async activatePersistedSettings(source) {
     return activatePersistedPreferences(this, source);
+  }
+
+  /**
+   * Resume only pending owner adoption for an acknowledged settings write.
+   * @param {unknown} settings
+   * @param {string} fingerprint
+   * @returns {Promise<PreferencesActivationResult>}
+   */
+  async activateImportedSettings(settings, fingerprint) {
+    return activateImportedPreferences(this, settings, fingerprint);
   }
 
   /**

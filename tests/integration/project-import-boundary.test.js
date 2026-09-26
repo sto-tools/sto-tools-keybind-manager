@@ -4,6 +4,7 @@ import {
 } from "../fixtures/services/projectRestore.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import ImportService from "../../src/js/components/services/ImportService.js";
 import StorageService from "../../src/js/components/services/StorageService.js";
 import {
@@ -33,11 +34,15 @@ describe("project import boundary", () => {
   let eventBusFixture;
   let localStorageFixture;
   let storage;
+  let coordinator;
   let service;
   let preferences;
   let settingsRepository;
 
   beforeEach(async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     eventBusFixture = createEventBusFixture();
     localStorageFixture = createLocalStorageFixture({
       initialData: {
@@ -54,17 +59,26 @@ describe("project import boundary", () => {
       eventBus: eventBusFixture.eventBus,
       version: "1.0.0",
     });
+    coordinator = new DataCoordinator({
+      eventBus: eventBusFixture.eventBus,
+      storage,
+      i18n: { t: (key) => key },
+      defaultProfiles: {},
+    });
     settingsRepository = createProjectSettingsRepository();
     preferences = await createImportPreferencesOwner({
       eventBus: eventBusFixture.eventBus,
       settingsRepository,
     });
     storage.init();
+    coordinator.init();
+    await coordinator.initialStateReady;
     service = new ImportService({
       runPreferencesTransition: (source, operation) =>
         preferences.runExternalActivationTransition(source, operation),
       eventBus: eventBusFixture.eventBus,
-      storage,
+      replaceProjectFromImport: (...args) =>
+        coordinator.replaceProjectFromImport(...args),
     });
     service.init();
   });
@@ -72,6 +86,7 @@ describe("project import boundary", () => {
   afterEach(() => {
     service?.destroy();
     preferences?.destroy();
+    coordinator?.destroy();
     storage?.destroy();
     eventBusFixture?.destroy();
     localStorageFixture?.destroy();
@@ -294,8 +309,9 @@ describe("project import boundary", () => {
         eventBus: eventBusFixture.eventBus,
         settingsRepository,
       });
-      const beforeRoot = localStorage.getItem(storage.storageKey);
+      const beforeRoot = JSON.parse(localStorage.getItem(storage.storageKey));
       const saveSettings = vi.spyOn(settingsRepository, "replace");
+      const saveAllData = vi.spyOn(storage, "saveAllData");
 
       const result = await service.importProjectFile(
         JSON.stringify({
@@ -317,7 +333,7 @@ describe("project import boundary", () => {
         success: true,
         message: "project_imported_successfully",
         imported: { profiles: 0, settings: true },
-        currentProfile: null,
+        currentProfile: "existing",
       });
       expect(saveSettings).toHaveBeenCalledOnce();
       const [settingsPayload] = saveSettings.mock.calls[0];
@@ -346,7 +362,14 @@ describe("project import boundary", () => {
         expect(persistedSettings.version).toBe(projectVersion);
       }
       expect(persistedSettings).not.toHaveProperty("firstRun");
-      expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+      expect(saveAllData).toHaveBeenCalledOnce();
+      expect(
+        JSON.parse(localStorage.getItem(storage.storageKey)),
+      ).toMatchObject({
+        profiles: beforeRoot.profiles,
+        currentProfile: beforeRoot.currentProfile,
+        settings: beforeRoot.settings,
+      });
     },
   );
 });

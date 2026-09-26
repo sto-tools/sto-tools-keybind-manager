@@ -1,5 +1,3 @@
-import { expect, vi } from "vitest";
-
 import PreferencesService from "../../../src/js/components/services/PreferencesService.js";
 import LocalStorageSettingsRepository from "../../../src/js/components/storage/LocalStorageSettingsRepository.js";
 import { createPreferencesState } from "../core/componentState.js";
@@ -51,27 +49,6 @@ export function createRequestBackedPreferencesTransition(getService) {
   return run;
 }
 
-/** Record the distinct injected import action and remaining workflow RPCs. */
-export function mockProjectRestoreActions(service) {
-  const request = service.request.bind(service);
-  const actions = vi.fn((topic, payload, timeout) => {
-    if (topic === "import-project")
-      throw new Error("import action unavailable");
-    return request(topic, payload, timeout);
-  });
-  vi.spyOn(service, "request").mockImplementation((...args) =>
-    actions(...args),
-  );
-  service.importProjectWithinPreferencesTransition = vi.fn(
-    (content, options, persist) => {
-      expect(options).toEqual({});
-      expect(persist).toBeTypeOf("function");
-      return actions("import-project", { content }, persist);
-    },
-  );
-  return actions;
-}
-
 /**
  * @typedef {{
  *   request(
@@ -101,121 +78,4 @@ export function rejectFinalProjectRootWrite(storage, profileId = "imported") {
     }
     setItem(key, value);
   };
-}
-
-export async function assertMundaneSettingsFinalRootFailure({
-  storage,
-  settingsRepository,
-  coordinator,
-  eventBus,
-  projectManager,
-  importedProject,
-  preferences,
-}) {
-  expect(
-    await preferences.setSettings({
-      ...createPreferencesState().settings,
-      theme: "dark",
-      language: "en",
-    }),
-  ).toBe(true);
-  const beforeRoot = JSON.parse(localStorage.getItem(storage.storageKey));
-  const beforeState = coordinator.getCurrentState();
-  const beforePreferencesState = preferences?.getCurrentState();
-  const stateChanged = vi.fn();
-  const profileSwitched = vi.fn();
-  const environmentChanged = vi.fn();
-  eventBus.on("data:state-changed", stateChanged);
-  eventBus.on("profile:switched", profileSwitched);
-  eventBus.on("environment:changed", environmentChanged);
-  rejectFinalProjectRootWrite(storage);
-
-  const result = await projectManager.restoreFromProjectContent(
-    JSON.stringify(importedProject),
-  );
-
-  expect(result).toEqual({
-    success: false,
-    error: "storage_write_failed",
-    params: { operation: "project" },
-    partial: true,
-    committed: {
-      profiles: ["imported"],
-      settings: true,
-      project: false,
-    },
-  });
-  const durableRootText = localStorage.getItem(storage.storageKey);
-  const durableRoot = JSON.parse(durableRootText);
-  expect(durableRoot).toMatchObject({
-    currentProfile: "existing",
-    profiles: {
-      existing: { name: "Existing" },
-      imported: { name: "Imported" },
-    },
-  });
-  expect(durableRoot.currentProfile).toBe(beforeRoot.currentProfile);
-  expect(durableRoot.settings).toEqual(beforeRoot.settings);
-  const durableBackup = JSON.parse(localStorage.getItem(storage.backupKey));
-  expect(durableBackup.version).toBe("1.0.0");
-  expect(durableBackup.data).toBe(durableRootText);
-
-  const durableSettings = JSON.parse(
-    localStorage.getItem("sto_keybind_settings"),
-  );
-  expect(durableSettings).toMatchObject({ theme: "light", language: "de" });
-  expect(Object.hasOwn(durableSettings, "version")).toBe(false);
-  expect(Object.hasOwn(durableSettings, "firstRun")).toBe(false);
-  expect(storage.getAllData()).toEqual(durableRoot);
-  expect(coordinator.getCurrentState()).toBe(beforeState);
-  expect(preferences?.getCurrentState()).toBe(beforePreferencesState);
-  expect(stateChanged).not.toHaveBeenCalled();
-  expect(profileSwitched).not.toHaveBeenCalled();
-  expect(environmentChanged).not.toHaveBeenCalled();
-  expect(projectManager.ui.showToast).not.toHaveBeenCalled();
-
-  const preferenceStates = [];
-  const detachPreferenceState = eventBus.on(
-    "preferences:state-changed",
-    (state) => preferenceStates.push(state),
-  );
-  preferences.destroy();
-  const successorI18n = {
-    language: "en",
-    t: (key) => key,
-    changeLanguage: vi.fn(async (language) => {
-      successorI18n.language = language;
-    }),
-  };
-  const successor = new PreferencesService({
-    eventBus,
-    settingsRepository,
-    i18n: successorI18n,
-    localizeCommands: vi.fn(),
-    applyTranslations: vi.fn(),
-  });
-  successor.init();
-  await successor.initialStateReady;
-  detachPreferenceState();
-
-  expect(successor.getCurrentState()).toMatchObject({
-    authorityEpoch: beforePreferencesState.authorityEpoch + 1,
-    ready: true,
-    revision: 1,
-    settings: settingsRepository.load().value,
-  });
-  expect(successor.getCurrentState().settings).toMatchObject({
-    theme: durableSettings.theme,
-    language: durableSettings.language,
-  });
-  expect(storage.getAllData().settings).toEqual(durableRoot.settings);
-  expect(localStorage.getItem(storage.storageKey)).toBe(durableRootText);
-  expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
-    durableSettings,
-  );
-  expect(preferenceStates).toEqual([
-    expect.objectContaining({ reason: "startup-loaded" }),
-  ]);
-
-  return successor;
 }

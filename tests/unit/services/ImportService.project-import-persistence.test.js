@@ -1,22 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createImportPreferencesOwner } from "../../fixtures/services/projectRestore.js";
+import { createProjectImportOwnerAction } from "../../fixtures/services/importProjectOwner.js";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { createImportServiceFixture } from "../../fixtures/index.js";
 
-describe("ImportService project import persistence progress", () => {
+describe("ImportService complete-root project import persistence", () => {
   let fixture;
   let service;
   let preferences;
+  let replaceProjectFromImport;
 
   beforeEach(async () => {
     fixture = createImportServiceFixture();
     preferences = await createImportPreferencesOwner(fixture);
+    replaceProjectFromImport = createProjectImportOwnerAction(fixture);
     service = new ImportService({
       runPreferencesTransition: (source, operation) =>
         preferences.runExternalActivationTransition(source, operation),
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      replaceProjectFromImport,
     });
     service.init();
   });
@@ -27,47 +30,17 @@ describe("ImportService project import persistence progress", () => {
     fixture.destroy();
   });
 
-  it("reports no acknowledged stage progress when the first profile write is rejected", async () => {
-    fixture.storage.saveProfile.mockReturnValueOnce(false);
-    const result = await service.importProjectFile(
-      JSON.stringify({
-        type: "project",
-        data: {
-          profiles: {
-            rejected: {
-              name: "Rejected",
-              builds: { space: { keys: {} }, ground: { keys: {} } },
-            },
-          },
-        },
-      }),
-    );
-
-    expect(result).toEqual({
-      success: false,
-      error: "storage_write_failed",
-      params: { operation: "profile", profileId: "rejected" },
-      partial: false,
-      committed: { profiles: [], settings: false, project: false },
-    });
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
-  });
-
   it.each(["false", "throw"])(
-    "retains and reports an earlier sequential profile commit when a later profile write returns %s",
+    "reports no profile progress when the single complete-root action returns %s",
     async (failureMode) => {
-      const saveProfile = fixture.storage.saveProfile.getMockImplementation();
-      let profileWrites = 0;
-      fixture.storage.saveProfile.mockImplementation((profileId, profile) => {
-        profileWrites += 1;
-        if (profileWrites === 2) {
-          if (failureMode === "throw") {
-            throw new Error("second profile write failed");
-          }
-          return false;
-        }
-        return saveProfile(profileId, profile);
-      });
+      if (failureMode === "throw") {
+        fixture.storage.saveAllData.mockImplementationOnce(() => {
+          throw new Error("complete root write failed");
+        });
+      } else {
+        fixture.storage.saveAllData.mockReturnValueOnce(false);
+      }
+
       const result = await service.importProjectFile(
         JSON.stringify({
           type: "project",
@@ -75,8 +48,8 @@ describe("ImportService project import persistence progress", () => {
             profiles: {
               first: { name: "First" },
               second: { name: "Second" },
-              third: { name: "Third" },
             },
+            currentProfile: "first",
           },
         }),
       );
@@ -84,33 +57,33 @@ describe("ImportService project import persistence progress", () => {
       expect(result).toEqual({
         success: false,
         error: "storage_write_failed",
-        params: { operation: "profile", profileId: "second" },
-        partial: true,
-        committed: {
-          profiles: ["first"],
-          settings: false,
-          project: false,
-        },
+        params: { operation: "project" },
+        partial: false,
+        committed: { profiles: [], settings: false, project: false },
       });
-      expect(fixture.storage.getProfile("first")).toMatchObject({
-        name: "First",
-      });
+      expect(replaceProjectFromImport).toHaveBeenCalledOnce();
+      expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
+      expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+      expect(fixture.storage.getProfile("first")).toBeNull();
       expect(fixture.storage.getProfile("second")).toBeNull();
-      expect(fixture.storage.getProfile("third")).toBeNull();
     },
   );
 
-  it("reports no acknowledged stage progress when a settings-only write is rejected", async () => {
+  it("reports no acknowledged progress when the Preferences-owned settings stage is rejected", async () => {
     fixture.settingsRepository.replace.mockReturnValueOnce({
       status: "rejected",
       error: "invalid_data",
       write: { status: "not_attempted" },
       verification: { status: "not_attempted" },
     });
+
     const result = await service.importProjectFile(
       JSON.stringify({
         type: "project",
-        data: { profiles: {}, settings: { theme: "default" } },
+        data: {
+          profiles: { first: { name: "First" } },
+          settings: { theme: "light" },
+        },
       }),
     );
 
@@ -121,83 +94,22 @@ describe("ImportService project import persistence progress", () => {
       partial: false,
       committed: { profiles: [], settings: false, project: false },
     });
+    expect(replaceProjectFromImport).toHaveBeenCalledOnce();
+    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
   });
 
   it.each(["false", "throw"])(
-    "reports profile progress when the following settings write returns %s",
+    "reports only the acknowledged settings stage when the complete-root write returns %s",
     async (failureMode) => {
       if (failureMode === "throw") {
-        fixture.settingsRepository.replace.mockImplementationOnce(() => {
-          throw new Error("settings write failed");
+        fixture.storage.saveAllData.mockImplementationOnce(() => {
+          throw new Error("complete root write failed");
         });
       } else {
-        fixture.settingsRepository.replace.mockReturnValueOnce({
-          status: "rejected",
-          error: "invalid_data",
-          write: { status: "not_attempted" },
-          verification: { status: "not_attempted" },
-        });
+        fixture.storage.saveAllData.mockReturnValueOnce(false);
       }
-      const result = await service.importProjectFile(
-        JSON.stringify({
-          type: "project",
-          data: {
-            profiles: { first: { name: "First" } },
-            settings: { theme: "light" },
-          },
-        }),
-      );
 
-      expect(result).toEqual({
-        success: false,
-        error: "storage_write_failed",
-        params: { operation: "settings" },
-        partial: true,
-        committed: {
-          profiles: ["first"],
-          settings: false,
-          project: false,
-        },
-      });
-      expect(fixture.storage.getProfile("first")).toMatchObject({
-        name: "First",
-      });
-    },
-  );
-
-  it("reports no acknowledged stage progress when the only project write is rejected", async () => {
-    fixture.storage.saveAllData.mockReturnValueOnce(false);
-    const result = await service.importProjectFile(
-      JSON.stringify({
-        type: "project",
-        data: { profiles: {}, currentProfile: null },
-      }),
-    );
-
-    expect(result).toEqual({
-      success: false,
-      error: "storage_write_failed",
-      params: { operation: "project" },
-      partial: false,
-      committed: { profiles: [], settings: false, project: false },
-    });
-  });
-
-  it.each(["false", "throw"])(
-    "reports profile and settings progress when the final project write returns %s",
-    async (failureMode) => {
-      const saveAllData = fixture.storage.saveAllData.getMockImplementation();
-      let projectWrites = 0;
-      fixture.storage.saveAllData.mockImplementation((data) => {
-        projectWrites += 1;
-        if (projectWrites === 2) {
-          if (failureMode === "throw") {
-            throw new Error("final project write failed");
-          }
-          return false;
-        }
-        return saveAllData(data);
-      });
       const result = await service.importProjectFile(
         JSON.stringify({
           type: "project",
@@ -213,22 +125,42 @@ describe("ImportService project import persistence progress", () => {
         error: "storage_write_failed",
         params: { operation: "project" },
         partial: true,
-        committed: {
-          profiles: ["first"],
-          settings: true,
-          project: false,
-        },
+        committed: { profiles: [], settings: true, project: false },
       });
-      expect(fixture.storage.getProfile("first")).toMatchObject({
-        name: "First",
-      });
+      expect(replaceProjectFromImport).toHaveBeenCalledOnce();
       expect(fixture.settingsRepository.load().value).toMatchObject({
         theme: "light",
       });
+      expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+      expect(fixture.storage.getProfile("first")).toBeNull();
     },
   );
 
-  it("reports success only after the complete import is durable", async () => {
+  it("maps a rejected owner action onto the frozen complete-root failure arm", async () => {
+    replaceProjectFromImport.mockRejectedValueOnce(
+      new Error("owner action unavailable"),
+    );
+
+    await expect(
+      service.importProjectFile(
+        JSON.stringify({
+          type: "project",
+          data: { profiles: { candidate: { name: "Candidate" } } },
+        }),
+      ),
+    ).resolves.toEqual({
+      success: false,
+      error: "storage_write_failed",
+      params: { operation: "project" },
+      partial: false,
+      committed: { profiles: [], settings: false, project: false },
+    });
+    expect(replaceProjectFromImport).toHaveBeenCalledOnce();
+    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+  });
+
+  it("reports success only after the owner acknowledges one durable complete root", async () => {
     const result = await service.importProjectFile(
       JSON.stringify({
         type: "project",
@@ -240,11 +172,18 @@ describe("ImportService project import persistence progress", () => {
       }),
     );
 
-    expect(result).toMatchObject({
+    expect(result).toEqual({
       success: true,
+      message: "project_imported_successfully",
       imported: { profiles: 1, settings: true },
       currentProfile: "complete",
     });
+    expect(replaceProjectFromImport).toHaveBeenCalledWith(
+      expect.objectContaining({ currentProfile: "complete" }),
+      { persistImportedSettings: expect.any(Function) },
+    );
+    expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
+    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
     expect(fixture.storage.getProfile("complete")).toMatchObject({
       name: "Complete",
     });
@@ -256,17 +195,21 @@ describe("ImportService project import persistence progress", () => {
     expect(fixture.settingsRepository.replace).toHaveBeenCalledOnce();
   });
 
-  it("keeps the live owner unchanged when an acknowledged settings write fails readback verification", async () => {
+  it("keeps both live owners unchanged when an acknowledged settings write fails verification", async () => {
     const before = preferences.getCurrentState();
     const browserStorage = fixture.storageFixture.localStorage;
     const getItem = browserStorage.getItem.getMockImplementation();
     browserStorage.getItem.mockImplementation((key) =>
       key === "sto_keybind_settings" ? null : getItem(key),
     );
+
     const result = await service.importProjectFile(
       JSON.stringify({
         type: "project",
-        data: { settings: { theme: "light" } },
+        data: {
+          profiles: { candidate: { name: "Candidate" } },
+          settings: { theme: "light" },
+        },
       }),
     );
     browserStorage.getItem.mockImplementation(getItem);
@@ -279,9 +222,6 @@ describe("ImportService project import persistence progress", () => {
       committed: { profiles: [], settings: false, project: false },
     });
     expect(
-      JSON.parse(browserStorage.getItem("sto_keybind_settings")).theme,
-    ).toBe("light");
-    expect(
       fixture.settingsRepository.replace.mock.results[0].value,
     ).toMatchObject({
       status: "verification_failed",
@@ -289,6 +229,7 @@ describe("ImportService project import persistence progress", () => {
     });
     expect(preferences.getCurrentState()).toBe(before);
     expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
   });
 
   it.each(["failure", "throw", "malformed"])(
@@ -310,6 +251,7 @@ describe("ImportService project import persistence progress", () => {
           operation(activate, assertActive, persist),
         );
       const before = preferences.getCurrentState();
+
       const result = await service.importProjectFile(
         JSON.stringify({
           type: "project",
@@ -334,15 +276,17 @@ describe("ImportService project import persistence progress", () => {
               : "activation unavailable",
         },
       });
+      expect(replaceProjectFromImport).toHaveBeenCalledOnce();
+      expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
+      expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
       expect(fixture.settingsRepository.replace).toHaveBeenCalledOnce();
-      expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
       expect(preferences.getCurrentState()).toBe(before);
       expect(fixture.settingsRepository.load().value.theme).toBe("light");
       expect(activate).toHaveBeenCalledOnce();
     },
   );
 
-  it("rejects settings imports before writes without a transition runner while allowing non-settings imports", async () => {
+  it("requires the Preferences transition only for settings imports", async () => {
     service.runPreferencesTransition = null;
     const result = await service.importProjectFile(
       JSON.stringify({
@@ -353,24 +297,35 @@ describe("ImportService project import persistence progress", () => {
         },
       }),
     );
-    expect(result).toMatchObject({
+
+    expect(result).toEqual({
       success: false,
       error: "storage_write_failed",
+      params: { operation: "settings" },
       partial: false,
       committed: { profiles: [], settings: false, project: false },
     });
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(replaceProjectFromImport).not.toHaveBeenCalled();
+    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
     expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
+
     await expect(
       service.importProjectFile(
         JSON.stringify({
           type: "project",
-          data: { profiles: { imported: { name: "Imported" } } },
+          data: {
+            profiles: { imported: { name: "Imported" } },
+            currentProfile: "imported",
+          },
         }),
       ),
-    ).resolves.toMatchObject({
+    ).resolves.toEqual({
       success: true,
+      message: "project_imported_successfully",
       imported: { profiles: 1, settings: false },
+      currentProfile: "imported",
     });
+    expect(replaceProjectFromImport).toHaveBeenCalledOnce();
+    expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
   });
 });

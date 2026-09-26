@@ -50,7 +50,6 @@ describe("ImportService", () => {
     fixture = createImportServiceFixture();
     service = new ImportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
     });
     service.init();
     service._cacheDataState(
@@ -250,7 +249,7 @@ describe("ImportService", () => {
       );
 
       // The accepted replacement snapshot is authoritative even when the
-      // injected project-import storage would disagree.
+      // coordinator commit fixture's storage would disagree.
       const mockProfile = createStoredProfile();
       service._cacheDataState(
         createProfileState("test-profile", mockProfile, {
@@ -258,8 +257,8 @@ describe("ImportService", () => {
           revision: 0,
         }),
       );
-      service.storage.getProfile.mockReturnValue(null);
-      vi.spyOn(service.storage, "saveProfile").mockImplementation(
+      fixture.storage.getProfile.mockReturnValue(null);
+      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(
         (id, profile) => {
           // Store the profile for inspection
           mockProfile.profile = profile;
@@ -295,7 +294,7 @@ describe("ImportService", () => {
       expect(result.imported.keys).toBe(2);
       expect(result.imported.aliases).toBe(1);
       expect(result.imported.bindsets).toBe(1);
-      expect(service.storage.getProfile).not.toHaveBeenCalled();
+      expect(fixture.storage.getProfile).not.toHaveBeenCalled();
 
       vi.restoreAllMocks();
     });
@@ -349,17 +348,17 @@ describe("ImportService", () => {
       service._cacheDataState(
         createProfileState("profile", mockProfile, { revision: 2 }),
       );
-      service.storage.getProfile.mockReturnValue(null);
-      vi.spyOn(service.storage, "saveProfile").mockImplementation(() => {});
+      fixture.storage.getProfile.mockReturnValue(null);
+      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(() => {});
 
       const result = await service.importKBFFile("content", "profile", "space");
 
       expect(result.success).toBe(true);
       expect(result.imported.aliases).toBe(1); // only the global alias
-      const savedProfile = service.storage.saveProfile.mock.calls[0][1];
+      const savedProfile = fixture.storage.saveProfile.mock.calls[0][1];
       expect(savedProfile.aliases.globalAlias.commands).toEqual(["doGlobal"]);
       expect(savedProfile.aliases.shouldNotImport).toBeUndefined();
-      expect(service.storage.getProfile).not.toHaveBeenCalled();
+      expect(fixture.storage.getProfile).not.toHaveBeenCalled();
 
       vi.restoreAllMocks();
     });
@@ -394,7 +393,6 @@ describe("ImportService", () => {
       fixture = createImportServiceFixture();
       service = new ImportService({
         eventBus: fixture.eventBus,
-        storage: fixture.storage,
       });
       service.init();
       service._cacheDataState(
@@ -465,7 +463,7 @@ describe("ImportService", () => {
       // Persistence remains observable at the commit seam; planning reads the
       // accepted snapshot above.
       const mockProfile = createStoredProfile();
-      vi.spyOn(service.storage, "saveProfile").mockImplementation(
+      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(
         (id, profile) => {
           mockProfile.profile = profile;
         },
@@ -597,7 +595,7 @@ describe("ImportService", () => {
         completeKBFParseResult(mockParseResult),
       );
 
-      service.storage.getProfile.mockReturnValue(createStoredProfile());
+      fixture.storage.getProfile.mockReturnValue(createStoredProfile());
 
       const kbfContent = "VmFsaWQgRm9ybWF0";
 
@@ -613,7 +611,7 @@ describe("ImportService", () => {
       expect(result.message).toContain(
         'Profile with ID "nonexistent-profile" not found',
       );
-      expect(service.storage.getProfile).not.toHaveBeenCalled();
+      expect(fixture.storage.getProfile).not.toHaveBeenCalled();
 
       vi.restoreAllMocks();
     });
@@ -662,7 +660,7 @@ describe("ImportService", () => {
 
       // Mock storage service and capture saved profile
       let savedProfile = null;
-      vi.spyOn(service.storage, "saveProfile").mockImplementation(
+      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(
         (id, profile) => {
           savedProfile = profile;
         },
@@ -734,7 +732,7 @@ describe("ImportService", () => {
 
       // Mock storage service
       const mockProfile = createStoredProfile();
-      vi.spyOn(service.storage, "saveProfile").mockImplementation(
+      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(
         (id, profile) => {
           mockProfile.profile = profile;
         },
@@ -801,7 +799,7 @@ describe("ImportService", () => {
 
       // Mock storage service
       const mockProfile = createStoredProfile();
-      vi.spyOn(service.storage, "saveProfile").mockImplementation(
+      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(
         (id, profile) => {
           mockProfile.profile = profile;
         },
@@ -908,7 +906,7 @@ describe("ImportService", () => {
 
       // Mock storage service
       const mockProfile = createStoredProfile();
-      vi.spyOn(service.storage, "saveProfile").mockImplementation(
+      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(
         (id, profile) => {
           mockProfile.profile = profile;
         },

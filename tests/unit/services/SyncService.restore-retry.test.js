@@ -130,7 +130,7 @@ describe("SyncService restore retry ownership", () => {
     const request = vi
       .fn()
       .mockResolvedValueOnce(DURABLE_RELOAD_FAILURE)
-      .mockResolvedValueOnce(RELOAD_SUCCESS);
+      .mockResolvedValueOnce(RESTORE_SUCCESS);
     service.invokeRequest = request;
     stageImport();
 
@@ -147,17 +147,14 @@ describe("SyncService restore retry ownership", () => {
       imported: { profiles: 0, settings: false },
       activation: { data: "pending", preferences: "not-required" },
     });
-    expect(service.deferredImportContent).toEqual(PROJECT_FILE);
+    expect(service.deferredImportContent).toBeNull();
     expect(service.pendingSyncAction).toBe("import");
 
-    // The activation receipt owns this retry independently of the source
-    // artifact. Losing the retained bytes must never cause another import.
-    service.deferredImportContent = null;
     await service.applyPendingSyncDecision();
 
     expect(request.mock.calls).toEqual([
       ["project:restore-from-content", PROJECT_FILE, 0],
-      ["data:reload-state", undefined, 0],
+      ["project:retry-restore-activation", undefined, 0],
     ]);
     expect(service.pendingRestoreActivationReceipt).toBeNull();
     expect(service.pendingSyncAction).toBeNull();
@@ -175,7 +172,7 @@ describe("SyncService restore retry ownership", () => {
         ...DURABLE_RELOAD_FAILURE,
         params: { reason: "" },
       })
-      .mockResolvedValueOnce(RELOAD_SUCCESS);
+      .mockResolvedValueOnce(RESTORE_SUCCESS);
     service.invokeRequest = request;
     stageImport();
 
@@ -192,7 +189,7 @@ describe("SyncService restore retry ownership", () => {
 
     expect(request.mock.calls).toEqual([
       ["project:restore-from-content", PROJECT_FILE, 0],
-      ["data:reload-state", undefined, 0],
+      ["project:retry-restore-activation", undefined, 0],
     ]);
     expect(service.pendingRestoreActivationReceipt).toBeNull();
     expect(service.pendingSyncAction).toBeNull();
@@ -203,10 +200,10 @@ describe("SyncService restore retry ownership", () => {
       .fn()
       .mockResolvedValueOnce(DURABLE_RELOAD_FAILURE)
       .mockResolvedValueOnce({
-        success: false,
-        error: "operation_cancelled",
+        ...DURABLE_RELOAD_FAILURE,
+        params: { reason: "operation_cancelled" },
       })
-      .mockResolvedValueOnce(RELOAD_SUCCESS);
+      .mockResolvedValueOnce(RESTORE_SUCCESS);
     service.invokeRequest = request;
     stageImport();
 
@@ -221,7 +218,7 @@ describe("SyncService restore retry ownership", () => {
     expect(service.pendingSyncAction).toBe("import");
     expect(request.mock.calls).toEqual([
       ["project:restore-from-content", PROJECT_FILE, 0],
-      ["data:reload-state", undefined, 0],
+      ["project:retry-restore-activation", undefined, 0],
     ]);
     expect(ui.showToast).toHaveBeenLastCalledWith(
       "failed_to_import_project:failed_to_load_profile_data",
@@ -232,8 +229,8 @@ describe("SyncService restore retry ownership", () => {
 
     expect(request.mock.calls).toEqual([
       ["project:restore-from-content", PROJECT_FILE, 0],
-      ["data:reload-state", undefined, 0],
-      ["data:reload-state", undefined, 0],
+      ["project:retry-restore-activation", undefined, 0],
+      ["project:retry-restore-activation", undefined, 0],
     ]);
     expect(service.pendingRestoreActivationReceipt).toBeNull();
     expect(service.pendingSyncAction).toBeNull();

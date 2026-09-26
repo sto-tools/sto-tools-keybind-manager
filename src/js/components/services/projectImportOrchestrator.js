@@ -2,8 +2,11 @@ import { classifyPreferencesActivationResult } from "./preferencesActivationResu
 import { decodeProjectJson } from "./importJsonBoundary.js";
 import { isDataRecord } from "./jsonDataBoundary.js";
 
+const preparedImports = new WeakSet();
+const projectImportContexts = new WeakMap();
+
 /**
- * Capture the action flag before joining a queued lease. Accessors are not
+ * Capture the action flag before joining an owner queue. Accessors are not
  * action data, and a caller cannot change the selected stages while waiting.
  * @param {unknown} options
  * @returns {{success: true, value: {importSettings?: boolean}} | Extract<import('../../types/rpc/import-export.js').ProjectImportResult, {error: 'invalid_project_options'}>}
@@ -40,184 +43,339 @@ function materializeImportOptions(options) {
 }
 
 /**
- * Restore one decoded project through the injected storage boundary. The
- * established sequential write order is intentional: failure results disclose
- * acknowledged progress, but this module does not add rollback semantics.
+ * Validate and detach the complete artifact and options before any owner queue
+ * is acquired. The opaque prepared value is accepted only by this module's
+ * execution path, so callers cannot forge a canonical project candidate.
  *
- * @param {import('./serviceTypes.js').Storage | null | undefined} storage
  * @param {unknown} content
  * @param {unknown} [options]
- * @param {import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences} [persistImportedSettings]
- * @returns {Promise<import('../../types/rpc/import-export.js').ProjectImportResult>}
+ * @returns {Extract<import('../../types/rpc/import-export.js').ProjectImportResult, {success: false}> | {success: true, data: import('../../types/data-contracts.js').CanonicalProjectData, importSettings: boolean, importedProfiles: number, currentProfile: string | null}}
  */
-export async function importProjectToStorage(
-  storage,
-  content,
-  options = {},
-  persistImportedSettings,
-) {
-  if (!storage) {
-    return { success: false, error: "storage_not_available" };
-  }
+export function prepareProjectImport(content, options = {}) {
   const importedOptions = materializeImportOptions(options);
   if (!importedOptions.success) return importedOptions;
-
   const decoded = decodeProjectJson(content);
   if (!decoded.success) return decoded;
 
-  /** @type {string[]} */
-  const committedProfiles = [];
-  let committedSettings = false;
-  let committedProject = false;
-  /**
-   * Report only persistence stages that returned successfully. A false-returning
-   * or throwing storage adapter may have mutated state before failing, but that
-   * outcome cannot be known reliably at this boundary. Consequently, an empty
-   * committed summary is not a no-write acknowledgement.
-   * @param {{ operation: "profile", profileId: string } | { operation: "settings" | "project" }} params
-   * @returns {Extract<import('../../types/rpc/import-export.js').ProjectImportResult, { success: false, error: "storage_write_failed" }>}
-   */
-  const storageFailure = (params) => ({
-    success: false,
-    error: "storage_write_failed",
-    params,
-    partial:
-      committedProfiles.length > 0 || committedSettings || committedProject,
-    committed: {
-      profiles: [...committedProfiles],
-      settings: committedSettings,
-      project: committedProject,
-    },
-  });
-
-  const importedData = decoded.value.data;
-  if (
-    importedData.settings &&
-    importedOptions.value.importSettings !== false &&
-    !persistImportedSettings
-  ) {
-    return storageFailure({ operation: "settings" });
-  }
-  const importedProfiles = importedData.profiles || {};
-  const hasTopLevelCurrentProfile = Object.hasOwn(
-    importedData,
-    "currentProfile",
-  );
-  const hasLegacyCurrentProfile =
-    importedData.settings !== undefined &&
-    Object.hasOwn(importedData.settings, "currentProfile");
+  const data = structuredClone(decoded.value.data);
+  const hasTopLevelCurrentProfile = Object.hasOwn(data, "currentProfile");
   const rawCurrentProfile = hasTopLevelCurrentProfile
-    ? importedData.currentProfile
-    : importedData.settings?.currentProfile;
-  const currentProfile =
-    typeof rawCurrentProfile === "string" ? rawCurrentProfile : null;
-
-  const currentProfileReferences = [
-    ...(hasTopLevelCurrentProfile &&
-    typeof importedData.currentProfile === "string"
-      ? [
-          {
-            profileId: importedData.currentProfile,
-            path: "$.data.currentProfile",
-          },
-        ]
-      : []),
-    ...(hasLegacyCurrentProfile &&
-    typeof importedData.settings?.currentProfile === "string"
-      ? [
-          {
-            profileId: importedData.settings.currentProfile,
-            path: "$.data.settings.currentProfile",
-          },
-        ]
-      : []),
-  ];
-  const referencesNeedingDestination = currentProfileReferences.filter(
-    ({ profileId }) => !Object.hasOwn(importedProfiles, profileId),
-  );
-  let destinationProfiles = {};
-  if (referencesNeedingDestination.length > 0) {
-    try {
-      destinationProfiles = storage.getAllData()?.profiles || {};
-    } catch {
-      return storageFailure({ operation: "project" });
-    }
-  }
-  for (const { profileId, path } of referencesNeedingDestination) {
-    if (!Object.hasOwn(destinationProfiles, profileId)) {
-      return {
-        success: false,
-        error: "invalid_project_file",
-        params: { path },
-      };
-    }
-  }
-
-  for (const [profileId, profile] of Object.entries(importedProfiles)) {
-    try {
-      if ((await storage.saveProfile(profileId, profile)) === false) {
-        return storageFailure({ operation: "profile", profileId });
-      }
-      committedProfiles.push(profileId);
-    } catch {
-      return storageFailure({ operation: "profile", profileId });
-    }
-  }
-
-  let importedSettings = false;
-  if (importedData.settings && importedOptions.value.importSettings !== false) {
-    try {
-      const result = await persistImportedSettings?.(importedData.settings);
-      if (result?.status !== "committed") {
-        return storageFailure({ operation: "settings" });
-      }
-      committedSettings = true;
-      importedSettings = true;
-    } catch {
-      return storageFailure({ operation: "settings" });
-    }
-  }
-
-  if (
-    Object.keys(importedProfiles).length > 0 ||
-    hasTopLevelCurrentProfile ||
-    hasLegacyCurrentProfile
-  ) {
-    try {
-      const storedData = storage.getAllData();
-      const restoredData = {
-        ...storedData,
-        profiles: {
-          ...(storedData.profiles || {}),
-          ...importedProfiles,
-        },
-        ...(hasTopLevelCurrentProfile || hasLegacyCurrentProfile
-          ? { currentProfile }
-          : {}),
-      };
-      if ((await storage.saveAllData(restoredData)) === false) {
-        return storageFailure({ operation: "project" });
-      }
-      committedProject = true;
-    } catch {
-      return storageFailure({ operation: "project" });
-    }
-  }
-
-  return {
-    success: true,
-    message: "project_imported_successfully",
-    imported: {
-      profiles: Object.keys(importedProfiles).length,
-      settings: importedSettings,
-    },
-    currentProfile,
+    ? data.currentProfile
+    : data.settings?.currentProfile;
+  const prepared = {
+    success: /** @type {const} */ (true),
+    data,
+    importSettings:
+      data.settings !== undefined &&
+      importedOptions.value.importSettings !== false,
+    importedProfiles: Object.keys(data.profiles || {}).length,
+    currentProfile:
+      typeof rawCurrentProfile === "string" ? rawCurrentProfile : null,
   };
+  preparedImports.add(prepared);
+  return prepared;
+}
+
+/** @param {unknown} value */
+function isPreparedProjectImport(value) {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    preparedImports.has(/** @type {object} */ (value))
+  );
 }
 
 /**
- * Public imports acquire their own Preferences lease; restore uses the direct
- * action inside its already-held lease instead.
+ * @param {'settings' | 'project'} operation
+ * @param {boolean} settingsCommitted
+ * @returns {Extract<import('../../types/rpc/import-export.js').ProjectImportResult, { success: false, error: 'storage_write_failed' }>}
+ */
+function storageFailure(operation, settingsCommitted) {
+  return {
+    success: false,
+    error: "storage_write_failed",
+    params: { operation },
+    partial: settingsCommitted,
+    committed: {
+      // Imported profiles are now one complete-root owner action. They are
+      // never separately acknowledged as durable stages.
+      profiles: [],
+      settings: settingsCommitted,
+      project: false,
+    },
+  };
+}
+
+/** @param {unknown} result */
+function settingsWereCommitted(result) {
+  if (!isDataRecord(result)) return false;
+  const receipt = Object.getOwnPropertyDescriptor(result, "receipt");
+  if (!receipt || !("value" in receipt) || !isDataRecord(receipt.value)) {
+    return false;
+  }
+  const settings = Object.getOwnPropertyDescriptor(receipt.value, "settings");
+  if (!settings || !("value" in settings) || !isDataRecord(settings.value)) {
+    return false;
+  }
+  const status = Object.getOwnPropertyDescriptor(settings.value, "status");
+  const committed = Object.getOwnPropertyDescriptor(
+    settings.value,
+    "committed",
+  );
+  return Boolean(
+    status &&
+      "value" in status &&
+      (status.value === "committed" || status.value === "complete") &&
+      (!committed || ("value" in committed && committed.value === true)),
+  );
+}
+
+/** @param {unknown} result @param {string} stage */
+function hasOwnerFailureStage(result, stage) {
+  if (!isDataRecord(result)) return false;
+  const descriptor = Object.getOwnPropertyDescriptor(result, "stage");
+  return Boolean(
+    descriptor && "value" in descriptor && descriptor.value === stage,
+  );
+}
+
+/** @param {unknown} result */
+function isDurableOwnerFailure(result) {
+  if (!isDataRecord(result)) return false;
+  const descriptor = Object.getOwnPropertyDescriptor(result, "durable");
+  return Boolean(
+    descriptor && "value" in descriptor && descriptor.value === true,
+  );
+}
+
+/**
+ * Read the private durable-data/pending-activation result produced only by the
+ * owner execution path. This marker never becomes an `import:project-file`
+ * response; ProjectManagement converts it to the frozen restore result arm.
+ * @param {unknown} value
+ */
+export function materializeProjectImportContext(value) {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const context = projectImportContexts.get(/** @type {object} */ (value));
+  return context ? structuredClone(context) : null;
+}
+
+/** @param {unknown} value */
+export function materializePendingProjectActivation(value) {
+  const context = materializeProjectImportContext(value);
+  return context?.activation.data === "pending" ? context : null;
+}
+
+/** @param {unknown} result */
+function ownerFailureStage(result) {
+  if (!isDataRecord(result)) return "project";
+  const stage = Object.getOwnPropertyDescriptor(result, "stage");
+  return stage && "value" in stage && stage.value === "settings"
+    ? "settings"
+    : "project";
+}
+
+/**
+ * Execute a previously validated project through exactly one DataCoordinator
+ * owner action. The owner captures and validates the destination while its
+ * queue is held, invokes the optional Preferences-owned settings stage, then
+ * persists/adopts/publishes one complete root.
+ *
+ * @param {((projectData: import('../../types/data-contracts.js').CanonicalProjectData, options?: {persistImportedSettings?: import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences}) => Promise<unknown> | unknown) | null | undefined} replaceProjectFromImport
+ * @param {unknown} prepared
+ * @param {import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences} [persistImportedSettings]
+ * @returns {Promise<unknown>}
+ */
+export async function importPreparedProject(
+  replaceProjectFromImport,
+  prepared,
+  persistImportedSettings,
+) {
+  if (!isPreparedProjectImport(prepared)) {
+    return {
+      success: false,
+      error: "invalid_project_file",
+      params: { path: "$" },
+    };
+  }
+  if (!replaceProjectFromImport) {
+    return { success: false, error: "storage_not_available" };
+  }
+
+  const candidate =
+    /** @type {{data: import('../../types/data-contracts.js').CanonicalProjectData, importSettings: boolean, importedProfiles: number, currentProfile: string | null}} */ (
+      prepared
+    );
+  if (candidate.importSettings && !persistImportedSettings) {
+    return storageFailure("settings", false);
+  }
+
+  let acknowledgedSettings = false;
+  const persistSettings = persistImportedSettings;
+  const trackSettings = candidate.importSettings
+    ? async (/** @type {unknown} */ settings) => {
+        if (!persistSettings) throw new Error("settings_stage_unavailable");
+        const result = await persistSettings(settings);
+        if (result?.status === "committed") acknowledgedSettings = true;
+        return result;
+      }
+    : undefined;
+
+  /** @type {unknown} */
+  let result;
+  try {
+    result = await replaceProjectFromImport(structuredClone(candidate.data), {
+      ...(trackSettings ? { persistImportedSettings: trackSettings } : {}),
+    });
+  } catch {
+    return storageFailure("project", acknowledgedSettings);
+  }
+
+  acknowledgedSettings ||= settingsWereCommitted(result);
+  if (!isDataRecord(result)) {
+    return storageFailure("project", acknowledgedSettings);
+  }
+  const success = Object.getOwnPropertyDescriptor(result, "success");
+  if (!success || !("value" in success)) {
+    return storageFailure("project", acknowledgedSettings);
+  }
+  if (success.value !== true) {
+    const error = Object.getOwnPropertyDescriptor(result, "error");
+    const params = Object.getOwnPropertyDescriptor(result, "params");
+    if (
+      error &&
+      "value" in error &&
+      error.value === "invalid_project_file" &&
+      params &&
+      "value" in params &&
+      isDataRecord(params.value) &&
+      typeof params.value.path === "string"
+    ) {
+      return {
+        success: false,
+        error: "invalid_project_file",
+        params: { path: params.value.path },
+      };
+    }
+    if (
+      hasOwnerFailureStage(result, "dataActivation") &&
+      isDurableOwnerFailure(result)
+    ) {
+      const activationMaterial = Object.getOwnPropertyDescriptor(
+        result,
+        "activationMaterial",
+      );
+      const project =
+        activationMaterial &&
+        "value" in activationMaterial &&
+        isDataRecord(activationMaterial.value)
+          ? Object.getOwnPropertyDescriptor(activationMaterial.value, "project")
+          : undefined;
+      const projectValue =
+        project && "value" in project && isDataRecord(project.value)
+          ? project.value
+          : null;
+      const acceptedCurrentProfile = projectValue
+        ? Object.getOwnPropertyDescriptor(projectValue, "currentProfile")
+        : undefined;
+      const currentProfile =
+        acceptedCurrentProfile &&
+        "value" in acceptedCurrentProfile &&
+        (acceptedCurrentProfile.value === null ||
+          typeof acceptedCurrentProfile.value === "string")
+          ? acceptedCurrentProfile.value
+          : candidate.currentProfile;
+      const marker = {
+        success: false,
+        error: "project_data_activation_pending",
+        durable: true,
+        currentProfile,
+        imported: {
+          profiles: candidate.importedProfiles,
+          settings: candidate.importSettings,
+        },
+        activation: {
+          data: /** @type {const} */ ("pending"),
+          preferences: candidate.importSettings
+            ? /** @type {const} */ ("pending")
+            : /** @type {const} */ ("not-required"),
+        },
+        publicFailure: storageFailure("project", acknowledgedSettings),
+      };
+      const receipt = Object.getOwnPropertyDescriptor(result, "receipt");
+      projectImportContexts.set(marker, {
+        currentProfile: marker.currentProfile,
+        imported: marker.imported,
+        activation: marker.activation,
+        publicFailure: marker.publicFailure,
+        receipt:
+          receipt && "value" in receipt
+            ? structuredClone(receipt.value)
+            : undefined,
+        activationMaterial:
+          activationMaterial && "value" in activationMaterial
+            ? structuredClone(activationMaterial.value)
+            : undefined,
+      });
+      return marker;
+    }
+    return storageFailure(ownerFailureStage(result), acknowledgedSettings);
+  }
+
+  const acceptedCurrentProfile = Object.getOwnPropertyDescriptor(
+    result,
+    "currentProfile",
+  );
+  if (
+    !acceptedCurrentProfile ||
+    !("value" in acceptedCurrentProfile) ||
+    (acceptedCurrentProfile.value !== null &&
+      typeof acceptedCurrentProfile.value !== "string")
+  ) {
+    return storageFailure("project", acknowledgedSettings);
+  }
+
+  const projected = {
+    success: true,
+    message: "project_imported_successfully",
+    imported: {
+      profiles: candidate.importedProfiles,
+      settings: candidate.importSettings,
+    },
+    currentProfile: acceptedCurrentProfile.value,
+  };
+  const receipt = Object.getOwnPropertyDescriptor(result, "receipt");
+  const activationMaterial = Object.getOwnPropertyDescriptor(
+    result,
+    "activationMaterial",
+  );
+  projectImportContexts.set(projected, {
+    currentProfile: projected.currentProfile,
+    imported: projected.imported,
+    activation: {
+      data: /** @type {const} */ ("complete"),
+      preferences: candidate.importSettings
+        ? /** @type {const} */ ("pending")
+        : /** @type {const} */ ("not-required"),
+    },
+    receipt:
+      receipt && "value" in receipt
+        ? structuredClone(receipt.value)
+        : undefined,
+    activationMaterial:
+      activationMaterial && "value" in activationMaterial
+        ? structuredClone(activationMaterial.value)
+        : undefined,
+  });
+  return projected;
+}
+
+/**
+ * Public imports acquire their own Preferences transition only when portable
+ * settings are selected. Restore calls `importPreparedProject` from inside its
+ * already-held transition.
  * @param {import("./ImportService.js").default} service
  * @param {unknown} content
  * @param {unknown} options
@@ -228,20 +386,25 @@ export async function importProjectWithPreferencesTransition(
   content,
   options,
 ) {
-  if (!service.storage)
-    return { success: false, error: "storage_not_available" };
-  const importedOptions = materializeImportOptions(options);
-  if (!importedOptions.success) return importedOptions;
-  const detachedOptions = importedOptions.value;
-  const decoded = decodeProjectJson(content);
-  if (
-    !service.runPreferencesTransition ||
-    !decoded.success ||
-    !decoded.value.data.settings ||
-    detachedOptions.importSettings === false
-  ) {
-    return importProjectToStorage(service.storage, content, detachedOptions);
+  const prepared = prepareProjectImport(content, options);
+  if (!prepared.success) return prepared;
+
+  if (!prepared.importSettings) {
+    const result = await importPreparedProject(
+      service.replaceProjectFromImport,
+      prepared,
+    );
+    const pendingActivation = materializePendingProjectActivation(result);
+    return pendingActivation
+      ? pendingActivation.publicFailure
+      : /** @type {import('../../types/rpc/import-export.js').ProjectImportResult} */ (
+          result
+        );
   }
+  if (!service.runPreferencesTransition) {
+    return storageFailure("settings", false);
+  }
+
   /** @type {Extract<import('../../types/rpc/import-export.js').ProjectImportResult, { success: true }> | undefined} */
   let persisted;
   /** @type {import('../../types/rpc/import-export.js').ProjectImportResult | undefined} */
@@ -257,13 +420,8 @@ export async function importProjectWithPreferencesTransition(
           currentProfile: persisted.currentProfile,
           params: { reason },
         }
-      : {
-          success: false,
-          error: "storage_write_failed",
-          params: { operation: "settings" },
-          partial: false,
-          committed: { profiles: [], settings: false, project: false },
-        };
+      : storageFailure("settings", false);
+
   try {
     return await service.runPreferencesTransition(
       "project-restore",
@@ -274,13 +432,20 @@ export async function importProjectWithPreferencesTransition(
       ) => {
         assertActive?.();
         const result = await service.importProjectWithinPreferencesTransition(
-          content,
-          detachedOptions,
+          prepared,
           persistImportedSettings,
         );
-        importOutcome = result;
-        if (!result.success || !result.imported.settings) return result;
-        persisted = result;
+        const pendingActivation = materializePendingProjectActivation(result);
+        if (pendingActivation) return pendingActivation.publicFailure;
+        const publicResult =
+          /** @type {import('../../types/rpc/import-export.js').ProjectImportResult} */ (
+            result
+          );
+        importOutcome = publicResult;
+        if (!publicResult.success || !publicResult.imported.settings) {
+          return publicResult;
+        }
+        persisted = publicResult;
         assertActive?.();
         const activation = classifyPreferencesActivationResult(
           await activatePersistedSettings(),
@@ -292,7 +457,7 @@ export async function importProjectWithPreferencesTransition(
               : "invalid_preferences_activation_result",
           );
         }
-        return result;
+        return publicResult;
       },
     );
   } catch (error) {

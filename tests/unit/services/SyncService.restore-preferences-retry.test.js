@@ -7,17 +7,10 @@ const PROJECT_FILE = {
   content: '{"type":"project"}',
   fileName: "project.json",
 };
-const RELOAD_SUCCESS = {
+const RESTORE_SUCCESS = {
   success: true,
-  profiles: 1,
   currentProfile: "alpha",
-  environment: "space",
-};
-const PREFERENCES_SUCCESS = {
-  success: true,
-  changed: true,
-  revision: 3,
-  effects: "applied",
+  imported: { profiles: 1, settings: true },
 };
 const PREFERENCES_PENDING_RECEIPT = {
   success: false,
@@ -66,34 +59,17 @@ describe("SyncService restore Preferences retry", () => {
     const request = vi
       .fn()
       .mockResolvedValueOnce(PREFERENCES_PENDING_RECEIPT)
-      .mockResolvedValueOnce(PREFERENCES_SUCCESS);
+      .mockResolvedValueOnce(RESTORE_SUCCESS);
     service.invokeRequest = request;
-    let receiptAtSuccess;
-    service.ui.showToast.mockImplementation((message) => {
-      if (message === "project_imported_from_sync_folder") {
-        receiptAtSuccess = structuredClone(
-          service.pendingRestoreActivationReceipt,
-        );
-      }
-    });
 
     await service.applyPendingSyncDecision();
-    service.deferredImportContent = null;
+    expect(service.deferredImportContent).toBeNull();
     await service.applyPendingSyncDecision();
 
     expect(request.mock.calls).toEqual([
       ["project:restore-from-content", PROJECT_FILE, 0],
-      [
-        "preferences:activate-persisted-settings",
-        { source: "project-restore" },
-        0,
-      ],
+      ["project:retry-restore-activation", undefined, 0],
     ]);
-    expect(receiptAtSuccess).toEqual({
-      currentProfile: "alpha",
-      imported: { profiles: 1, settings: true },
-      activation: { data: "complete", preferences: "complete" },
-    });
     expect(service.pendingRestoreActivationReceipt).toBeNull();
     expect(service.pendingSyncAction).toBeNull();
   });
@@ -104,18 +80,20 @@ describe("SyncService restore Preferences retry", () => {
       params: { reason: "data activation unavailable" },
       activation: { data: "pending", preferences: "pending" },
     };
-    const preferencesFailure = {
+    const preferencesPending = {
       success: false,
-      error: "preferences_activation_failed",
+      error: "project_restore_reload_failed",
       params: { reason: "settings activation unavailable" },
-      retryable: true,
+      durable: true,
+      currentProfile: "alpha",
+      imported: { profiles: 1, settings: true },
+      activation: { data: "complete", preferences: "pending" },
     };
     const request = vi
       .fn()
       .mockResolvedValueOnce(bothPending)
-      .mockResolvedValueOnce(RELOAD_SUCCESS)
-      .mockResolvedValueOnce(preferencesFailure)
-      .mockResolvedValueOnce(PREFERENCES_SUCCESS);
+      .mockResolvedValueOnce(preferencesPending)
+      .mockResolvedValueOnce(RESTORE_SUCCESS);
     service.invokeRequest = request;
 
     await service.applyPendingSyncDecision();
@@ -131,9 +109,8 @@ describe("SyncService restore Preferences retry", () => {
 
     expect(request.mock.calls.map(([topic]) => topic)).toEqual([
       "project:restore-from-content",
-      "data:reload-state",
-      "preferences:activate-persisted-settings",
-      "preferences:activate-persisted-settings",
+      "project:retry-restore-activation",
+      "project:retry-restore-activation",
     ]);
     expect(service.pendingSyncAction).toBeNull();
   });
@@ -169,7 +146,7 @@ describe("SyncService restore Preferences retry", () => {
       expect(service.pendingSyncAction).toBe("import");
       expect(request.mock.calls.map(([topic]) => topic)).toEqual([
         "project:restore-from-content",
-        "preferences:activate-persisted-settings",
+        "project:retry-restore-activation",
       ]);
     },
   );

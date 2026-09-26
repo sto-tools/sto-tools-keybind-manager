@@ -4,29 +4,17 @@ import {
   isDataRecord,
   MAX_PROJECT_JSON_BYTES,
 } from "./jsonDataBoundary.js";
+import { classifyProjectRestoreResult } from "./projectRestoreResult.js";
+import { prepareProjectImport } from "./projectImportOrchestrator.js";
 import {
-  classifyDataReloadResult,
-  classifyProjectRestoreResult,
-  isProjectImportFailure,
-  materializeProjectImportSuccess,
-} from "./projectRestoreResult.js";
-import { classifyPreferencesActivationResult } from "./preferencesActivationResult.js";
+  materializeProjectRestoreOutcome,
+  resumeProjectRestoreActivation,
+} from "./projectRestoreActivation.js";
+import { materializeMutationRequest } from "./mutationRequestBoundary.js";
 
 /** @param {unknown} error */
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
-}
-
-/**
- * Lifecycle cancellation is a stable internal code, not user-facing copy.
- * Other reasons are diagnostic text supplied by the failing boundary.
- * @param {import('./serviceTypes.js').I18n | null} i18n
- * @param {string} reason
- */
-function getRestoreReloadFailureReason(i18n, reason) {
-  return reason === "operation_cancelled"
-    ? (i18n?.t("failed_to_load_profile_data") ?? "failed_to_load_profile_data")
-    : reason;
 }
 
 /** @param {import('./serviceTypes.js').I18n | null} i18n */
@@ -34,20 +22,6 @@ function getMalformedRestoreReason(i18n) {
   const error =
     i18n?.t("failed_to_load_profile_data") ?? "failed_to_load_profile_data";
   return i18n?.t("import_failed", { error }) ?? "import_failed";
-}
-
-/**
- * Keep lifecycle cancellation internal while preserving the Preferences
- * owner's diagnostic reason for every other acknowledged failure.
- * @param {import('./serviceTypes.js').I18n | null} i18n
- * @param {ReturnType<typeof classifyPreferencesActivationResult>} result
- */
-function getPreferencesActivationFailureReason(i18n, result) {
-  if (result.kind !== "failure") return getMalformedRestoreReason(i18n);
-  return result.result.error === "operation_cancelled" ||
-    result.result.params.reason === "operation_cancelled"
-    ? (i18n?.t("failed_to_load_profile_data") ?? "failed_to_load_profile_data")
-    : result.result.params.reason;
 }
 
 /**
@@ -114,7 +88,7 @@ function decodeRestoreRequest(payload) {
  * for mix-in compatibility while the codebase migrates to service instances.
  */
 export default class ProjectManagementService extends ComponentBase {
-  /** @param {{ currentArtifactSerializer?: import('../../types/storage-contracts.js').CurrentProjectArtifactSerializerPort | null, ui?: import('./serviceTypes.js').ToastUI | null, eventBus?: import('./serviceTypes.js').EventBus | null, i18n?: import('./serviceTypes.js').I18n | null, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null, importProjectWithinPreferencesTransition?: import('./ImportService.js').default['importProjectWithinPreferencesTransition'] | null }} [options] */
+  /** @param {{ currentArtifactSerializer?: import('../../types/storage-contracts.js').CurrentProjectArtifactSerializerPort | null, ui?: import('./serviceTypes.js').ToastUI | null, eventBus?: import('./serviceTypes.js').EventBus | null, i18n?: import('./serviceTypes.js').I18n | null, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null, importProjectWithinPreferencesTransition?: import('./ImportService.js').default['importProjectWithinPreferencesTransition'] | null, activateProjectFromImport?: import('../../types/storage-contracts.js').ImportedProjectActivationAction | null, activateImportedSettings?: import('./PreferencesService.js').default['activateImportedSettings'] | null }} [options] */
   constructor({
     currentArtifactSerializer = null,
     ui = null,
@@ -122,6 +96,8 @@ export default class ProjectManagementService extends ComponentBase {
     i18n = null,
     runPreferencesTransition = null,
     importProjectWithinPreferencesTransition = null,
+    activateProjectFromImport = null,
+    activateImportedSettings = null,
   } = {}) {
     super(eventBus);
     this.componentName = "ProjectManagementService";
@@ -132,6 +108,15 @@ export default class ProjectManagementService extends ComponentBase {
     this.runPreferencesTransition = runPreferencesTransition;
     this.importProjectWithinPreferencesTransition =
       importProjectWithinPreferencesTransition;
+    this.activateProjectFromImport = activateProjectFromImport;
+    this.activateImportedSettings = activateImportedSettings;
+    /** @type {ReturnType<import('./projectImportOrchestrator.js').materializeProjectImportContext>} */
+    this._pendingRestoreActivation = null;
+    /** @type {Promise<import('../../types/rpc/application.js').ProjectRestoreResult> | null} */
+    this._restoreActivationRetry = null;
+    /** @type {Promise<import('../../types/rpc/application.js').ProjectRestoreResult> | null} */
+    this._restoreInFlight = null;
+    this._restoreWorkflowGeneration = 0;
     this._restoreLifecycleGeneration = 0;
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
@@ -172,6 +157,19 @@ export default class ProjectManagementService extends ComponentBase {
           },
         );
         return await this.restoreFromProjectContent(content, fileName);
+      }),
+      this.respond("project:retry-restore-activation", (payload = {}) => {
+        try {
+          materializeMutationRequest(payload, []);
+        } catch {
+          return {
+            success: false,
+            error: "project_restore_import_failed",
+            params: { reason: "invalid_mutation_request" },
+            durable: false,
+          };
+        }
+        return this.retryRestoreActivation();
       }),
     );
   }
@@ -338,59 +336,109 @@ export default class ProjectManagementService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'project:restore-from-content'>>}
    */
   async restoreFromProjectContent(text, fileName = "project.json") {
+    if (this._restoreActivationRetry) {
+      return {
+        success: false,
+        error: "project_restore_import_failed",
+        params: { reason: "project_restore_activation_in_progress" },
+        durable: false,
+      };
+    }
+    const generation = ++this._restoreWorkflowGeneration;
+    const restore = this._runRestoreFromProjectContent(
+      text,
+      fileName,
+      generation,
+    );
+    this._restoreInFlight = restore;
+    try {
+      return await restore;
+    } finally {
+      if (this._restoreInFlight === restore) this._restoreInFlight = null;
+    }
+  }
+
+  /**
+   * @param {unknown} text
+   * @param {string} fileName
+   * @param {number} workflowGeneration
+   * @returns {Promise<import('../../types/rpc/application.js').ProjectRestoreResult>}
+   */
+  async _runRestoreFromProjectContent(text, fileName, workflowGeneration) {
     console.log("[ProjectManagementService] restoreFromProjectContent: begin", {
       fileName,
       size: typeof text === "string" ? text.length : undefined,
     });
 
-    if (typeof text !== "string") {
-      return {
-        success: false,
-        error: "invalid_project_file",
-        params: { path: "$" },
-      };
-    }
-
-    if (!this.runPreferencesTransition) {
-      return {
-        success: false,
-        error: "project_restore_import_failed",
-        params: { reason: "preferences_transition_unavailable" },
-        durable: false,
-      };
+    const prepared = prepareProjectImport(text, {});
+    if (!prepared.success) return prepared;
+    if (workflowGeneration === this._restoreWorkflowGeneration) {
+      this._pendingRestoreActivation = null;
     }
 
     let importDispatched = false;
     const lifecycleGeneration = this._restoreLifecycleGeneration;
+    /**
+     * @param {() => Promise<import('../../types/rpc/parameters-preferences.js').PreferencesActivationResult>} activatePersistedSettings
+     * @param {(() => void) | undefined} assertPreferencesTransition
+     * @param {import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences | undefined} persistImportedSettings
+     */
+    const runPreparedRestore = (
+      activatePersistedSettings,
+      assertPreferencesTransition,
+      persistImportedSettings,
+    ) => {
+      const assertRestoreActive = () => {
+        assertPreferencesTransition?.();
+        if (
+          lifecycleGeneration !== this._restoreLifecycleGeneration ||
+          !this.initialized ||
+          this.destroyed
+        ) {
+          throw new Error("operation_cancelled");
+        }
+      };
+      return this._restoreWithinPreferencesTransition(
+        prepared,
+        activatePersistedSettings,
+        assertRestoreActive,
+        () => {
+          importDispatched = true;
+        },
+        persistImportedSettings,
+        workflowGeneration,
+      );
+    };
     try {
+      if (!prepared.importSettings) {
+        return await runPreparedRestore(
+          async () => {
+            throw new Error("preferences_activation_not_required");
+          },
+          undefined,
+          undefined,
+        );
+      }
+      if (!this.runPreferencesTransition) {
+        return {
+          success: false,
+          error: "project_restore_import_failed",
+          params: { reason: "preferences_transition_unavailable" },
+          durable: false,
+        };
+      }
       return await this.runPreferencesTransition(
         "project-restore",
         (
           activatePersistedSettings,
           assertPreferencesTransition,
           persistImportedSettings,
-        ) => {
-          const assertRestoreActive = () => {
-            assertPreferencesTransition?.();
-            if (
-              lifecycleGeneration !== this._restoreLifecycleGeneration ||
-              !this.initialized ||
-              this.destroyed
-            ) {
-              throw new Error("operation_cancelled");
-            }
-          };
-          return this._restoreWithinPreferencesTransition(
-            text,
-            fileName,
+        ) =>
+          runPreparedRestore(
             activatePersistedSettings,
-            assertRestoreActive,
-            () => {
-              importDispatched = true;
-            },
+            assertPreferencesTransition,
             persistImportedSettings,
-          );
-        },
+          ),
       );
     } catch (error) {
       return {
@@ -404,27 +452,27 @@ export default class ProjectManagementService extends ComponentBase {
 
   /**
    * The Preferences owner invokes this while holding its mutation queue. This
-   * keeps the sequential import writes, Data reload, and optional settings
-   * activation ordered without changing the established partial-write receipt.
+   * keeps the single complete-root Data action and optional settings activation
+   * ordered without changing the established external result union.
    *
-   * @param {string} text
-   * @param {string} fileName
+   * @param {unknown} prepared
    * @param {() => Promise<import('../../types/rpc/parameters-preferences.js').PreferencesActivationResult>} activatePersistedSettings
    * @param {() => void} assertRestoreActive
    * @param {() => void} markImportDispatched
-   * @param {import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences} persistImportedSettings
+   * @param {import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences | undefined} persistImportedSettings
+   * @param {number} workflowGeneration
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'project:restore-from-content'>>}
    */
   async _restoreWithinPreferencesTransition(
-    text,
-    fileName,
+    prepared,
     activatePersistedSettings,
     assertRestoreActive,
     markImportDispatched,
     persistImportedSettings,
+    workflowGeneration,
   ) {
     assertRestoreActive();
-    // ImportService owns parsing, validation, and durable storage writes.
+    // ImportService owns parsing/validation and dispatches the owner transition.
     if (!this.importProjectWithinPreferencesTransition) {
       return {
         success: false,
@@ -437,8 +485,7 @@ export default class ProjectManagementService extends ComponentBase {
     try {
       markImportDispatched();
       result = await this.importProjectWithinPreferencesTransition(
-        text,
-        {},
+        prepared,
         persistImportedSettings,
       );
     } catch (error) {
@@ -449,111 +496,72 @@ export default class ProjectManagementService extends ComponentBase {
         durable: "indeterminate",
       };
     }
-    if (isProjectImportFailure(result)) {
-      console.log("[ProjectManagementService] import result: failure");
-      return result;
+    const outcome = await materializeProjectRestoreOutcome({
+      ownerResult: result,
+      activatePersistedSettings,
+      assertActive: assertRestoreActive,
+      i18n: this.i18n,
+    });
+    if (workflowGeneration === this._restoreWorkflowGeneration) {
+      this._pendingRestoreActivation = outcome.pending;
     }
-    const importSuccess = materializeProjectImportSuccess(result);
-    if (!importSuccess) {
-      // A malformed reply proves that a responder ran but cannot acknowledge
-      // how far it progressed. Never replay the artifact from this state.
-      const durability = "indeterminate";
-      console.log("[ProjectManagementService] import result: malformed", {
-        durability,
+    return outcome.result;
+  }
+
+  /**
+   * Resume only owner activation from the retained acknowledged material. This
+   * path receives no artifact and performs no import or durable write.
+   * @returns {Promise<import('../../types/rpc/application.js').ProjectRestoreResult>}
+   */
+  retryRestoreActivation() {
+    if (this._restoreActivationRetry) return this._restoreActivationRetry;
+    if (this._restoreInFlight) {
+      return Promise.resolve({
+        success: false,
+        error: "project_restore_import_failed",
+        params: { reason: "project_restore_in_progress" },
+        durable: false,
       });
+    }
+    const retry = this._retryRestoreActivation();
+    this._restoreActivationRetry = retry;
+    void retry.then(
+      () => {
+        if (this._restoreActivationRetry === retry) {
+          this._restoreActivationRetry = null;
+        }
+      },
+      () => {
+        if (this._restoreActivationRetry === retry) {
+          this._restoreActivationRetry = null;
+        }
+      },
+    );
+    return retry;
+  }
+
+  /** @returns {Promise<import('../../types/rpc/application.js').ProjectRestoreResult>} */
+  async _retryRestoreActivation() {
+    const retained = this._pendingRestoreActivation;
+    if (!retained) {
       return {
         success: false,
         error: "project_restore_import_failed",
-        params: {
-          reason: getMalformedRestoreReason(this.i18n),
-        },
-        durable: durability,
+        params: { reason: "project_restore_activation_unavailable" },
+        durable: false,
       };
     }
-    console.log("[ProjectManagementService] import result: success");
-    assertRestoreActive();
 
-    /**
-     * @param {string} reason
-     * @param {Extract<import('../../types/rpc/application.js').ProjectRestoreResult, { error: 'project_restore_reload_failed' }>['activation']} activation
-     * @returns {Extract<import('../../types/rpc/application.js').ProjectRestoreResult, { error: 'project_restore_reload_failed' }>}
-     */
-    const reloadFailure = (reason, activation) => ({
-      success: false,
-      error: "project_restore_reload_failed",
-      params: { reason },
-      durable: true,
-      currentProfile: importSuccess.currentProfile,
-      imported: importSuccess.imported,
-      activation,
+    const outcome = await resumeProjectRestoreActivation({
+      retained,
+      activateProjectFromImport: this.activateProjectFromImport,
+      activateImportedSettings: this.activateImportedSettings,
+      i18n: this.i18n,
     });
-
-    const pendingActivation = {
-      data: /** @type {const} */ ("pending"),
-      preferences: importSuccess.imported.settings
-        ? /** @type {const} */ ("pending")
-        : /** @type {const} */ ("not-required"),
-    };
-
-    try {
-      const reload = await this.request("data:reload-state", undefined, 0);
-      console.log("[ProjectManagementService] data:reload-state done", reload);
-      const reloadResult = classifyDataReloadResult(reload);
-      if (reloadResult.kind === "failure") {
-        return reloadFailure(
-          getRestoreReloadFailureReason(this.i18n, reloadResult.error),
-          pendingActivation,
-        );
-      }
-      if (reloadResult.kind === "malformed") {
-        return reloadFailure(
-          this.i18n?.t("failed_to_load_profile_data") ??
-            "failed_to_load_profile_data",
-          pendingActivation,
-        );
-      }
-      assertRestoreActive();
-    } catch (error) {
-      return reloadFailure(
-        getRestoreReloadFailureReason(this.i18n, getErrorMessage(error)),
-        pendingActivation,
-      );
+    if (this._pendingRestoreActivation === retained) {
+      this._pendingRestoreActivation = outcome.retained;
     }
-
-    if (importSuccess.imported.settings) {
-      const preferencesPendingActivation = {
-        data: /** @type {const} */ ("complete"),
-        preferences: /** @type {const} */ ("pending"),
-      };
-      try {
-        assertRestoreActive();
-        const activation = await activatePersistedSettings();
-        const activationResult =
-          classifyPreferencesActivationResult(activation);
-        if (activationResult.kind !== "success") {
-          return reloadFailure(
-            getPreferencesActivationFailureReason(this.i18n, activationResult),
-            preferencesPendingActivation,
-          );
-        }
-        assertRestoreActive();
-      } catch (error) {
-        return reloadFailure(
-          getRestoreReloadFailureReason(this.i18n, getErrorMessage(error)),
-          preferencesPendingActivation,
-        );
-      }
-    }
-
-    console.log(
-      "[ProjectManagementService] restoreFromProjectContent: success",
-    );
-
-    return {
-      success: true,
-      currentProfile: importSuccess.currentProfile,
-      imported: importSuccess.imported,
-    };
+    return outcome.result;
   }
 
   // High-level helpers (trimmed to backup/restore only)
@@ -562,6 +570,7 @@ export default class ProjectManagementService extends ComponentBase {
 
   onDestroy() {
     this._restoreLifecycleGeneration += 1;
+    this._pendingRestoreActivation = null;
     this._responseDetachFunctions.splice(0).forEach((detach) => detach());
   }
 }

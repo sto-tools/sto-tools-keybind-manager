@@ -26,9 +26,13 @@ import {
   executeProfileRename,
   executeProfileDelete,
 } from "./dataCoordinatorProfileActions.js";
-import { planProfileNormalizations } from "./profileNormalizationPlan.js";
+import { normalizeCoordinatorProfiles } from "./dataCoordinatorProfileNormalization.js";
 import { applyProfileOperations } from "./profileOperations.js";
 import { profileStateChange } from "./dataStateChange.js";
+import {
+  activateImportedProject,
+  replaceProjectFromImport as replaceImportedProject,
+} from "./dataCoordinatorProjectImport.js";
 import {
   materializeMutationRequest,
   requireMutationString,
@@ -312,6 +316,16 @@ export default class DataCoordinator extends ComponentBase {
    */
   _publishState(reason, details = {}) {
     return publishDataCoordinatorState(this, reason, details).state;
+  }
+
+  /** @param {unknown} projectData @param {import('../../types/storage-contracts.js').ImportedProjectOwnerActionOptions} [options] @returns {Promise<import('../../types/storage-contracts.js').ImportedProjectOwnerResult>} */
+  replaceProjectFromImport(projectData, options) {
+    return replaceImportedProject(this, projectData, options);
+  }
+
+  /** @param {unknown} project @param {{fingerprint: string}} options @returns {Promise<import('../../types/storage-contracts.js').ImportedProjectActivationResult>} */
+  activateProjectFromImport(project, options) {
+    return activateImportedProject(this, project, options);
   }
 
   /**
@@ -962,48 +976,7 @@ export default class DataCoordinator extends ComponentBase {
    * @returns {Promise<number>}
    */
   async _normalizeAllProfiles(profiles, { rootData } = {}) {
-    const operation = this._captureOperationGeneration();
-    const label = `[${this.componentName}]`;
-    const { profilesNormalized, normalizedProfiles } =
-      planProfileNormalizations(profiles, {
-        normalizeProfile,
-        onProfileStart: (profileId) =>
-          console.log(`${label} Migrating profile: ${profileId}`),
-        onProfileComplete: (report) =>
-          console.log(
-            `${label} Profile ${report.profileId} migrated from ${report.originalVersion} to ${report.normalizedVersion}`,
-          ),
-      });
-    if (profilesNormalized === 0) return 0;
-
-    // Persist every normalization as one root replacement. Only adopt the
-    // normalized drafts after that durable write succeeds.
-    const nextRoot = structuredClone(rootData ?? this.storage.getAllData());
-    nextRoot.profiles = structuredClone({
-      ...profiles,
-      ...normalizedProfiles,
-    });
-
-    try {
-      validatePlannedProjectRoot(nextRoot, { version: this.storage.version });
-      await persist.all(this.storage, nextRoot, this.i18n, {
-        // StorageService or the import path already captured the exact source
-        // root. Keep that evidence through the follow-up normalization write.
-        preserveBackup: true,
-      });
-    } catch (error) {
-      const message = this.i18n.t("failed_to_save_profile", {
-        error: errMsg(error),
-      });
-      throw new Error(message);
-    }
-    this._assertCurrentOperation(operation);
-
-    Object.assign(profiles, normalizedProfiles);
-    console.log(
-      `[${this.componentName}] Migrated ${profilesNormalized} profiles`,
-    );
-    return profilesNormalized;
+    return normalizeCoordinatorProfiles(this, profiles, { rootData });
   }
 
   // Reload state from storage (used after data import/restore)

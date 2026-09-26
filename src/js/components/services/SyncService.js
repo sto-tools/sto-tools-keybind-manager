@@ -51,6 +51,47 @@ function decodeFolderSelectionRequest(payload) {
   }
 }
 
+/**
+ * Materialize the optional sync trigger before the workflow reads the saved
+ * filesystem capability. Accessor-backed, inherited, and extra fields are
+ * rejected without invoking user-controlled property code.
+ *
+ * @param {unknown} payload
+ * @returns {{ success: true, source: string } | { success: false }}
+ */
+function decodeSyncProjectRequest(payload) {
+  if (payload === undefined) return { success: true, source: "auto" };
+
+  try {
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      Array.isArray(payload)
+    ) {
+      return { success: false };
+    }
+    const prototype = Object.getPrototypeOf(payload);
+    if (prototype !== Object.prototype && prototype !== null) {
+      return { success: false };
+    }
+    const keys = Reflect.ownKeys(payload);
+    if (keys.length === 0) return { success: true, source: "auto" };
+    if (keys.length !== 1 || keys[0] !== "source") return { success: false };
+    const descriptor = Object.getOwnPropertyDescriptor(payload, "source");
+    if (
+      !descriptor ||
+      descriptor.enumerable !== true ||
+      !Object.prototype.hasOwnProperty.call(descriptor, "value") ||
+      (descriptor.value !== undefined && typeof descriptor.value !== "string")
+    ) {
+      return { success: false };
+    }
+    return { success: true, source: descriptor.value ?? "auto" };
+  } catch {
+    return { success: false };
+  }
+}
+
 export default class SyncService extends ComponentBase {
   /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, ui?: import('./serviceTypes.js').ToastUI, fs?: import('./serviceTypes.js').FileSystem, i18n?: import('./serviceTypes.js').I18n, directoryPicker?: import('./serviceTypes.js').DirectoryPicker | null }} [options] */
   constructor({ eventBus, ui, fs, i18n, directoryPicker = null } = {}) {
@@ -105,11 +146,13 @@ export default class SyncService extends ComponentBase {
     if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
 
     this._responseDetachFunctions.push(
-      this.respond(
-        "sync:sync-project",
-        ({ source } = /** @type {{ source?: string }} */ ({})) =>
-          this.syncProject(source),
-      ),
+      this.respond("sync:sync-project", (payload) => {
+        const request = decodeSyncProjectRequest(payload);
+        if (!request.success) {
+          throw new TypeError("invalid_sync_project_request");
+        }
+        return this.syncProject(request.source);
+      }),
       this.respond("sync:select-folder", (payload) =>
         this.selectFolderFromAction(payload),
       ),
@@ -402,11 +445,14 @@ export default class SyncService extends ComponentBase {
     try {
       // Proceed with sync without interactive prompts
       // Use request/response system instead of global window.stoExport
-      await this.invokeRequest(
+      const result = await this.invokeRequest(
         "export:sync-to-folder",
         { dirHandle: handle },
         0,
       );
+      if (result !== undefined) {
+        throw new TypeError("invalid_sync_export_response");
+      }
       console.log("[SyncService] export:sync-to-folder completed");
 
       // Determine when to show success toast:

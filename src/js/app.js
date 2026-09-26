@@ -61,6 +61,9 @@ export default class STOToolsKeybindManager {
    *   i18n?: any,
    *   storageService?: any,
    *   preferencesService?: import('./components/services/PreferencesService.js').default,
+   *   importedProjectOwnerAction?: import('./types/storage-contracts.js').ImportedProjectOwnerAction,
+   *   importedProjectActivationAction?: import('./types/storage-contracts.js').ImportedProjectActivationAction,
+   *   importedSettingsActivationAction?: import('./components/services/PreferencesService.js').default['activateImportedSettings'],
    *   currentArtifactSerializer?: import('./types/storage-contracts.js').CurrentProjectArtifactSerializerPort,
    *   ui?: any,
    *   syncService?: any,
@@ -71,6 +74,9 @@ export default class STOToolsKeybindManager {
     i18n,
     storageService,
     preferencesService,
+    importedProjectOwnerAction,
+    importedProjectActivationAction,
+    importedSettingsActivationAction,
     currentArtifactSerializer,
     ui,
     syncService,
@@ -79,6 +85,9 @@ export default class STOToolsKeybindManager {
     this.i18n = i18n;
     this.storageService = storageService;
     this.preferencesService = preferencesService;
+    this.importedProjectOwnerAction = importedProjectOwnerAction;
+    this.importedProjectActivationAction = importedProjectActivationAction;
+    this.importedSettingsActivationAction = importedSettingsActivationAction;
     this.currentArtifactSerializer = currentArtifactSerializer;
     this.ui = ui;
     this.syncService = syncService;
@@ -279,11 +288,11 @@ export default class STOToolsKeybindManager {
       this.keyService.init();
 
       this.importService = create(ImportService, {
-        storage: storageService,
         eventBus,
         i18n: this.i18n,
         ui: stoUI,
         runPreferencesTransition,
+        replaceProjectFromImport: this.importedProjectOwnerAction,
       });
 
       this.importService.init();
@@ -294,6 +303,8 @@ export default class STOToolsKeybindManager {
         eventBus,
         i18n: this.i18n,
         runPreferencesTransition,
+        activateProjectFromImport: this.importedProjectActivationAction,
+        activateImportedSettings: this.importedSettingsActivationAction,
         importProjectWithinPreferencesTransition:
           this.importService.importProjectWithinPreferencesTransition.bind(
             this.importService,

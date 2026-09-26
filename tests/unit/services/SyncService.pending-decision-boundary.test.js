@@ -118,6 +118,56 @@ describe("SyncService pending decision boundary", () => {
     expect(service.awaitingSyncDecisionApply).toBe(false);
   });
 
+  it.each([
+    ["null", null],
+    ["extra field", { source: "manual", extra: true }],
+    ["inherited field", Object.create({ source: "manual" })],
+  ])(
+    "rejects a %s sync action before reading the capability owner",
+    async (_label, payload) => {
+      await expect(
+        service.request("sync:sync-project", payload, 0),
+      ).rejects.toThrow("invalid_sync_project_request");
+
+      expect(fs.getSyncDirectoryState).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects an accessor-backed sync action without invoking the accessor", async () => {
+    const readSource = vi.fn(() => "manual");
+    const payload = Object.defineProperty({}, "source", {
+      enumerable: true,
+      get: readSource,
+    });
+
+    await expect(
+      service.request("sync:sync-project", payload, 0),
+    ).rejects.toThrow("invalid_sync_project_request");
+
+    expect(readSource).not.toHaveBeenCalled();
+    expect(fs.getSyncDirectoryState).not.toHaveBeenCalled();
+  });
+
+  it("does not claim overwrite success for a malformed export reply", async () => {
+    const handle = createSelectedHandle();
+    durableHandle = handle;
+    service.stagePendingSyncDecision("overwrite", null);
+    service.invokeRequest = vi.fn().mockResolvedValue({ success: true });
+
+    await service.applyPendingSyncDecision();
+
+    expect(service.invokeRequest).toHaveBeenCalledWith(
+      "export:sync-to-folder",
+      { dirHandle: handle },
+      0,
+    );
+    expect(ui.showToast).toHaveBeenCalledWith(
+      "failed_to_sync_project:invalid_sync_export_response",
+      "error",
+    );
+    expect(service.pendingSyncAction).toBeNull();
+  });
+
   it("does not let an old saved handler consume a newer decision", async () => {
     const oldHandle = createSelectedHandle();
     const newHandle = createSelectedHandle();

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import en from "../../../src/i18n/en.json";
 import { createImportPreferencesOwner } from "../../fixtures/services/projectRestore.js";
+import { createProjectImportOwnerAction } from "../../fixtures/services/importProjectOwner.js";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createImportServiceFixture } from "../../fixtures/index.js";
@@ -13,11 +14,12 @@ describe("ImportService project import", () => {
   beforeEach(async () => {
     fixture = createImportServiceFixture();
     preferences = await createImportPreferencesOwner(fixture);
+    const replaceProjectFromImport = createProjectImportOwnerAction(fixture);
     service = new ImportService({
       runPreferencesTransition: (source, operation) =>
         preferences.runExternalActivationTransition(source, operation),
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
+      replaceProjectFromImport,
     });
     service.init();
 

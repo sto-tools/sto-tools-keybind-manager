@@ -1,4 +1,4 @@
-import type { OptionalRpc, RequiredRpc } from "./base.js";
+import type { NoPayloadRpc, OptionalRpc, RequiredRpc } from "./base.js";
 import type { ProjectImportResult } from "./import-export.js";
 
 export type { EditingContext } from "../events/base.js";
@@ -60,6 +60,7 @@ export type ProjectRestoreResult =
     };
 
 export interface ApplicationRpcProtocol {
+  "project:retry-restore-activation": NoPayloadRpc<ProjectRestoreResult>;
   "project:restore-from-content": RequiredRpc<
     { content: string; fileName?: string },
     ProjectRestoreResult

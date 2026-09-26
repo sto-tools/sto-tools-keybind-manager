@@ -62,9 +62,7 @@ vi.mock("../../src/js/core/eventBus.js", () => ({
 }));
 
 vi.mock("../../src/js/data.js", () => ({
-  localizeCommands: () => {
-    bootstrap.operations.push("data:localize");
-  },
+  localizeCommands: () => bootstrap.operations.push("data:localize"),
   stoData: { commands: {}, settings: { version: "test-version" } },
 }));
 
@@ -129,6 +127,10 @@ vi.mock("../../src/js/components/services/index.js", () => {
       bootstrap.dataRpcTopics.add("rpc:data:create-profile");
     }
 
+    replaceProjectFromImport() {}
+
+    activateProjectFromImport() {}
+
     destroy() {
       bootstrap.operations.push("coordinator:destroy");
       bootstrap.dataRpcTopics.clear();
@@ -176,6 +178,8 @@ vi.mock("../../src/js/components/services/PreferencesService.js", () => ({
     init() {
       bootstrap.operations.push("preferences:init");
     }
+
+    activateImportedSettings() {}
 
     destroy() {
       bootstrap.operations.push("preferences:destroy");

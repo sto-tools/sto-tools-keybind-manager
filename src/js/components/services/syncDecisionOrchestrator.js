@@ -1,9 +1,5 @@
 import { probeSyncProjectFile } from "./syncFolderBoundary.js";
-import {
-  classifyDataReloadResult,
-  classifyProjectRestoreResult,
-} from "./projectRestoreResult.js";
-import { classifyPreferencesActivationResult } from "./preferencesActivationResult.js";
+import { classifyProjectRestoreResult } from "./projectRestoreResult.js";
 
 /** @param {unknown} error */
 function getErrorMessage(error) {
@@ -23,49 +19,10 @@ function getRestoreFailureDetail(service, result) {
       error: service.i18n.t("failed_to_load_profile_data"),
     });
   }
+  if (result.reason === "operation_cancelled") {
+    return service.i18n.t("failed_to_load_profile_data");
+  }
   return result.reason ?? service.i18n.t(result.error, result.params);
-}
-
-/**
- * @param {import('./SyncService.js').default} service
- * @param {ReturnType<typeof classifyDataReloadResult>} result
- */
-function getActivationFailureDetail(service, result) {
-  if (result.kind === "failure") {
-    return result.error === "operation_cancelled"
-      ? service.i18n.t("failed_to_load_profile_data")
-      : service.i18n.t(result.error);
-  }
-  return service.i18n.t("import_failed", {
-    error: service.i18n.t("failed_to_load_profile_data"),
-  });
-}
-
-/**
- * @param {import('./SyncService.js').default} service
- * @param {ReturnType<typeof classifyPreferencesActivationResult>} result
- */
-function getPreferencesActivationFailureDetail(service, result) {
-  if (result.kind !== "failure") {
-    return service.i18n.t("import_failed", {
-      error: service.i18n.t("failed_to_load_profile_data"),
-    });
-  }
-  return result.result.error === "operation_cancelled" ||
-    result.result.params.reason === "operation_cancelled"
-    ? service.i18n.t("failed_to_load_profile_data")
-    : result.result.params.reason;
-}
-
-/**
- * @param {{ data: 'complete' | 'pending', preferences: 'complete' | 'pending' | 'not-required' }} activation
- */
-function isRestoreActivationComplete(activation) {
-  return (
-    activation.data === "complete" &&
-    (activation.preferences === "complete" ||
-      activation.preferences === "not-required")
-  );
 }
 
 /**
@@ -202,113 +159,49 @@ export async function applyPendingSyncDecision(service) {
 
     if (action === "import") {
       if (activationReceipt) {
-        let nextReceipt = activationReceipt;
-        if (nextReceipt.activation.data === "pending") {
-          let reloadResult;
-          try {
-            const reload = await service.invokeRequest(
-              "data:reload-state",
-              undefined,
-              0,
-            );
-            if (!isCurrentDecision()) return;
-            reloadResult = classifyDataReloadResult(reload);
-          } catch (error) {
-            if (!isCurrentDecision()) return;
-            retainDecision = true;
-            showRestoreToast(
-              service,
-              service.i18n.t("failed_to_import_project", {
-                error: getErrorMessage(error),
-              }),
-              "error",
-            );
-            return;
-          }
-
-          if (reloadResult.kind !== "success") {
-            retainDecision = true;
-            showRestoreToast(
-              service,
-              service.i18n.t("failed_to_import_project", {
-                error: getActivationFailureDetail(service, reloadResult),
-              }),
-              "error",
-            );
-            return;
-          }
-
-          nextReceipt = {
-            ...nextReceipt,
-            activation: { ...nextReceipt.activation, data: "complete" },
-          };
-          service.pendingRestoreActivationReceipt = nextReceipt;
-        }
-
-        if (nextReceipt.activation.preferences === "pending") {
-          let preferencesResult;
-          try {
-            const activation = await service.invokeRequest(
-              "preferences:activate-persisted-settings",
-              { source: "project-restore" },
-              0,
-            );
-            if (!isCurrentDecision()) return;
-            preferencesResult = classifyPreferencesActivationResult(activation);
-          } catch (error) {
-            if (!isCurrentDecision()) return;
-            retainDecision = true;
-            showRestoreToast(
-              service,
-              service.i18n.t("failed_to_import_project", {
-                error: getErrorMessage(error),
-              }),
-              "error",
-            );
-            return;
-          }
-
-          if (preferencesResult.kind !== "success") {
-            retainDecision = true;
-            showRestoreToast(
-              service,
-              service.i18n.t("failed_to_import_project", {
-                error: getPreferencesActivationFailureDetail(
-                  service,
-                  preferencesResult,
-                ),
-              }),
-              "error",
-            );
-            return;
-          }
-
-          nextReceipt = {
-            ...nextReceipt,
-            activation: {
-              ...nextReceipt.activation,
-              preferences: "complete",
-            },
-          };
-          service.pendingRestoreActivationReceipt = nextReceipt;
-        }
-
-        if (!isRestoreActivationComplete(nextReceipt.activation)) {
+        let retryResult;
+        try {
+          retryResult = await service.invokeRequest(
+            "project:retry-restore-activation",
+            undefined,
+            0,
+          );
+          if (!isCurrentDecision()) return;
+        } catch (error) {
+          if (!isCurrentDecision()) return;
           retainDecision = true;
           showRestoreToast(
             service,
             service.i18n.t("failed_to_import_project", {
-              error: service.i18n.t("failed_to_load_profile_data"),
+              error: getErrorMessage(error),
             }),
             "error",
           );
           return;
         }
 
+        const retryOutcome = classifyProjectRestoreResult(retryResult);
+        if (retryOutcome.kind === "success") {
+          showRestoreToast(
+            service,
+            service.i18n.t("project_imported_from_sync_folder"),
+            "success",
+          );
+          return;
+        }
+
+        retainDecision =
+          retryOutcome.kind === "activation-retryable-failure" ||
+          retryOutcome.kind === "malformed";
+        if (retryOutcome.kind === "activation-retryable-failure") {
+          service.pendingRestoreActivationReceipt = retryOutcome.receipt;
+        }
         showRestoreToast(
           service,
-          service.i18n.t("project_imported_from_sync_folder"),
-          "success",
+          service.i18n.t("failed_to_import_project", {
+            error: getRestoreFailureDetail(service, retryOutcome),
+          }),
+          "error",
         );
         return;
       }
@@ -394,6 +287,7 @@ export async function applyPendingSyncDecision(service) {
         } else {
           if (outcome.kind === "activation-retryable-failure") {
             service.pendingRestoreActivationReceipt = outcome.receipt;
+            service.deferredImportContent = null;
             retainDecision = true;
           } else {
             retainDecision = outcome.kind === "retryable-failure";
@@ -418,11 +312,14 @@ export async function applyPendingSyncDecision(service) {
     } else {
       try {
         if (!directory) return;
-        await service.invokeRequest(
+        const result = await service.invokeRequest(
           "export:sync-to-folder",
           { dirHandle: directory.raw },
           0,
         );
+        if (result !== undefined) {
+          throw new TypeError("invalid_sync_export_response");
+        }
         if (!isCurrentDecision()) return;
         console.log("[SyncService] overwrite: export:sync-to-folder completed");
         service.ui?.showToast(

@@ -122,8 +122,8 @@ describe("persistence access architecture ratchet", () => {
       expect(targetTranche, key).toMatch(/^\d+(?:-\d+)?$/);
     }
     expect(dispositionTotals).toEqual({
-      owner: 16,
-      workflow: 7,
+      owner: 20,
+      workflow: 3,
       compatibility: 11,
       dead: 1,
     });
@@ -234,6 +234,7 @@ describe("persistence access architecture ratchet", () => {
         .sort(),
     ).toEqual([
       "components/services/PreferencesService.js",
+      "components/services/preferencesImportActivation.js",
       "components/services/preferencesOwnerMutationOperations.js",
       "main.js",
     ]);

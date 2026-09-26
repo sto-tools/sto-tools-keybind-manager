@@ -282,7 +282,7 @@ export function persistSyncFolderPreferenceSettings(owner, mutation) {
  * @param {import('../../types/data-contracts.js').CanonicalSettings} [stagedSettings]
  * @returns {Promise<import('../../types/rpc/parameters-preferences.js').PreferencesActivationResult>}
  */
-async function activatePersistedPreferencesWithinMutation(
+export async function activatePersistedPreferencesWithinMutation(
   owner,
   source,
   generation,
