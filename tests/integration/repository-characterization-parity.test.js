@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import LocalStorageProjectRepository from "../../src/js/components/storage/LocalStorageProjectRepository.js";
 import LocalStorageSettingsRepository from "../../src/js/components/storage/LocalStorageSettingsRepository.js";
+import { runStorageSchemaMigration } from "../../src/js/components/storage/storageSchemaMigration.js";
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
 import { createDefaultPreferencesSettings } from "../../src/js/components/services/preferencesDefaults.js";
 import { decodeStoredSettingsJson } from "../../src/js/components/services/settingsDataBoundary.js";
@@ -64,7 +65,22 @@ describe("project repository parity and settings owner cutover characterization"
       storage,
       version: VERSION,
       now: () => TIME,
-      settingsDefaults: createDefaultPreferencesSettings(),
+    });
+  }
+
+  function migrate(storage, projectRepository) {
+    const defaults = createDefaultPreferencesSettings();
+    const settingsRepository = new LocalStorageSettingsRepository({
+      storage,
+      defaults,
+    });
+    return runStorageSchemaMigration({
+      settingsRepository,
+      settingsInspection: settingsRepository.createMigrationInspectionPort(),
+      projectMigration: projectRepository.createSchemaMigrationPort(),
+      defaults,
+      version: VERSION,
+      now: () => TIME,
     });
   }
 
@@ -88,18 +104,29 @@ describe("project repository parity and settings owner cutover characterization"
     const events = bus.getEventsOfType("storage:data-changed").length;
     const storage = memoryStorage(initial);
     const repository = project(storage);
+    const migration = migrate(storage, repository);
+    expect(migration).toMatchObject({
+      status: "complete",
+      settingsVerified: true,
+      exactPriorRootBackedUp: true,
+    });
+    expect(migrate(localStorage, browserRepository)).toEqual(migration);
+    expect(JSON.parse(storage.getItem(BACKUP)).data).toBe(initial[ROOT]);
+    const writes = storage.setItem.mock.calls.length;
 
     const loaded = repository.load();
     const browserLoaded = browserRepository.load();
     expect(loaded.status).not.toBe("read_failed");
     expect(browserLoaded.status).toBe(loaded.status);
-    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(storage.setItem).toHaveBeenCalledTimes(writes);
     expect(storage.removeItem).not.toHaveBeenCalled();
     const receipt = repository.commit(loaded.value, {
       verification: "required",
+      purpose: "startup_recovery",
     });
     const browserReceipt = browserRepository.commit(browserLoaded.value, {
       verification: "required",
+      purpose: "startup_recovery",
     });
     expect(receipt.status).toBe("committed");
     expect(browserReceipt.status).toBe(receipt.status);
@@ -108,6 +135,7 @@ describe("project repository parity and settings owner cutover characterization"
       expect(storage.getItem(key), key).toBe(localStorage.getItem(key));
     }
     expect(JSON.parse(storage.getItem(BACKUP)).data).toBe(initial[ROOT]);
+    expect(JSON.parse(storage.getItem(ROOT))).not.toHaveProperty("settings");
     expect(bus.getEventsOfType("storage:data-changed")).toHaveLength(events);
   });
 

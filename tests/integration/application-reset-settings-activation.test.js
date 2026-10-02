@@ -66,9 +66,7 @@ describe("application reset settings activation", () => {
     const root = projectRepository.load().value;
     root.currentProfile = "captain";
     root.profiles = { captain: createProfile() };
-    // The embedded compatibility field deliberately diverges. Runtime settings
-    // continue to come only from the standalone authority.
-    root.settings = { ...root.settings, theme: "default", language: "fr" };
+    expect(root).not.toHaveProperty("settings");
     expect(
       projectRepository.commit(root, { verification: "required" }).status,
     ).toBe("committed");

@@ -14,7 +14,6 @@ export const destinationRoot = {
     },
   },
   globalAliases: {},
-  settings: {},
 };
 
 export const importedProject = {

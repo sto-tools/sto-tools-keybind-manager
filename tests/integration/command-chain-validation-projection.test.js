@@ -43,7 +43,6 @@ describe("command-chain validation projection lifecycle", () => {
         sto_keybind_manager: {
           currentProfile: "captain",
           profiles: { captain: profile },
-          settings: {},
           version: "1.0.0",
           lastModified: "2026-07-20T00:00:00.000Z",
         },

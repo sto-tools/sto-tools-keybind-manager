@@ -84,7 +84,6 @@ function createInitialState() {
         aliases: ["EnvironmentAlias"],
       }),
     },
-    settings: { embeddedSetting: "retained-in-root-only" },
   };
 }
 

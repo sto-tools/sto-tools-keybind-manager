@@ -37,7 +37,6 @@ describe("DataCoordinator persistence failure gating", () => {
     coordinator._projectRoot = {
       currentProfile: "captain",
       profiles: structuredClone(coordinator.state.profiles),
-      settings: {},
       version: "1.0.0",
       lastModified: "2026-07-19T00:00:00.000Z",
     };

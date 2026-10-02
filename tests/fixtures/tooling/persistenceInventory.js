@@ -18,6 +18,7 @@ export const expectedCallsByFile = Object.freeze({
   "components/storage/LocalStorageProjectRepository.js": 12,
   "components/storage/LocalStorageSettingsRepository.js": 5,
   "components/storage/LocalStorageVisitedStatePersistence.js": 4,
+  "components/storage/projectSchemaMigrationPersistence.js": 11,
   "components/storage/scopedLocalStorage.js": 4,
 });
 
@@ -31,6 +32,7 @@ export const expectedScalarWrites = Object.freeze({
   "components/storage/LocalStorageSettingsRepository.js|removeItem": 1,
   "components/storage/LocalStorageVisitedStatePersistence.js|setItem": 2,
   "components/storage/LocalStorageVisitedStatePersistence.js|removeItem": 1,
+  "components/storage/projectSchemaMigrationPersistence.js|setItem": 2,
   "components/storage/scopedLocalStorage.js|setItem": 1,
   "components/storage/scopedLocalStorage.js|removeItem": 1,
 });
@@ -244,6 +246,12 @@ export const expectedScalarCallsites = Object.freeze({
   'components/storage/LocalStorageVisitedStatePersistence.js|this.#storage|setItem|VISITED_KEY|"true"': 1,
   "components/storage/LocalStorageVisitedStatePersistence.js|this.#storage|removeItem|VISITED_KEY": 1,
   "components/storage/LocalStorageVisitedStatePersistence.js|this.#storage|setItem|VISITED_KEY|prior": 1,
+  // Task 9's stateless privileged helper rechecks exact source/backup evidence
+  // at each boundary. These are existing project namespaces, not owner writers.
+  "components/storage/projectSchemaMigrationPersistence.js|storage|getItem|ROOT_KEY": 5,
+  "components/storage/projectSchemaMigrationPersistence.js|storage|getItem|BACKUP_KEY": 4,
+  "components/storage/projectSchemaMigrationPersistence.js|storage|setItem|BACKUP_KEY|json": 1,
+  "components/storage/projectSchemaMigrationPersistence.js|storage|setItem|ROOT_KEY|prepared.json": 1,
   "components/storage/scopedLocalStorage.js|this.#storage|key|index": 1,
   "components/storage/scopedLocalStorage.js|this.#storage|getItem|key": 1,
   "components/storage/scopedLocalStorage.js|this.#storage|setItem|key|value": 1,

@@ -33,7 +33,6 @@ describe("CommandChainService command-chain:clear event", () => {
         profiles: {
           testProfile: createProfileWithKey(),
         },
-        settings: {},
         version: "1.0.0",
         lastModified: new Date().toISOString(),
       },
@@ -88,6 +87,10 @@ describe("CommandChainService command-chain:clear event", () => {
     expect(
       chainService.cache.dataState.profiles.testProfile.builds.space.keys.F1,
     ).toEqual([]);
+    expect(
+      fixture.readProjectRoot().profiles.testProfile.builds.space.keys.F1,
+    ).toEqual([]);
+    expect(fixture.readProjectRoot()).not.toHaveProperty("settings");
     expect(eventBus.hasListeners("rpc:data:get-key-commands")).toBe(false);
   });
 });

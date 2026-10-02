@@ -11,7 +11,6 @@ import { materializeMutationValue } from "./mutationRequestBoundary.js";
  * @property {string | null} currentProfile
  * @property {Record<string, import('./serviceTypes.js').ProfileData>} profiles
  * @property {Record<string, import('./serviceTypes.js').AliasDefinition | import('./serviceTypes.js').StoredCommand[] | string>} [globalAliases]
- * @property {import('../../types/data-contracts.js').SettingsData} settings
  */
 
 /** @param {unknown} value */
@@ -91,12 +90,12 @@ export function coordinatorProjectVersion(owner) {
  * publishing either the compatibility storage event or owner state.
  * @param {import('./DataCoordinator.js').default} owner
  * @param {unknown} candidate
- * @param {{verification?: "required" | "not_requested", consumeResetSentinel?: string | null}} [options]
+ * @param {{verification?: "required" | "not_requested", consumeResetSentinel?: string | null, purpose?: "startup_recovery"}} [options]
  */
 export function commitCoordinatorProjectRoot(
   owner,
   candidate,
-  { verification = "not_requested", consumeResetSentinel = null } = {},
+  { verification = "not_requested", consumeResetSentinel = null, purpose } = {},
 ) {
   if (!owner.projectRepository) throw new Error("storage_write_failed");
   const version = coordinatorProjectVersion(owner);
@@ -106,8 +105,11 @@ export function commitCoordinatorProjectRoot(
     ? {
         verification: /** @type {const} */ ("required"),
         consumeResetSentinel: pendingSentinel,
+        ...(purpose ? { purpose } : {}),
       }
-    : { verification };
+    : purpose
+      ? { verification: /** @type {const} */ ("required"), purpose }
+      : { verification };
   let result;
   try {
     result = owner.projectRepository.commit(

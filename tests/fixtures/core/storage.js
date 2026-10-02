@@ -26,7 +26,6 @@ export function createStorageFixture(options = {}) {
     trackOperations = true,
     projectVersion = "1.0.0",
     projectNow = () => "2026-01-01T00:00:00.000Z",
-    projectSettingsDefaults = createDefaultPreferencesSettings(),
   } = options;
 
   const fixtureId = generateFixtureId("storage");
@@ -58,11 +57,6 @@ export function createStorageFixture(options = {}) {
             created: new Date().toISOString(),
             lastModified: new Date().toISOString(),
           },
-        },
-        settings: {
-          theme: "dark",
-          language: "en",
-          autoSave: true,
         },
         version: "1.0.0",
         lastModified: new Date().toISOString(),
@@ -136,7 +130,6 @@ export function createStorageFixture(options = {}) {
       return {
         currentProfile: "default_space",
         profiles: {},
-        settings: {},
         version: "1.0.0",
       };
     }),
@@ -209,7 +202,6 @@ export function createStorageFixture(options = {}) {
     storage: mockLocalStorage,
     version: projectVersion,
     now: projectNow,
-    settingsDefaults: projectSettingsDefaults,
   });
   const projectRepository = {
     load: vi.fn(() => concreteProjectRepository.load()),
@@ -337,11 +329,6 @@ export function createStorageFixture(options = {}) {
                 created: new Date().toISOString(),
                 lastModified: new Date().toISOString(),
               },
-            },
-            settings: {
-              theme: "dark",
-              language: "en",
-              autoSave: true,
             },
             version: "1.0.0",
             lastModified: new Date().toISOString(),

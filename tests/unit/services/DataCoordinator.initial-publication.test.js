@@ -2,6 +2,7 @@ import LocalStorageVisitedStatePersistence from "../../../src/js/components/stor
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
+import LocalStorageProjectRepository from "../../../src/js/components/storage/LocalStorageProjectRepository.js";
 import eventBus from "../../../src/js/core/eventBus.js";
 import { createStorageFixture } from "../../fixtures/core/storage.js";
 
@@ -58,7 +59,6 @@ describe("DataCoordinator initial publication settlement", () => {
         currentProfile: "alpha",
         profiles: { alpha: profile("Alpha") },
         globalAliases: {},
-        settings: { theme: "dark" },
         version: "1.0.0",
         lastModified: "2026-07-21T00:00:00.000Z",
       },
@@ -108,7 +108,6 @@ describe("DataCoordinator initial publication settlement", () => {
       currentProfile: null,
       profiles: {},
       globalAliases: {},
-      settings: {},
       version: "1.0.0",
       lastModified: "2026-07-21T00:00:00.000Z",
     };
@@ -170,8 +169,8 @@ describe("DataCoordinator initial publication settlement", () => {
 
     await vi.waitFor(() => {
       expect(invoked).toEqual([
-        "state:initial-load",
         "persist-defaults",
+        "state:initial-load",
         "state:default-profiles-created",
         "profile:switched",
       ]);
@@ -205,6 +204,114 @@ describe("DataCoordinator initial publication settlement", () => {
     expect(eventBus.hasListeners("rpc:data:create-profile")).toBe(true);
   });
 
+  it.each(["write_failed", "readback_failed"])(
+    "blocks all startup ready publications when automatic defaults %s",
+    async (failure) => {
+      localStorage.removeItem("sto_keybind_manager_visited");
+      const rootKey = "sto_keybind_manager";
+      const data = new Map([
+        [
+          rootKey,
+          JSON.stringify({
+            currentProfile: null,
+            profiles: {},
+            globalAliases: {},
+            version: "1.0.0",
+            lastModified: "2026-07-21T00:00:00.000Z",
+          }),
+        ],
+      ]);
+      let defaultsWritten = false;
+      const storage = {
+        getItem: vi.fn((key) => {
+          if (
+            key === rootKey &&
+            defaultsWritten &&
+            failure === "readback_failed"
+          )
+            throw new Error("blocked readback");
+          return data.get(key) ?? null;
+        }),
+        setItem: vi.fn((key, raw) => {
+          const writingDefaults =
+            key === rootKey && Object.keys(JSON.parse(raw).profiles).length > 0;
+          if (writingDefaults && failure === "write_failed")
+            throw new Error("blocked write");
+          data.set(key, raw);
+          if (writingDefaults) defaultsWritten = true;
+        }),
+        removeItem: vi.fn((key) => data.delete(key)),
+      };
+      const states = vi.fn();
+      const storageChanges = vi.fn();
+      const profiles = vi.fn();
+      eventBus.on("data:state-changed", states);
+      eventBus.on("storage:data-changed", storageChanges);
+      eventBus.on("profile:switched", profiles);
+      coordinator = new DataCoordinator({
+        visitedState: new LocalStorageVisitedStatePersistence({
+          storage: localStorage,
+        }),
+        eventBus,
+        projectRepository: new LocalStorageProjectRepository({
+          storage,
+          version: "1.0.0",
+          now: () => "2026-10-02T18:00:00.000Z",
+        }),
+        i18n: { t: (key) => key },
+        defaultProfiles: { default_space: profile("Default Space") },
+      });
+      coordinator.init();
+      await expect(coordinator.initialStateReady).rejects.toThrow(
+        "failed_to_load_profile_data",
+      );
+      expect(coordinator.getCurrentState()).toMatchObject({
+        ready: false,
+        revision: 0,
+        currentProfile: null,
+        profiles: {},
+      });
+      expect(states).not.toHaveBeenCalled();
+      expect(storageChanges).not.toHaveBeenCalled();
+      expect(profiles).not.toHaveBeenCalled();
+      expect(eventBus.hasListeners("rpc:data:create-profile")).toBe(false);
+      expect(coordinator.needsDefaultProfiles).toBe(true);
+    },
+  );
+
+  it("publishes an empty durable initial state when the automatic default catalog is empty", async () => {
+    localStorage.removeItem("sto_keybind_manager_visited");
+    storageFixture.projectRepository.load.mockReturnValue({
+      status: "current",
+      value: {
+        currentProfile: null,
+        profiles: {},
+        globalAliases: {},
+        version: "1.0.0",
+        lastModified: "2026-07-21T00:00:00.000Z",
+      },
+    });
+    const states = vi.fn();
+    eventBus.on("data:state-changed", states);
+    coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
+      eventBus,
+      projectRepository: storageFixture.projectRepository,
+      i18n: { t: (key) => key },
+      defaultProfiles: {},
+    });
+    coordinator.init();
+    await coordinator.initialStateReady;
+    expect(states).toHaveBeenCalledTimes(1);
+    expect(states.mock.calls[0][0]).toMatchObject({
+      reason: "initial-load",
+      state: { ready: true, revision: 1, profiles: {} },
+    });
+    expect(storageFixture.projectRepository.commit).not.toHaveBeenCalled();
+  });
+
   it("allows an initial-publication listener to await reload without a readiness cycle", async () => {
     storageFixture.projectRepository.load.mockReturnValue({
       status: "current",
@@ -212,7 +319,6 @@ describe("DataCoordinator initial publication settlement", () => {
         currentProfile: "alpha",
         profiles: { alpha: profile("Alpha") },
         globalAliases: {},
-        settings: {},
         version: "1.0.0",
         lastModified: "2026-07-21T00:00:00.000Z",
       },

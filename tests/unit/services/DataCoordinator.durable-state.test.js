@@ -34,7 +34,6 @@ describe("DataCoordinator durable state ownership", () => {
           alpha: profile("Alpha"),
           beta: profile("Beta", "ground"),
         },
-        settings: { theme: "dark" },
         version: "1.0.0",
         lastModified: "2026-07-16T00:00:00.000Z",
       },
@@ -80,7 +79,6 @@ describe("DataCoordinator durable state ownership", () => {
     let durableRoot = {
       currentProfile: "legacy",
       profiles: { legacy: profile("Legacy", "ground") },
-      settings: { theme: "restored" },
       version: "2.0.0",
       lastModified: "2026-07-16T05:00:00.000Z",
     };

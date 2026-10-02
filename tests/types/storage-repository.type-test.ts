@@ -8,12 +8,14 @@ import type {
   ProjectCommitResult,
   ProjectWriteOptions,
   SettingsWriteResult,
+  ProjectSchemaMigrationPort,
 } from "../../src/js/types/storage-contracts.js";
 
 declare const project: ProjectRepositoryPort;
 declare const settings: SettingsRepositoryPort;
 declare const root: StoredApplicationData;
 declare const canonical: CanonicalSettings;
+declare const migration: ProjectSchemaMigrationPort;
 
 project.commit(root);
 project.commit(root, {
@@ -21,6 +23,23 @@ project.commit(root, {
   consumeResetSentinel: "false",
 });
 project.reset();
+project.commit(root, { verification: "required", purpose: "startup_recovery" });
+migration.preserveExactBackup("captured bytes", {
+  timestamp: "captured",
+  version: "2.0.0",
+});
+migration.commitMigratedRoot("captured bytes", root);
+// @ts-expect-error Migration factories are not part of the owner port.
+project.createSchemaMigrationPort();
+// @ts-expect-error Privileged mutations are not owner capabilities.
+project.preserveExactBackup("captured bytes", {
+  timestamp: "captured",
+  version: "2.0.0",
+});
+// @ts-expect-error Migration preservation is not an arbitrary option.
+project.commit(root, { purpose: "preserve_backup" });
+// @ts-expect-error Startup recovery requires explicit verified durability.
+project.commit(root, { purpose: "startup_recovery" });
 settings.replace(canonical);
 settings.clear();
 
@@ -65,9 +84,24 @@ if (projectCommit.status === "verification_failed") {
   projectCommit.value;
 }
 if (projectCommit.status === "sentinel_failed") {
-  projectCommit.rootWrite.status satisfies "acknowledged";
+  projectCommit.rootWrite.status satisfies "acknowledged" | "skipped";
   projectCommit.verification.status satisfies "verified";
 }
+if (
+  projectCommit.status === "committed" &&
+  projectCommit.rootWrite.status === "skipped"
+) {
+  projectCommit.rootWrite.reason satisfies "already_current";
+}
+const badSkippedRoot: Extract<
+  ProjectCommitResult,
+  { status: "committed" }
+>["rootWrite"] = {
+  status: "skipped",
+  // @ts-expect-error A skipped verified root has only the exact current-root reason.
+  reason: "unknown",
+};
+void badSkippedRoot;
 if (projectCommit.status === "rejected") {
   projectCommit.rootWrite.status satisfies "not_attempted";
   projectCommit.backup.status satisfies "not_attempted";

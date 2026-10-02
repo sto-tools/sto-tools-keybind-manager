@@ -28,7 +28,6 @@ const root = {
     },
   },
   globalAliases: {},
-  settings: {},
 };
 
 describe("Alias creation persistence boundary", () => {

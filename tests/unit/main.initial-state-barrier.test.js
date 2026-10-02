@@ -103,14 +103,18 @@ vi.mock("../../src/js/core/constants.js", () => ({
 
 vi.mock(
   "../../src/js/components/storage/LocalStorageProjectRepository.js",
-  () => ({
-    default: class {
-      constructor(options) {
-        bootstrap.projectRepository = { instance: this, options };
-      }
-    },
-  }),
+  async () =>
+    (
+      await import("../fixtures/ui/mainProjectRepositoryMock.js")
+    ).createMainProjectRepositoryMock(bootstrap),
 );
+
+vi.mock("../../src/js/components/storage/storageSchemaMigration.js", () => ({
+  runStorageSchemaMigration: () => {
+    bootstrap.operations.push("migration:verify");
+    return { status: "absent", settingsVerified: true };
+  },
+}));
 
 vi.mock("../../src/js/components/services/index.js", () => {
   class DataCoordinator extends bootstrap.ComponentStub {
@@ -166,26 +170,11 @@ vi.mock("../../src/js/components/services/DataService.js", () => ({
   },
 }));
 
-vi.mock("../../src/js/components/services/PreferencesService.js", () => ({
-  default: class extends bootstrap.ComponentStub {
-    constructor(options) {
-      super();
-      bootstrap.preferencesOptions = options;
-      this.initialStateReady = bootstrap.preferencesInitialStateReady;
-      bootstrap.operations.push("preferences:construct");
-    }
-
-    init() {
-      bootstrap.operations.push("preferences:init");
-    }
-
-    activateImportedSettings() {}
-
-    destroy() {
-      bootstrap.operations.push("preferences:destroy");
-    }
-  },
-}));
+vi.mock("../../src/js/components/services/PreferencesService.js", async () =>
+  (
+    await import("../fixtures/ui/mainProjectRepositoryMock.js")
+  ).createMainPreferencesMock(bootstrap),
+);
 
 vi.mock("../../src/js/components/ui/FileExplorerUI.js", () => ({
   default: bootstrap.ComponentStub,
@@ -260,6 +249,13 @@ describe("main DataCoordinator startup barrier", () => {
     );
     expect(bootstrap.operations).not.toContain("coordinator:construct");
     expect(bootstrap.operations).not.toContain("app:construct");
+    expect(bootstrap.operations.indexOf("migration:verify")).toBeLessThan(
+      bootstrap.operations.indexOf("preferences:construct"),
+    );
+    expect(bootstrap.preferencesOptions.startupMigration).toEqual({
+      status: "absent",
+      settingsVerified: true,
+    });
     release();
     await vi.waitFor(() =>
       expect(bootstrap.operations).toContain("coordinator:init"),

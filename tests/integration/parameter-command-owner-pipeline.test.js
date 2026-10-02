@@ -46,7 +46,6 @@ const root = {
   currentProfile: "captain",
   profiles: { captain: profile },
   globalAliases: {},
-  settings: { bindsetsEnabled: false },
 };
 
 function deferred() {

@@ -1,41 +1,15 @@
 import { decodeStoredApplicationJson } from "../services/storedApplicationDataBoundary.js";
-import {
-  decodeProjectSettings,
-  hasCompleteKnownSettings,
-} from "../services/settingsDataBoundary.js";
 import { isDataRecord } from "../services/jsonDataBoundary.js";
 import { serializeRepositoryData } from "./repositoryJsonBoundary.js";
 
 /** @typedef {import('../../types/data-contracts.js').StoredApplicationData} StoredApplicationData */
-/** @typedef {import('../../types/data-contracts.js').CanonicalSettings} CanonicalSettings */
-
 /**
- * Validate injected defaults once; neither caller mutation nor incomplete
- * Preferences records may become a repository's recovery authority.
- * @param {unknown} settings
- * @returns {CanonicalSettings}
- */
-export function detachProjectSettingsDefaults(settings) {
-  const serialized = serializeRepositoryData(settings);
-  if (!serialized.success) throw new TypeError("invalid_repository_defaults");
-  const detached = decodeProjectSettings(serialized.value);
-  if (!hasCompleteKnownSettings(detached)) {
-    throw new TypeError("invalid_repository_defaults");
-  }
-  return /** @type {CanonicalSettings} */ (detached);
-}
-
-/**
- * Tranche 1 intentionally retains embedded settings and the established
- * empty-root shape. First-run profile creation remains an owner operation.
- * @param {{version: string, timestamp: string, settingsDefaults: CanonicalSettings}} options
+ * Create a settings-free empty root. First-run profile creation remains an
+ * owner operation; Preferences owns its independent defaults.
+ * @param {{version: string, timestamp: string}} options
  * @returns {StoredApplicationData}
  */
-export function createProjectRepositoryDefaults({
-  version,
-  timestamp,
-  settingsDefaults,
-}) {
+export function createProjectRepositoryDefaults({ version, timestamp }) {
   return {
     version,
     created: timestamp,
@@ -43,7 +17,6 @@ export function createProjectRepositoryDefaults({
     currentProfile: null,
     profiles: {},
     globalAliases: {},
-    settings: detachProjectSettingsDefaults(settingsDefaults),
   };
 }
 
@@ -115,6 +88,7 @@ export function prepareProjectRepositoryCommit(
   if (!input.success) return input;
   if (
     !isDataRecord(input.value) ||
+    Object.hasOwn(input.value, "settings") ||
     typeof input.value.version !== "string" ||
     typeof input.value.lastModified !== "string" ||
     (Object.hasOwn(input.value, "lastBackup") &&
@@ -123,7 +97,6 @@ export function prepareProjectRepositoryCommit(
     return { success: false, error: "invalid_data" };
   }
   try {
-    decodeProjectSettings(input.value.settings);
     // Version and write timestamps are the only commit-time normalization.
     // Selection repair, legacy migration, and recovered fields belong to load
     // and the owner, not an ordinary whole-root replacement.
@@ -149,4 +122,29 @@ export function prepareProjectRepositoryCommit(
   } catch {
     return { success: false, error: "invalid_data" };
   }
+}
+
+/**
+ * Strict structural-migration preparation. The planner supplies version and
+ * repaired fields explicitly; this boundary never stamps timestamps or writes
+ * a backup, preserving the exact migration draft for verified replacement.
+ * @param {unknown} root
+ * @param {{version: string, defaults: StoredApplicationData}} options
+ * @returns {{success: true, json: string, value: StoredApplicationData} | {success: false, error: import('../../types/storage-contracts.js').RepositoryInputError}}
+ */
+export function prepareProjectMigrationCommit(root, { version, defaults }) {
+  const input = serializeRepositoryData(root);
+  if (!input.success) return input;
+  const decoded = decodeStoredApplicationJson(input.json, {
+    defaults,
+    version,
+  });
+  if (!decoded.success || decoded.changed || decoded.migrated) {
+    return { success: false, error: "invalid_data" };
+  }
+  return {
+    success: true,
+    json: input.json,
+    value: /** @type {StoredApplicationData} */ (input.value),
+  };
 }

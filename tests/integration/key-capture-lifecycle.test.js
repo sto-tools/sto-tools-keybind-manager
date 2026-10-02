@@ -33,7 +33,6 @@ const root = {
     },
   },
   globalAliases: {},
-  settings: { theme: "default", autoSave: true },
 };
 
 function mountCaptureModal() {

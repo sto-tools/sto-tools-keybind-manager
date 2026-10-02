@@ -28,7 +28,6 @@ const destinationRoot = {
     },
   },
   globalAliases: {},
-  settings: {},
 };
 
 describe("project import boundary", () => {
@@ -360,8 +359,8 @@ describe("project import boundary", () => {
       expect(projectRepository.load().value).toMatchObject({
         profiles: beforeRoot.profiles,
         currentProfile: beforeRoot.currentProfile,
-        settings: beforeRoot.settings,
       });
+      expect(projectRepository.load().value).not.toHaveProperty("settings");
     },
   );
 });

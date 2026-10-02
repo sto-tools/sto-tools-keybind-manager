@@ -28,7 +28,6 @@ describe("Command mutation reentrant owner listeners", () => {
               migrationVersion: "2.1.1",
             },
           },
-          settings: {},
           globalAliases: {},
         },
       },

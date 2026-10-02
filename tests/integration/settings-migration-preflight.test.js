@@ -6,7 +6,10 @@ import PreferencesService from "../../src/js/components/services/PreferencesServ
 import { createDefaultPreferencesSettings } from "../../src/js/components/services/preferencesDefaults.js";
 import LocalStorageProjectRepository from "../../src/js/components/storage/LocalStorageProjectRepository.js";
 import LocalStorageSettingsRepository from "../../src/js/components/storage/LocalStorageSettingsRepository.js";
-import { preflightStorageSchemaMigration } from "../../src/js/components/storage/storageSchemaMigration.js";
+import {
+  preflightStorageSchemaMigration,
+  runStorageSchemaMigration,
+} from "../../src/js/components/storage/storageSchemaMigration.js";
 import { createEventBusFixture } from "../fixtures/core/eventBus.js";
 
 const SETTINGS = "sto_keybind_settings";
@@ -53,7 +56,7 @@ describe("read-only settings migration preflight with real owners", () => {
       now: () => "2026-09-26T00:00:00.000Z",
       settingsDefaults: defaults,
     });
-    function newOwner() {
+    function newOwner(startupMigration) {
       const bus = createEventBusFixture();
       const repository = new LocalStorageSettingsRepository({
         storage,
@@ -63,6 +66,7 @@ describe("read-only settings migration preflight with real owners", () => {
       const effects = vi.fn();
       const owner = new PreferencesService({
         settingsRepository: repository,
+        startupMigration,
         defaults,
         eventBus: bus.eventBus,
         localizeCommands: effects,
@@ -97,7 +101,7 @@ describe("read-only settings migration preflight with real owners", () => {
       expect(durable.get(BACKUP)).toBe(backupRaw);
       return result;
     }
-    return { durable, storage, newOwner, preflight };
+    return { durable, storage, newOwner, preflight, projectRepository };
   }
 
   it.each([
@@ -284,7 +288,7 @@ describe("read-only settings migration preflight with real owners", () => {
     },
   );
 
-  it("leaves the verified owner ready when root inspection fails", async () => {
+  it("keeps read-only diagnostic preflight separate from an existing owner's readiness", async () => {
     const fixture = setup(JSON.stringify(golden.standalone));
     const first = fixture.newOwner();
     first.owner.init();
@@ -308,4 +312,71 @@ describe("read-only settings migration preflight with real owners", () => {
       JSON.stringify(golden.standalone),
     );
   });
+
+  it.each([
+    ["root read", "legacy_root_decode", "storage_read_failed", false],
+    ["backup write", "legacy_root_backup", "backup_write_failed", true],
+    ["root write", "canonical_root_commit", "storage_write_failed", true],
+  ])(
+    "blocks production Preferences before readiness when %s fails",
+    async (fault, stage, error, settingsVerified) => {
+      const fixture = setup(JSON.stringify(golden.standalone));
+      fixture.storage.getItem.mockImplementation((key) => {
+        if (fault === "root read" && key === ROOT)
+          throw new DOMException("private root", "SecurityError");
+        return fixture.durable.get(key) ?? null;
+      });
+      fixture.storage.setItem.mockImplementation((key, value) => {
+        if (
+          (fault === "backup write" && key === BACKUP) ||
+          (fault === "root write" && key === ROOT)
+        )
+          throw new DOMException("private write", "QuotaExceededError");
+        fixture.durable.set(key, value);
+      });
+      const settingsRepository = new LocalStorageSettingsRepository({
+        storage: fixture.storage,
+        defaults,
+      });
+      const startupMigration = runStorageSchemaMigration({
+        settingsRepository,
+        settingsInspection: settingsRepository.createMigrationInspectionPort(),
+        projectMigration: fixture.projectRepository.createSchemaMigrationPort(),
+        defaults,
+        version: "1.0.0",
+        now: () => "2026-10-02T17:00:00.000Z",
+      });
+      expect(startupMigration).toEqual({
+        status: "failed",
+        settingsVerified,
+        stage,
+        error,
+      });
+      const first = fixture.newOwner(startupMigration);
+      const load = vi.spyOn(first.repository, "load");
+      first.owner.init();
+      await expect(first.owner.initialStateReady).rejects.toThrow(
+        error === "storage_read_failed" ? error : "verification_failed",
+      );
+      expect(first.owner.getCurrentState()).toMatchObject({
+        ready: false,
+        blocked: true,
+        readiness: "blocked",
+        durability: "unverified",
+        settings: defaults,
+      });
+      expect(load).not.toHaveBeenCalled();
+      expect(first.replace).not.toHaveBeenCalled();
+      expect(first.effects).not.toHaveBeenCalled();
+      expect(
+        first.bus.eventBus.hasListeners("rpc:preferences:set-setting"),
+      ).toBe(false);
+      expect(first.bus.getEventsOfType("preferences:loaded")).toHaveLength(0);
+      expect(first.bus.getEventsOfType("preferences:saved")).toHaveLength(0);
+      expect(fixture.durable.get(ROOT)).toBe(legacyRaw);
+      if (fault === "root write")
+        expect(JSON.parse(fixture.durable.get(BACKUP)).data).toBe(legacyRaw);
+      else expect(fixture.durable.get(BACKUP)).toBe(backupRaw);
+    },
+  );
 });

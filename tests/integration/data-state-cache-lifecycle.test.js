@@ -54,7 +54,6 @@ describe("DataCoordinator state cache lifecycle", () => {
             alpha: createProfile("alpha"),
             beta: createProfile("beta", "ground"),
           },
-          settings: { theme: "dark" },
           version: "1.0.0",
           lastModified: "2026-07-16T00:00:00.000Z",
         },

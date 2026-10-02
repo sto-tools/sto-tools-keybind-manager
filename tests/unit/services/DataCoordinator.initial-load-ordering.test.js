@@ -22,7 +22,6 @@ const profile = (name) => ({
 const root = (profileId, name = profileId) => ({
   currentProfile: profileId,
   profiles: { [profileId]: profile(name) },
-  settings: { theme: "dark" },
   version: "1.0.0",
   lastModified: `2026-07-21T00:00:0${profileId.length}.000Z`,
 });
@@ -136,7 +135,6 @@ describe("DataCoordinator initial-load ordering", () => {
     durableRoot = {
       currentProfile: null,
       profiles: {},
-      settings: {},
       version: "1.0.0",
       lastModified: "2026-07-21T00:00:00.000Z",
     };
@@ -147,8 +145,8 @@ describe("DataCoordinator initial-load ordering", () => {
     const createDefaults =
       coordinator._tryCreateDefaultProfiles.bind(coordinator);
     vi.spyOn(coordinator, "_tryCreateDefaultProfiles").mockImplementation(
-      async () => {
-        await createDefaults();
+      async (startupRecovery) => {
+        await createDefaults(startupRecovery);
         await pendingDefaultCompletion.promise;
       },
     );

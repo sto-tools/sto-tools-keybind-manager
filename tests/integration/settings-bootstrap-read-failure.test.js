@@ -50,9 +50,10 @@ describe("real settings bootstrap failure barrier", () => {
   it.each([
     ["capability getter", 0, "storage_read_failed", 0],
     ["initial read", 1, "storage_read_failed", 0],
-    ["replacement readback", 2, "verification_failed", 1],
+    ["replacement readback", 2, "storage_read_failed", 1],
     ["replacement write", -1, "verification_failed", 1],
     ["replacement readback mismatch", -2, "verification_failed", 1],
+    ["root read", -3, "storage_read_failed", 0],
   ])(
     "stops real composition after the settings %s fails",
     async (_label, throwOnRead, blockReason, expectedWrites) => {
@@ -108,6 +109,9 @@ describe("real settings bootstrap failure barrier", () => {
       const read = browserStorage.getItem.bind(browserStorage);
       let settingsReads = 0;
       vi.spyOn(browserStorage, "getItem").mockImplementation((key) => {
+        if (key === "sto_keybind_manager" && throwOnRead === -3) {
+          throw new DOMException("root storage inaccessible", "SecurityError");
+        }
         if (key === "sto_keybind_settings") {
           settingsReads += 1;
           if (settingsReads === throwOnRead) {
@@ -175,17 +179,13 @@ describe("real settings bootstrap failure barrier", () => {
         ),
       ).toEqual([]);
       expect(eventBus.hasListeners("rpc:preferences:set-setting")).toBe(false);
-      expect(load).toHaveBeenCalledOnce();
+      expect(load).not.toHaveBeenCalled();
       expect(replace).toHaveBeenCalledTimes(expectedWrites);
       expect(write).toHaveBeenCalledTimes(expectedWrites);
       expect(remove).not.toHaveBeenCalled();
       if (expectedWrites === 0) {
         expect(read("sto_keybind_settings")).toBeNull();
-        expect(load.mock.results[0].value).toEqual({
-          status: "read_failed",
-          error: "storage_read_failed",
-          category: "security",
-        });
+        expect(replace).not.toHaveBeenCalled();
       } else if (throwOnRead === -1) {
         expect(read("sto_keybind_settings")).toBeNull();
         expect(replace.mock.results[0].value).toMatchObject({

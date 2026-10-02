@@ -69,7 +69,6 @@ describe("DataCoordinator ProjectRepository cutover", () => {
         currentProfile: null,
         profiles: {},
         globalAliases: {},
-        settings: {},
       },
     });
     const visitedState = {

@@ -2,7 +2,6 @@ import LocalStorageVisitedStatePersistence from "../../src/js/components/storage
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
-import { createDefaultPreferencesSettings } from "../../src/js/components/services/preferencesDefaults.js";
 import LocalStorageProjectRepository from "../../src/js/components/storage/LocalStorageProjectRepository.js";
 import { request } from "../../src/js/core/requestResponse.js";
 import { createEventBusFixture } from "../fixtures/core/eventBus.js";
@@ -31,7 +30,6 @@ function root() {
     currentProfile: "captain",
     profiles: { captain: profile() },
     globalAliases: {},
-    settings: {},
     lastModified: "2026-09-26T00:00:00.000Z",
   };
 }
@@ -63,7 +61,6 @@ function repository(storage) {
     storage,
     version: "1.0.0",
     now: () => "2026-09-26T12:00:00.000Z",
-    settingsDefaults: createDefaultPreferencesSettings(),
   });
 }
 
@@ -301,7 +298,7 @@ describe("real project repository owner chain", () => {
     expect(storage.getItem(resetKey)).toBe("true");
     expect(commit.mock.results.at(-1).value).toMatchObject({
       status: "sentinel_failed",
-      rootWrite: { status: "acknowledged" },
+      rootWrite: { status: "skipped", reason: "already_current" },
       verification: { status: "verified" },
     });
 

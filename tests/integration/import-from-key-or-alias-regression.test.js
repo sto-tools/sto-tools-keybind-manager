@@ -58,7 +58,6 @@ describe("Regression: Import from Key or Alias request routing", () => {
         profiles: {
           testProfile: createProfileWithKey(),
         },
-        settings: {},
         version: "1.0.0",
         lastModified: "2021-01-01T00:00:00Z",
       },

@@ -18,6 +18,7 @@
     "tests/fixtures/core/componentState.js",
     "tests/types/component-protocol.type-test.ts",
     "tests/types/scalar-persistence.type-test.ts",
+    "tests/types/settings-free-root.type-test.ts",
     "tests/types/event-protocol.type-test.ts"
   ]
 }

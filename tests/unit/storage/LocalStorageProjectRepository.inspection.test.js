@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import LocalStorageProjectRepository from "../../../src/js/components/storage/LocalStorageProjectRepository.js";
-import { createDefaultPreferencesSettings } from "../../../src/js/components/services/preferencesDefaults.js";
 
 const ROOT = "sto_keybind_manager";
 const fixture = (name) =>
@@ -19,7 +18,6 @@ function setup() {
     storage,
     now,
     version: "2.0.0",
-    settingsDefaults: createDefaultPreferencesSettings(),
   });
   return { repository, storage, data, now };
 }

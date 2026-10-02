@@ -4,6 +4,7 @@ import type {
   CanonicalSettings,
   StoredApplicationData,
 } from "./data-contracts.js";
+import type { StorageMigrationErrorCode } from "./storage-migration-contracts.js";
 
 export interface OwnerReadLease<Value = unknown> {
   readonly authorityEpoch: number;
@@ -271,8 +272,16 @@ export type ProjectLoadResult =
 
 /** Sentinel consumption always requires successful root verification first. */
 export type ProjectWriteOptions =
-  | { verification?: "not_requested"; consumeResetSentinel?: never }
-  | { verification: "required"; consumeResetSentinel?: string };
+  | {
+      verification?: "not_requested";
+      consumeResetSentinel?: never;
+      purpose?: never;
+    }
+  | {
+      verification: "required";
+      consumeResetSentinel?: string;
+      purpose?: "startup_recovery";
+    };
 
 export type BackupReceipt =
   | NotAttempted
@@ -297,13 +306,15 @@ export type ProjectCommitResult =
       status: "committed";
       value: StoredApplicationData;
       backup: BackupReceipt;
-      rootWrite: Acknowledged;
+      rootWrite:
+        | Acknowledged
+        | { status: "skipped"; reason: "already_current" };
       verification: VerificationAccepted;
       resetSentinel: SentinelAccepted;
     }
   | {
       status: "rejected";
-      error: RepositoryInputError;
+      error: StorageMigrationErrorCode;
       backup: NotAttempted;
       rootWrite: NotAttempted;
       verification: NotAttempted;
@@ -329,7 +340,9 @@ export type ProjectCommitResult =
       status: "sentinel_failed";
       error: "reset_sentinel_consumption_failed";
       backup: BackupReceipt;
-      rootWrite: Acknowledged;
+      rootWrite:
+        | Acknowledged
+        | { status: "skipped"; reason: "already_current" };
       verification: { status: "verified" };
       resetSentinel: SentinelFailure;
     };
@@ -413,6 +426,28 @@ export type SettingsVerificationResult =
 /** Separate least-authority view; no root, backup, or sentinel mutations. */
 export interface ProjectMigrationInspectionPort {
   inspectRaw(): RepositoryRawInspectionResult;
+}
+
+export interface BackupMetadata {
+  timestamp: string;
+  version: string;
+}
+
+export type BackupWriteResult =
+  | { status: "verified" }
+  | { status: "failed"; error: StorageMigrationErrorCode };
+
+/** Privileged startup-only mutations; not an owner repository capability. */
+export interface ProjectSchemaMigrationPort {
+  inspectRaw(): RepositoryRawInspectionResult;
+  preserveExactBackup(
+    expectedRaw: string,
+    metadata: BackupMetadata,
+  ): BackupWriteResult;
+  commitMigratedRoot(
+    expectedRaw: string,
+    root: StoredApplicationData,
+  ): ProjectCommitResult;
 }
 
 /** Separate read-only view; verified-write evidence remains the caller's duty. */

@@ -19,6 +19,7 @@ import LocalStorageCommandPresentationPersistence from "./components/storage/Loc
 import LocalStorageKeyBrowserPersistence from "./components/storage/LocalStorageKeyBrowserPersistence.js";
 import LocalStorageVisitedStatePersistence from "./components/storage/LocalStorageVisitedStatePersistence.js";
 import LocalStorageDevelopmentFlagPersistence from "./components/storage/LocalStorageDevelopmentFlagPersistence.js";
+import { runStorageSchemaMigration } from "./components/storage/storageSchemaMigration.js";
 import {
   createDefaultPreferencesSettings,
   detectPreferencesLanguage,
@@ -116,8 +117,22 @@ const dataService = new DataService({
     storage: settingsStorage,
     defaults,
   });
+  const projectRepository = new LocalStorageProjectRepository({
+    storage: settingsStorage,
+    version: stoData.settings.version,
+    now: () => new Date().toISOString(),
+  });
+  const startupMigration = runStorageSchemaMigration({
+    settingsRepository,
+    settingsInspection: settingsRepository.createMigrationInspectionPort(),
+    projectMigration: projectRepository.createSchemaMigrationPort(),
+    defaults,
+    version: stoData.settings.version,
+    now: () => new Date().toISOString(),
+  });
   const preferencesService = new PreferencesService({
     settingsRepository,
+    startupMigration,
     defaults,
     eventBus,
     i18n: i18next,
@@ -131,13 +146,6 @@ const dataService = new DataService({
     preferencesService.destroy();
     return;
   }
-
-  const projectRepository = new LocalStorageProjectRepository({
-    storage: settingsStorage,
-    version: stoData.settings.version,
-    now: () => new Date().toISOString(),
-    settingsDefaults: defaults,
-  });
 
   const visitedState = new LocalStorageVisitedStatePersistence({
     storage: settingsStorage,
@@ -156,7 +164,11 @@ const dataService = new DataService({
   // DataCoordinator owns the accepted project root and its repository writer.
   const dataCoordinator = new DataCoordinator({
     eventBus,
-    projectRepository,
+    projectRepository: Object.freeze({
+      load: projectRepository.load.bind(projectRepository),
+      commit: projectRepository.commit.bind(projectRepository),
+      reset: projectRepository.reset.bind(projectRepository),
+    }),
     visitedState,
     i18n: i18next,
   });

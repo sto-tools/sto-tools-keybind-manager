@@ -20,9 +20,16 @@ export async function initializePrivateScalarApp(bus, app) {
 
 export function expectScalarBootstrap(bootstrap) {
   expect(bootstrap.dataCoordinator.options).toMatchObject({
-    projectRepository: bootstrap.projectRepository.instance,
+    projectRepository: {
+      load: expect.any(Function),
+      commit: expect.any(Function),
+      reset: expect.any(Function),
+    },
     visitedState: bootstrap.appDependencies.visitedState,
   });
+  expect(
+    bootstrap.dataCoordinator.options.projectRepository,
+  ).not.toHaveProperty("createSchemaMigrationPort");
   for (const name of scalarNames) {
     expect(bootstrap.appDependencies[name]).toBeTruthy();
     expect(bootstrap.appDependencies[name]).not.toHaveProperty("storage");

@@ -1,10 +1,14 @@
 import {
   createProjectRepositoryDefaults,
   decodeProjectRepositoryJson,
-  detachProjectSettingsDefaults,
+  prepareProjectMigrationCommit,
   prepareProjectRepositoryCommit,
 } from "./projectRepositoryBoundary.js";
 import { storageFailureCategory } from "./repositoryResults.js";
+import {
+  createProjectSchemaMigrationPort,
+  findMatchingMigrationCheckpoint,
+} from "./projectSchemaMigrationPersistence.js";
 
 /** @typedef {import('../../types/storage-contracts.js').ProjectWriteOptions} ProjectWriteOptions */
 /** @typedef {import('../../types/storage-contracts.js').BackupReceipt} BackupReceipt */
@@ -37,7 +41,7 @@ function writeFailure(error) {
 /**
  * Read options as own data only, without invoking caller-owned accessors.
  * @param {unknown} input
- * @returns {{verification: "required" | "not_requested", consumeResetSentinel?: string} | null}
+ * @returns {{verification: "required" | "not_requested", consumeResetSentinel?: string, purpose?: "startup_recovery"} | null}
  */
 function decodeWriteOptions(input) {
   if (input === undefined) return { verification: "not_requested" };
@@ -52,7 +56,9 @@ function decodeWriteOptions(input) {
     if (
       keys.some(
         (key) =>
-          (key !== "verification" && key !== "consumeResetSentinel") ||
+          (key !== "verification" &&
+            key !== "consumeResetSentinel" &&
+            key !== "purpose") ||
           !descriptors[key].enumerable ||
           !("value" in descriptors[key]),
       )
@@ -64,6 +70,12 @@ function decodeWriteOptions(input) {
         ? "not_requested"
         : descriptors.verification.value;
     const consumeResetSentinel = descriptors.consumeResetSentinel?.value;
+    const purpose = descriptors.purpose?.value;
+    if (
+      purpose !== undefined &&
+      (purpose !== "startup_recovery" || verification !== "required")
+    )
+      return null;
     if (verification !== "required" && verification !== "not_requested") {
       return null;
     }
@@ -75,14 +87,14 @@ function decodeWriteOptions(input) {
     ) {
       return null;
     }
-    return { verification, consumeResetSentinel };
+    return { verification, consumeResetSentinel, purpose };
   } catch {
     return null;
   }
 }
 
 /**
- * Whole legacy-shaped roots, exact previous-root backups, and reset sentinel
+ * Whole settings-free roots, exact previous-root backups, and reset sentinel
  * only. DataCoordinator is the sole owner of this capability and supplies all
  * domain planning, adoption, and publication. No cache, owner effects, or
  * global lookup live in this adapter.
@@ -92,12 +104,11 @@ export default class LocalStorageProjectRepository {
   #storage;
   #version;
   #now;
-  #settingsDefaults;
 
   /**
-   * @param {{storage: import('../../types/storage-contracts.js').RepositoryStorageCapability, version: string, now: () => string, settingsDefaults: import('../../types/data-contracts.js').CanonicalSettings}} options
+   * @param {{storage: import('../../types/storage-contracts.js').RepositoryStorageCapability, version: string, now: () => string}} options
    */
-  constructor({ storage, version, now, settingsDefaults }) {
+  constructor({ storage, version, now }) {
     if (
       !storage ||
       typeof storage.getItem !== "function" ||
@@ -111,7 +122,6 @@ export default class LocalStorageProjectRepository {
     this.#storage = storage;
     this.#version = version;
     this.#now = now;
-    this.#settingsDefaults = detachProjectSettingsDefaults(settingsDefaults);
   }
 
   /** @param {string} timestamp */
@@ -119,7 +129,6 @@ export default class LocalStorageProjectRepository {
     return createProjectRepositoryDefaults({
       version: this.#version,
       timestamp,
-      settingsDefaults: this.#settingsDefaults,
     });
   }
 
@@ -129,6 +138,18 @@ export default class LocalStorageProjectRepository {
    */
   createMigrationInspectionPort() {
     return Object.freeze({ inspectRaw: () => this.#inspectRaw() });
+  }
+
+  /** Infrastructure-only capability, never part of ProjectRepositoryPort.
+   * @returns {Readonly<import('./ProjectRepository.js').ProjectSchemaMigrationPort>}
+   */
+  createSchemaMigrationPort() {
+    return createProjectSchemaMigrationPort({
+      storage: this.#storage,
+      version: this.#version,
+      defaults: () => this.#defaults(this.#now()),
+      inspectRaw: () => this.#inspectRaw(),
+    });
   }
 
   /** @returns {import('../../types/storage-contracts.js').RepositoryRawInspectionResult} */
@@ -157,8 +178,8 @@ export default class LocalStorageProjectRepository {
     });
   }
 
-  /** @param {string} timestamp @returns {BackupReceipt} */
-  #backup(timestamp) {
+  /** @param {string} timestamp @param {"startup_recovery" | undefined} purpose @returns {BackupReceipt & {checkpoint?: import('../../types/storage-contracts.js').BackupMetadata}} */
+  #backup(timestamp, purpose) {
     let previous;
     try {
       previous = this.#storage.getItem(ROOT_KEY);
@@ -166,6 +187,15 @@ export default class LocalStorageProjectRepository {
       return readFailure(error);
     }
     if (!previous) return { status: "skipped", reason: "missing" };
+    if (purpose === "startup_recovery") {
+      const checkpoint = findMatchingMigrationCheckpoint(
+        this.#storage,
+        previous,
+        this.#version,
+      );
+      if (checkpoint && "status" in checkpoint) return checkpoint;
+      if (checkpoint) return { status: "acknowledged", checkpoint };
+    }
     let backup;
     try {
       // This envelope wraps trusted strings. Escaping can exceed the root's
@@ -221,7 +251,59 @@ export default class LocalStorageProjectRepository {
       return { ...rejected, error: "invalid_data" };
     }
     if (!prepared.success) return { ...rejected, error: prepared.error };
-    const backup = this.#backup(timestamp);
+    if (
+      acceptedOptions.purpose &&
+      acceptedOptions.consumeResetSentinel !== undefined
+    ) {
+      const current = prepareProjectMigrationCommit(root, {
+        version: this.#version,
+        defaults: this.#defaults(timestamp),
+      });
+      if (current.success) {
+        const verification = this.#verify(current.json, timestamp);
+        if (verification.status === "verified") {
+          const resetSentinel = this.#consumeSentinel(
+            acceptedOptions.consumeResetSentinel,
+          );
+          const durable = /** @type {const} */ ({
+            backup: { status: "not_attempted" },
+            rootWrite: { status: "skipped", reason: "already_current" },
+            verification,
+          });
+          if (resetSentinel.status !== "acknowledged")
+            return {
+              status: "sentinel_failed",
+              error: "reset_sentinel_consumption_failed",
+              ...durable,
+              resetSentinel,
+            };
+          return {
+            status: "committed",
+            ...durable,
+            value: structuredClone(current.value),
+            resetSentinel,
+          };
+        }
+        if (verification.reason === "read_failed")
+          return { ...rejected, error: "storage_read_failed" };
+      }
+    }
+    const { checkpoint, ...backup } = this.#backup(
+      timestamp,
+      acceptedOptions.purpose,
+    );
+    if (acceptedOptions.purpose && backup.status === "read_failed") {
+      return { ...rejected, error: "storage_read_failed" };
+    }
+    if (checkpoint) {
+      // Reusing a verified backup is not a fresh backup write. Keep the new
+      // primary-write timestamp but report the actual checkpoint timestamp.
+      prepared = prepareProjectMigrationCommit(
+        { ...prepared.value, lastBackup: checkpoint.timestamp },
+        { version: this.#version, defaults: this.#defaults(timestamp) },
+      );
+      if (!prepared.success) return { ...rejected, error: prepared.error };
+    }
     try {
       this.#storage.setItem(ROOT_KEY, prepared.json);
     } catch (error) {

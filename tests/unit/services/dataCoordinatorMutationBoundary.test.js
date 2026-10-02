@@ -20,7 +20,6 @@ const root = () => ({
   currentProfile: "captain",
   profiles: { captain: profile() },
   globalAliases: {},
-  settings: {},
   lastModified: "2026-09-26T00:00:00.000Z",
 });
 const options = { version: "1.0.0" };
@@ -150,6 +149,14 @@ describe("DataCoordinator complete mutation validation", () => {
 });
 
 describe("DataCoordinator planned persistence envelope", () => {
+  it.each([null, false, 0, {}, { theme: "legacy-only" }])(
+    "rejects an own embedded settings field in planned owner roots: %j",
+    (settings) => {
+      expect(() =>
+        validatePlannedProjectRoot({ ...root(), settings }, options),
+      ).toThrow("invalid_profile_operations");
+    },
+  );
   it("validates compatibility shapes and extensions without normalizing or mutating them", () => {
     const candidate = profile();
     candidate.aliases.Greeting = {

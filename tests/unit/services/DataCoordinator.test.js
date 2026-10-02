@@ -16,7 +16,6 @@ describe("DataCoordinator Service", () => {
   const completeRoot = (data = {}) => ({
     currentProfile: null,
     profiles: {},
-    settings: {},
     globalAliases: {},
     version: "1.0.0",
     lastModified: "2026-07-19T00:00:00.000Z",
@@ -100,8 +99,11 @@ describe("DataCoordinator Service", () => {
       });
     });
 
-    it("loads profile state without adopting embedded root settings", async () => {
-      const embeddedSettings = { theme: "dark" };
+    // Task 9 retires embedded-root preservation. Its data-recovery requirement
+    // maps to storageSchemaMigration.activation.test.js's exact-backup/crash
+    // rows and projectArtifact.test.js's explicit-settings golden round trip.
+    it("loads settings-free profile state while preserving detached root extensions", async () => {
+      const rootExtension = { panels: ["commands"] };
       const mockData = completeRoot({
         currentProfile: "test-profile",
         profiles: {
@@ -109,7 +111,7 @@ describe("DataCoordinator Service", () => {
             description: "Test Description",
           }),
         },
-        settings: embeddedSettings,
+        extension: rootExtension,
       });
 
       projectRepository.load.mockReturnValue({
@@ -128,7 +130,31 @@ describe("DataCoordinator Service", () => {
         migrationVersion: "2.1.1",
       });
       expect(dataCoordinator.state).not.toHaveProperty("settings");
-      expect(mockData.settings).toBe(embeddedSettings);
+      expect(dataCoordinator._projectRoot).not.toHaveProperty("settings");
+      expect(dataCoordinator._projectRoot.extension).toEqual(rootExtension);
+      expect(dataCoordinator._projectRoot.extension).not.toBe(rootExtension);
+      expect(mockData.extension).toBe(rootExtension);
+    });
+
+    it("blocks initialization if an owner-port receipt contains embedded settings", async () => {
+      projectRepository.load.mockReturnValue({
+        status: "current",
+        value: completeRoot({
+          currentProfile: "test-profile",
+          profiles: { "test-profile": storedProfile("Test Profile") },
+          settings: { theme: "legacy-only" },
+        }),
+      });
+
+      dataCoordinator.init();
+      await expect(dataCoordinator.initialStateReady).rejects.toThrow(
+        "failed_to_load_profile_data",
+      );
+
+      expect(dataCoordinator.getCurrentState().ready).toBe(false);
+      expect(dataCoordinator.state.profiles).toEqual({});
+      expect(projectRepository.commit).not.toHaveBeenCalled();
+      expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     });
 
     it("should set first profile as current if none specified", async () => {
@@ -138,7 +164,6 @@ describe("DataCoordinator Service", () => {
           profile1: storedProfile("Profile 1"),
           profile2: storedProfile("Profile 2"),
         },
-        settings: {},
       });
 
       projectRepository.load.mockReturnValue({
@@ -154,7 +179,7 @@ describe("DataCoordinator Service", () => {
         expect.objectContaining({
           currentProfile: "profile1",
         }),
-        { verification: "required" },
+        { verification: "required", purpose: "startup_recovery" },
       );
     });
   });
@@ -365,12 +390,12 @@ describe("DataCoordinator Service", () => {
   });
 
   describe("Storage Operations", () => {
-    it("saves profile updates without replacing embedded root settings", async () => {
-      const embeddedSettings = { theme: "root-only", legacy: true };
+    it("saves profile updates while preserving root extensions without writing settings", async () => {
+      const rootExtension = { panels: ["commands"], retained: true };
       const durableRoot = completeRoot({
         currentProfile: "test-profile",
         profiles: { "test-profile": storedProfile("Test Profile") },
-        settings: embeddedSettings,
+        extension: rootExtension,
       });
       dataCoordinator._projectRoot = structuredClone(durableRoot);
       dataCoordinator.state.profiles["test-profile"] =
@@ -387,10 +412,14 @@ describe("DataCoordinator Service", () => {
               description: "Updated",
             }),
           }),
-          settings: embeddedSettings,
+          extension: rootExtension,
         }),
         { verification: "not_requested" },
       );
+      expect(projectRepository.commit.mock.calls[0][0]).not.toHaveProperty(
+        "settings",
+      );
+      expect(dataCoordinator._projectRoot).not.toHaveProperty("settings");
       expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
     });
 
@@ -406,7 +435,7 @@ describe("DataCoordinator Service", () => {
         profiles: {
           "reloaded-profile": { name: "Reloaded", mode: "space", keys: {} },
         },
-        settings: { newSetting: "value" },
+        extension: { newField: "value" },
       });
 
       projectRepository.load.mockReturnValue({
@@ -436,7 +465,11 @@ describe("DataCoordinator Service", () => {
         },
       });
       expect(dataCoordinator.state).not.toHaveProperty("settings");
-      expect(newData.settings).toEqual({ newSetting: "value" });
+      expect(dataCoordinator._projectRoot).not.toHaveProperty("settings");
+      expect(dataCoordinator._projectRoot.extension).toEqual({
+        newField: "value",
+      });
+      expect(newData.extension).toEqual({ newField: "value" });
     });
   });
 

@@ -15,7 +15,6 @@ describe("DataCoordinator profile construction facade", () => {
     let durableRoot = {
       currentProfile: null,
       profiles: {},
-      settings: {},
       version: "1.0.0",
       lastModified: "2026-07-19T02:59:00.000Z",
     };

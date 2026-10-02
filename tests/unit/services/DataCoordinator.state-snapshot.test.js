@@ -21,6 +21,9 @@ const profile = (name, currentEnvironment = "space") => ({
 });
 
 describe("DataCoordinator complete state snapshots", () => {
+  // Retired embedded-root compatibility assertions now preserve root extensions.
+  // storageSchemaMigration.activation's exact-backup/crash rows preserve legacy
+  // recovery, while projectArtifact's explicit-settings golden preserves export.
   let fixture;
   let coordinator;
   let projectRepository;
@@ -35,7 +38,6 @@ describe("DataCoordinator complete state snapshots", () => {
         alpha: profile("Alpha"),
         beta: profile("Beta", "ground"),
       },
-      settings: { theme: "dark" },
       version: "1.0.0",
       lastModified: "2026-07-16T00:00:00.000Z",
     };
@@ -52,7 +54,6 @@ describe("DataCoordinator complete state snapshots", () => {
       durableRoot = {
         currentProfile: null,
         profiles: {},
-        settings: {},
         version: "1.0.0",
         lastModified: "2026-07-16T01:00:00.000Z",
       };
@@ -323,7 +324,6 @@ describe("DataCoordinator complete state snapshots", () => {
     durableRoot = {
       currentProfile: "restored",
       profiles: { restored: profile("Restored", "ground") },
-      settings: { language: "de" },
       version: "2.1.0",
       lastModified: "2026-07-16T02:00:00.000Z",
     };
@@ -398,7 +398,7 @@ describe("DataCoordinator complete state snapshots", () => {
       const durableBefore = {
         currentProfile: null,
         profiles: {},
-        settings: { theme: "dark" },
+        extension: { retained: ["owner-root"] },
         version: "1.0.0",
         lastModified: "2026-07-16T03:00:00.000Z",
       };
@@ -429,12 +429,15 @@ describe("DataCoordinator complete state snapshots", () => {
               expectedProfileIds.map((id) => [id, expect.any(Object)]),
             ),
           ),
-          settings: { theme: "dark" },
+          extension: { retained: ["owner-root"] },
           version: "1.0.0",
         }),
         { verification: "not_requested" },
       );
       expect(durableRoot).toEqual(durableBefore);
+      expect(projectRepository.commit.mock.calls[0][0]).not.toHaveProperty(
+        "settings",
+      );
       expect(coordinator.state).toEqual(ownerBefore);
       expect(coordinator.getCurrentState().revision).toBe(revisionBefore);
       expect(stateEvents()).toHaveLength(0);
@@ -482,7 +485,7 @@ describe("DataCoordinator complete state snapshots", () => {
     const importedRoot = {
       currentProfile: "legacy",
       profiles: { legacy: profile("Legacy") },
-      settings: { theme: "imported" },
+      extension: { retained: ["reloaded-root"] },
       version: "2.0.0",
       lastModified: "2026-07-16T04:00:00.000Z",
     };
@@ -511,11 +514,14 @@ describe("DataCoordinator complete state snapshots", () => {
     expect(projectRepository.commit.mock.calls[0][0]).toMatchObject({
       currentProfile: "legacy",
       profiles: { legacy: { migrationVersion: "2.1.1" } },
-      settings: { theme: "imported" },
+      extension: { retained: ["reloaded-root"] },
       version: "2.0.0",
       lastModified: "2026-07-16T04:00:00.000Z",
     });
     expect(durableRoot).toEqual(importedRoot);
+    expect(projectRepository.commit.mock.calls[0][0]).not.toHaveProperty(
+      "settings",
+    );
     expect(coordinator.state).toEqual(ownerBefore);
     expect(coordinator.getCurrentState().revision).toBe(revisionBefore);
     expect(stateEvents()).toHaveLength(0);

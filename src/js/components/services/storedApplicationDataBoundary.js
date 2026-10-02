@@ -12,7 +12,6 @@ import {
   decodeStoredAliasMap,
   decodeStoredProfileData,
 } from "./profileDataBoundary.js";
-import { sanitizeStoredSettingsPatch } from "./settingsDataBoundary.js";
 
 /** @param {string} content */
 function storedDataByteLength(content) {
@@ -38,6 +37,35 @@ function validateOptionalStringField(value, field) {
  * @returns {import('../../types/data-contracts.js').StoredApplicationDecodeResult}
  */
 export function decodeStoredApplicationJson(content, { defaults, version }) {
+  return decodeStoredApplicationRoot(content, { defaults, version }, false);
+}
+
+/**
+ * Migration-only decoding of a historical persisted root. Embedded settings
+ * are ignored, never inspected or validated, and removed before the remaining
+ * root is cloned so hostile embedded data cannot discard valid project data.
+ * @param {unknown} content
+ * @param {{ defaults: import('../../types/data-contracts.js').StoredApplicationData, version: string }} options
+ * @returns {import('../../types/data-contracts.js').StoredApplicationDecodeResult}
+ */
+export function decodeLegacyStoredApplicationJson(
+  content,
+  { defaults, version },
+) {
+  return decodeStoredApplicationRoot(content, { defaults, version }, true);
+}
+
+/**
+ * @param {unknown} content
+ * @param {{ defaults: import('../../types/data-contracts.js').StoredApplicationData, version: string }} options
+ * @param {boolean} allowLegacySettings
+ * @returns {import('../../types/data-contracts.js').StoredApplicationDecodeResult}
+ */
+function decodeStoredApplicationRoot(
+  content,
+  { defaults, version },
+  allowLegacySettings,
+) {
   if (
     typeof content !== "string" ||
     content.length > MAX_PROJECT_JSON_BYTES ||
@@ -55,6 +83,12 @@ export function decodeStoredApplicationJson(content, { defaults, version }) {
   }
 
   try {
+    if (!isDataRecord(parsed)) invalidProjectData("$");
+    const hadEmbeddedSettings = hasOwnDataField(parsed, "settings");
+    if (hadEmbeddedSettings) {
+      if (!allowLegacySettings) invalidProjectData("$.settings");
+      delete parsed.settings;
+    }
     const detached = cloneJsonData(parsed, "$", 0);
     if (!isDataRecord(detached)) invalidProjectData("$");
     if (!hasOwnDataField(detached, "profiles")) {
@@ -76,7 +110,7 @@ export function decodeStoredApplicationJson(content, { defaults, version }) {
       assertSafeDataKey(detached.currentProfile, "$.currentProfile");
     }
 
-    let changed = false;
+    let changed = hadEmbeddedSettings;
     for (const field of ["version", "created", "lastModified", "lastBackup"]) {
       validateOptionalStringField(detached, field);
     }
@@ -90,7 +124,7 @@ export function decodeStoredApplicationJson(content, { defaults, version }) {
     }
 
     changed = detached.version !== version || changed;
-    let migrated = false;
+    let migrated = hadEmbeddedSettings;
     /** @type {Record<string, import('../../types/data-contracts.js').ProfileData>} */
     const profiles = {};
     for (const [profileId, profile] of Object.entries(detached.profiles)) {
@@ -118,19 +152,6 @@ export function decodeStoredApplicationJson(content, { defaults, version }) {
       changed = aliases.changed || changed;
       /** @type {Record<string, any>} */ (detached).globalAliases =
         aliases.aliases;
-    }
-
-    if (!detached.settings) {
-      /** @type {Record<string, any>} */ (detached).settings = cloneJsonData(
-        defaults.settings,
-        "$.settings",
-      );
-      changed = true;
-    } else {
-      if (!isDataRecord(detached.settings)) invalidProjectData("$.settings");
-      const settings = sanitizeStoredSettingsPatch(detached.settings);
-      /** @type {Record<string, any>} */ (detached).settings = settings.value;
-      changed = settings.repaired || changed;
     }
 
     const profileIds = Object.keys(profiles);

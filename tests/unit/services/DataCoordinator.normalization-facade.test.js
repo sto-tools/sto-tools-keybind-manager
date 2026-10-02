@@ -5,6 +5,9 @@ import DataCoordinator from "../../../src/js/components/services/DataCoordinator
 import { createServiceFixture } from "../../fixtures/index.js";
 
 describe("DataCoordinator normalization facade", () => {
+  // Task 9 replaces embedded-settings retention with root-extension retention.
+  // Exact legacy recovery is covered by storageSchemaMigration.activation's
+  // backup/crash matrix; portable settings by projectArtifact's golden test.
   const fixtures = [];
 
   afterEach(() => {
@@ -49,7 +52,6 @@ describe("DataCoordinator normalization facade", () => {
       version: "1.0.0",
       currentProfile: "legacy",
       profiles,
-      settings: { theme: "dark" },
       globalAliases: {},
       lastModified: "2099-07-18T00:00:00.000Z",
       extension: { retained: true },
@@ -67,7 +69,6 @@ describe("DataCoordinator normalization facade", () => {
       expect(profiles.legacy).not.toHaveProperty("migrationVersion");
       expect(nextRoot).toMatchObject({
         currentProfile: "legacy",
-        settings: { theme: "dark" },
         extension: { retained: true },
         profiles: {
           legacy: {
@@ -77,6 +78,7 @@ describe("DataCoordinator normalization facade", () => {
           },
         },
       });
+      expect(nextRoot).not.toHaveProperty("settings");
       return { status: "committed", value: structuredClone(nextRoot) };
     });
 
@@ -148,7 +150,6 @@ describe("DataCoordinator normalization facade", () => {
       version: "1.0.0",
       currentProfile: "legacy",
       profiles: { legacy: legacyProfile },
-      settings: {},
       globalAliases: {},
       lastModified: "2099-07-18T00:00:00.000Z",
     };
@@ -188,7 +189,6 @@ describe("DataCoordinator normalization facade", () => {
     const storedRoot = {
       currentProfile: "future",
       profiles: { ignored: { name: "Root profile" } },
-      settings: { language: "fr" },
       globalAliases: {},
       version: "1.0.0",
       lastModified: "2099-07-19T00:00:00.000Z",
@@ -215,7 +215,6 @@ describe("DataCoordinator normalization facade", () => {
     expect(fixture.projectRepository.commit).toHaveBeenCalledWith(
       expect.objectContaining({
         currentProfile: "future",
-        settings: { language: "fr" },
         extension: { retained: true },
         profiles: {
           future: expect.objectContaining({ migrationVersion: "2.1.1" }),
@@ -226,6 +225,9 @@ describe("DataCoordinator normalization facade", () => {
     expect(
       fixture.projectRepository.commit.mock.calls[0][0].profiles,
     ).not.toHaveProperty("ignored");
+    expect(
+      fixture.projectRepository.commit.mock.calls[0][0],
+    ).not.toHaveProperty("settings");
     expect(
       fixture.projectRepository.commit.mock.calls[0][0].profiles.future,
     ).toEqual({

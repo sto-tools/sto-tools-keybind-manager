@@ -3,7 +3,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import LocalStorageProjectRepository from "../../../src/js/components/storage/LocalStorageProjectRepository.js";
-import { createDefaultPreferencesSettings } from "../../../src/js/components/services/preferencesDefaults.js";
 import { MAX_PROJECT_JSON_BYTES } from "../../../src/js/components/services/jsonDataBoundary.js";
 
 const ROOT = "sto_keybind_manager";
@@ -15,8 +14,13 @@ const fixtureDirectory = join(
   dirname(fileURLToPath(import.meta.url)),
   "../../fixtures/storage",
 );
-const fixture = (name) =>
-  readFileSync(join(fixtureDirectory, name), "utf8").trim();
+const fixture = (name) => {
+  const raw = readFileSync(join(fixtureDirectory, name), "utf8").trim();
+  if (name !== "complete-current-root.json") return raw;
+  const canonical = JSON.parse(raw);
+  delete canonical.settings;
+  return JSON.stringify(canonical);
+};
 const root = () => JSON.parse(fixture("complete-current-root.json"));
 
 function setup(initial = {}, overrides = {}) {
@@ -37,15 +41,13 @@ function setup(initial = {}, overrides = {}) {
     }),
   };
   const now = vi.fn(() => time);
-  const settingsDefaults = createDefaultPreferencesSettings();
   const repository = new LocalStorageProjectRepository({
     storage,
     now,
-    settingsDefaults,
     version: "2.0.0",
     ...overrides,
   });
-  return { data, operations, storage, now, repository, settingsDefaults };
+  return { data, operations, storage, now, repository };
 }
 
 afterEach(() => vi.restoreAllMocks());
@@ -60,7 +62,6 @@ describe("LocalStorageProjectRepository", () => {
     expect(() => setup({}, { storage: undefined })).toThrow();
     expect(() => setup({}, { now: undefined })).toThrow();
     expect(() => setup({}, { version: 3 })).toThrow();
-    expect(() => setup({}, { settingsDefaults: {} })).toThrow();
     expect(repository).not.toHaveProperty("getProfile");
     expect(repository).not.toHaveProperty("emit");
     expect(Object.keys(repository.createMigrationInspectionPort())).toEqual([
@@ -72,7 +73,7 @@ describe("LocalStorageProjectRepository", () => {
     const raw = fixture("complete-current-root.json");
     const { repository, storage, data } = setup({ [ROOT]: raw });
     const first = repository.load();
-    first.value.settings.theme = "mutated-result";
+    first.value.profiles["complete-profile"].name = "mutated-result";
     expect(repository.load()).toEqual({
       status: "current",
       value: JSON.parse(raw),
@@ -86,17 +87,12 @@ describe("LocalStorageProjectRepository", () => {
     expect(storage.removeItem).not.toHaveBeenCalled();
   });
 
-  it("detaches constructor defaults from the caller and all load results", () => {
-    const defaults = {
-      ...createDefaultPreferencesSettings(),
-      extension: { n: 1 },
-    };
-    const { repository } = setup({}, { settingsDefaults: defaults });
-    defaults.extension.n = 2;
+  it("creates detached settings-free recovery defaults for each load", () => {
+    const { repository } = setup();
     const first = repository.load();
-    expect(first.value.settings.extension.n).toBe(1);
-    first.value.settings.extension.n = 3;
-    expect(repository.load().value.settings.extension.n).toBe(1);
+    expect(first.value).not.toHaveProperty("settings");
+    first.value.profiles.caller = { name: "mutation" };
+    expect(repository.load().value.profiles).toEqual({});
   });
 
   it.each([ROOT, RESET])("fails closed when loading %s throws", (key) => {
@@ -157,25 +153,29 @@ describe("LocalStorageProjectRepository", () => {
     expect(result.value).toEqual(JSON.parse(data.get(ROOT)));
     expect(input).toEqual(original);
     expect(now).toHaveBeenCalledTimes(1);
-    result.value.settings.theme = "result-change";
-    input.settings.theme = "input-change";
-    expect(repository.load().value.settings.theme).toBe(
-      original.settings.theme,
+    result.value.profiles["complete-profile"].name = "result-change";
+    input.profiles["complete-profile"].name = "input-change";
+    expect(repository.load().value.profiles["complete-profile"].name).toBe(
+      original.profiles["complete-profile"].name,
     );
   });
 
   it.each(["space", "ground"])(
-    "commits legacy %s roots to frozen golden values",
+    "does not authorize embedded-settings %s roots through ordinary load",
     (mode) => {
       const raw = fixture(`legacy-${mode}-root.json`);
       const { repository, data } = setup({ [ROOT]: raw });
-      const result = repository.commit(repository.load().value, {
+      const loaded = repository.load();
+      expect(loaded).toMatchObject({
+        status: "repair_required",
+        reason: "invalid_data",
+      });
+      expect(loaded.value).not.toHaveProperty("settings");
+      const result = repository.commit(loaded.value, {
         verification: "required",
       });
       expect(result.status).toBe("committed");
-      expect(result.value).toEqual(
-        JSON.parse(fixture(`legacy-${mode}-expected-root.json`)),
-      );
+      expect(result.value.profiles).toEqual({});
       expect(JSON.parse(data.get(BACKUP)).data).toBe(raw);
     },
   );
@@ -384,6 +384,8 @@ describe("LocalStorageProjectRepository", () => {
       { verification: "yes" },
       { verification: null },
       { preserveBackup: true },
+      { purpose: "startup_recovery" },
+      { purpose: "startup_recovery", verification: "not_requested" },
       { consumeResetSentinel: "true" },
       { verification: "required", consumeResetSentinel: "" },
       { verification: "required", consumeResetSentinel: false },

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
+import { runStorageSchemaMigration } from "../../src/js/components/storage/storageSchemaMigration.js";
 import { serializeProjectArtifact } from "../../src/js/components/services/projectArtifact.js";
 import {
   createEventBusFixture,
@@ -60,9 +61,20 @@ describe("two-location settings authority golden", () => {
   });
 
   async function startPreferences() {
+    const settingsRepository = createProjectSettingsRepository();
+    const startupMigration = runStorageSchemaMigration({
+      settingsRepository,
+      settingsInspection: settingsRepository.createMigrationInspectionPort(),
+      projectMigration: projectRepository.createSchemaMigrationPort(),
+      defaults: golden.defaults,
+      version: "1.0.0",
+      now: () => "2026-10-02T17:00:00.000Z",
+    });
+    expect(["absent", "complete"]).toContain(startupMigration.status);
     preferences = new PreferencesService({
       eventBus: eventBusFixture.eventBus,
-      settingsRepository: createProjectSettingsRepository(),
+      settingsRepository,
+      startupMigration,
       i18n,
       localizeCommands: vi.fn(),
       applyTranslations: vi.fn(),
@@ -72,7 +84,7 @@ describe("two-location settings authority golden", () => {
     return preferences;
   }
 
-  it("uses standalone settings for export, refuses embedded fallback, and preserves both records", async () => {
+  it("migrates the exact legacy backup, exports standalone settings, and preserves project extensions", async () => {
     const rootText = localStorage.getItem(projectRootKey);
     const settingsText = localStorage.getItem("sto_keybind_settings");
 
@@ -80,7 +92,10 @@ describe("two-location settings authority golden", () => {
 
     expect(preferences.getSettings()).toEqual(golden.standalone);
     const project = projectRepository.load().value;
-    expect(project.settings).toEqual(golden.root.settings);
+    const expectedRoot = structuredClone(golden.root);
+    delete expectedRoot.settings;
+    expect(project).toEqual(expectedRoot);
+    expect(project).not.toHaveProperty("settings");
 
     const artifact = JSON.parse(
       serializeProjectArtifact(
@@ -115,7 +130,12 @@ describe("two-location settings authority golden", () => {
         },
       ),
     ).toThrowError("canonical_settings_required");
-    expect(localStorage.getItem(projectRootKey)).toBe(rootText);
+    expect(JSON.parse(localStorage.getItem(projectRootKey))).toEqual(
+      expectedRoot,
+    );
+    expect(
+      JSON.parse(localStorage.getItem("sto_keybind_manager_backup")).data,
+    ).toBe(rootText);
     expect(localStorage.getItem("sto_keybind_settings")).toBe(settingsText);
   });
 
@@ -135,8 +155,9 @@ describe("two-location settings authority golden", () => {
       await startPreferences();
 
       expect(preferences.getSettings()).toEqual(golden.defaults);
-      expect(projectRepository.load().value.settings).toEqual(
-        golden.root.settings,
+      expect(projectRepository.load().value).not.toHaveProperty("settings");
+      expect(projectRepository.load().value.profiles).toEqual(
+        golden.root.profiles,
       );
       expect(localStorage.getItem("sto_keybind_settings")).toBe(
         JSON.stringify(golden.defaults),
@@ -169,8 +190,9 @@ describe("two-location settings authority golden", () => {
       revision: 1,
       settings: successorSettings,
     });
-    expect(projectRepository.load().value.settings).toEqual(
-      golden.root.settings,
+    expect(projectRepository.load().value).not.toHaveProperty("settings");
+    expect(projectRepository.load().value.profiles).toEqual(
+      golden.root.profiles,
     );
   });
 });

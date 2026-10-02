@@ -124,7 +124,6 @@ describe("VFX virtual alias projection flow", () => {
     fixture.storageFixture.setData("sto_keybind_manager", {
       currentProfile: "alpha",
       profiles: { alpha },
-      settings: {},
       version: "1.0.0",
       lastModified: "2026-07-16T00:00:00.000Z",
     });

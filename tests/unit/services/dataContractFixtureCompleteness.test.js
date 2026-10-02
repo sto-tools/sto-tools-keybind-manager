@@ -4,7 +4,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { decodeStoredApplicationJson } from "../../../src/js/components/services/storedApplicationDataBoundary.js";
+import {
+  decodeLegacyStoredApplicationJson,
+  decodeStoredApplicationJson,
+} from "../../../src/js/components/services/storedApplicationDataBoundary.js";
+import { decodeProjectSettings } from "../../../src/js/components/services/settingsDataBoundary.js";
 
 const fixtureDirectory = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -31,7 +35,6 @@ const rootFields = [
   "currentProfile",
   "profiles",
   "globalAliases",
-  "settings",
 ];
 
 const profileFields = [
@@ -289,33 +292,56 @@ describe("complete persisted-data contract fixture", () => {
     }
   });
 
-  it("materializes every known root, profile, command, alias, and settings field", () => {
+  it("materializes every known legacy root, profile, command, alias, and embedded settings field", () => {
     const root = readFixture("complete-current-root.json");
     const profile = root.profiles["complete-profile"];
     const command = profile.builds.space.keys.F1[1];
     const alias = profile.aliases.CompleteAlias;
 
-    expectOwnFields(root, rootFields);
+    // This immutable fixture remains a rollback checkpoint, not a canonical
+    // owner-port root. Task 9 retires only ongoing embedded-field persistence.
+    expectOwnFields(root, [...rootFields, "settings"]);
     expectOwnFields(profile, profileFields);
     expectOwnFields(command, richCommandFields);
     expectOwnFields(alias, aliasFields);
     expectOwnFields(root.settings, settingsFields);
   });
 
-  it("round-trips and detaches explicit extensions at every open schema level", () => {
+  it("migrates the immutable legacy fixture and round-trips detached canonical extensions", () => {
     const root = readFixture("complete-current-root.json");
-    const decoded = decodeStoredApplicationJson(JSON.stringify(root), {
-      defaults: root,
+    const canonical = structuredClone(root);
+    delete canonical.settings;
+    const decoded = decodeLegacyStoredApplicationJson(JSON.stringify(root), {
+      defaults: canonical,
       version: root.version,
     });
 
     expect(decoded).toMatchObject({
       success: true,
-      changed: false,
-      migrated: false,
-      value: root,
+      changed: true,
+      migrated: true,
+      value: canonical,
     });
     if (!decoded.success) throw new Error("expected a decoded root");
+    expectOwnFields(decoded.value, rootFields);
+    expect(decoded.value).not.toHaveProperty("settings");
+    expect(
+      decodeStoredApplicationJson(JSON.stringify(root), {
+        defaults: canonical,
+        version: root.version,
+      }),
+    ).toEqual({ success: false, error: "invalid_data", path: "$.settings" });
+    expect(
+      decodeStoredApplicationJson(JSON.stringify(decoded.value), {
+        defaults: canonical,
+        version: root.version,
+      }),
+    ).toEqual({
+      success: true,
+      changed: false,
+      migrated: false,
+      value: canonical,
+    });
 
     const profile = decoded.value.profiles["complete-profile"];
     expect(decoded.value.rootExtension).toEqual({ retained: true });
@@ -329,16 +355,26 @@ describe("complete persisted-data contract fixture", () => {
       source: "complete-fixture",
     });
     expect(profile.aliases.CompleteAlias.aliasExtension).toEqual(["retained"]);
-    expect(decoded.value.settings["plugin:layout"]).toEqual({
-      density: "compact",
-    });
-
     root.rootExtension.retained = false;
     root.profiles["complete-profile"].profileExtension.panels.length = 0;
     expect(decoded.value.rootExtension).toEqual({ retained: true });
     expect(profile.profileExtension).toEqual({
       panels: ["commands", "aliases"],
     });
+  });
+
+  it("round-trips and detaches standalone settings extensions independently of legacy roots", () => {
+    // The retired embedded-settings extension assertion maps to this standalone
+    // boundary row, the portable envelope row below, and
+    // storageSchemaMigration.activation.test.js's exact-backup/crash matrix.
+    const settings = readFixture("complete-current-settings.json");
+    const decoded = decodeProjectSettings(settings);
+    expectOwnFields(decoded, settingsFields);
+    expect(decoded).toEqual(settings);
+    expect(decoded).not.toBe(settings);
+    expect(decoded["plugin:layout"]).toEqual({ density: "compact" });
+    settings["plugin:layout"].density = "changed";
+    expect(decoded["plugin:layout"]).toEqual({ density: "compact" });
   });
 
   it("covers the complete imported project envelope and rich-command shape", () => {

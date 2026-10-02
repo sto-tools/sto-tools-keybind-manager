@@ -53,7 +53,6 @@ describe("DataCoordinator application reset owner action", () => {
             migrationVersion: "2.1.1",
           },
         },
-        settings: { theme: "dark" },
         version: "1.0.0",
         lastModified: "2026-09-26T00:00:00.000Z",
       },
@@ -64,7 +63,6 @@ describe("DataCoordinator application reset owner action", () => {
         value: {
           currentProfile: null,
           profiles: {},
-          settings: {},
           version: "1.0.0",
           lastModified: "2026-09-26T00:00:01.000Z",
         },

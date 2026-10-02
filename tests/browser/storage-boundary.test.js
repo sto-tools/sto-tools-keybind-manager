@@ -28,6 +28,12 @@ describe("Persisted storage browser boundary", () => {
     expect(app).not.toHaveProperty("storageService");
     expect(app).not.toHaveProperty("projectRepository");
     expect(coordinator.getCurrentState().ready).toBe(true);
+    expect(
+      JSON.parse(localStorage.getItem(PROJECT_ROOT_KEY)),
+    ).not.toHaveProperty("settings");
+    expect(coordinator.projectRepository).not.toHaveProperty(
+      "createSchemaMigrationPort",
+    );
     const beforePreferences = await readPreferencesState(bus);
     const beforeProfileId = coordinator.getCurrentState().currentProfile;
     expect(beforeProfileId).toBeTruthy();
@@ -381,7 +387,6 @@ describe("Persisted storage browser boundary", () => {
           },
         },
         globalAliases: {},
-        settings: { language: "fr" },
       };
       localStorage.setItem(PROJECT_ROOT_KEY, JSON.stringify(legacyRoot));
 
@@ -446,6 +451,7 @@ describe("Persisted storage browser boundary", () => {
       });
       const backup = JSON.parse(localStorage.getItem(PROJECT_BACKUP_KEY));
       const durable = JSON.parse(localStorage.getItem(PROJECT_ROOT_KEY));
+      expect(durable).not.toHaveProperty("settings");
       expect(durable.lastBackup).toBe(backup.timestamp);
       expect(durable.profiles["legacy-browser"]).toEqual(
         coordinator.getCurrentState().profiles["legacy-browser"],

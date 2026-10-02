@@ -59,7 +59,7 @@ describe("persistence access architecture ratchet", () => {
         (total, count) => total + count,
         0,
       ),
-    ).toBe(37);
+    ).toBe(48);
   });
 
   it("freezes the exact physical scalar writers and their owner-bound modules", () => {
@@ -75,6 +75,9 @@ describe("persistence access architecture ratchet", () => {
       ...expectedScalarWrites,
       ...unusedRepositoryScalarWrites,
     });
+    expect(
+      Object.values(actualWrites).reduce((sum, count) => sum + count, 0),
+    ).toBe(21);
     expect(
       Object.entries(actualWrites)
         .filter(([key]) => !key.startsWith("components/storage/"))
@@ -198,6 +201,7 @@ describe("persistence access architecture ratchet", () => {
       "SettingsRepository.js",
       "VisitedStatePort.js",
       "projectRepositoryBoundary.js",
+      "projectSchemaMigrationPersistence.js",
       "repositoryJsonBoundary.js",
       "repositoryResults.js",
       "scopedLocalStorage.js",
@@ -206,13 +210,23 @@ describe("persistence access architecture ratchet", () => {
       "storageSchemaMigrationReceipt.js",
     ]);
 
-    const source = javascriptFiles(sourceRoot)
+    const receiptImport =
+      'import { materializeStorageSchemaMigrationReceipt } from "../storage/storageSchemaMigrationReceipt.js";';
+    const preferencesFile = "components/services/PreferencesService.js";
+    const preferencesSource = new Map(entries).get(preferencesFile);
+    expect(preferencesSource.split(receiptImport)).toHaveLength(2);
+    const source = entries
       .filter(
-        (file) =>
-          !file.startsWith(`${storageDirectory}/`) &&
-          file !== join(sourceRoot, "main.js"),
+        ([file]) =>
+          !file.startsWith("components/storage/") && file !== "main.js",
       )
-      .map((file) => readFileSync(file, "utf8"))
+      .map(([file, contents]) => {
+        // This one exact pure receipt import is not a concrete adapter or a
+        // privileged persistence capability; all other runtime imports stay shut.
+        return file === preferencesFile
+          ? contents.replace(receiptImport, "")
+          : contents;
+      })
       .join("\n");
     // Type-only port references are allowed; concrete runtime imports are not.
     expect(source).not.toMatch(/(?:from\s*|import\s*)["'][^"']*\/storage\//);
@@ -220,8 +234,35 @@ describe("persistence access architecture ratchet", () => {
       .map((file) => readFileSync(join(sourceRoot, file), "utf8"))
       .join("\n");
     expect(`${source}\n${composition}`).not.toMatch(
-      /storageSchemaMigration|preflightStorageSchemaMigration|createMigrationInspectionPort/,
+      /preflightStorageSchemaMigration|projectRepository\s*\.\s*createMigrationInspectionPort/,
     );
+    expect(source).not.toMatch(
+      /storageSchemaMigration|runStorageSchemaMigration|createSchemaMigrationPort|createProjectSchemaMigrationPort|createMigrationInspectionPort/,
+    );
+    const mainSource = readFileSync(join(sourceRoot, "main.js"), "utf8");
+    expect(mainSource).toContain(
+      'import { runStorageSchemaMigration } from "./components/storage/storageSchemaMigration.js";',
+    );
+    const compactMain = mainSource.replace(/\s+/g, " ").trim();
+    const startupCall =
+      /const startupMigration = runStorageSchemaMigration\(\{.*?\}\);/g;
+    const ownerFacade = /projectRepository:\s*Object\.freeze\(\{.*?\}\)/g;
+    expect(compactMain.match(startupCall)).toEqual([
+      "const startupMigration = runStorageSchemaMigration({ settingsRepository, settingsInspection: settingsRepository.createMigrationInspectionPort(), projectMigration: projectRepository.createSchemaMigrationPort(), defaults, version: stoData.settings.version, now: () => new Date().toISOString(), });",
+    ]);
+    expect(compactMain.match(ownerFacade)).toEqual([
+      "projectRepository: Object.freeze({ load: projectRepository.load.bind(projectRepository), commit: projectRepository.commit.bind(projectRepository), reset: projectRepository.reset.bind(projectRepository), })",
+    ]);
+    const receiptSource = readFileSync(
+      join(storageDirectory, "storageSchemaMigrationReceipt.js"),
+      "utf8",
+    );
+    expect(receiptSource).not.toMatch(
+      /^\s*import\b|\b(?:localStorage|storage|eventBus|ComponentBase)\b\s*(?:\.|\()/m,
+    );
+    expect(
+      scalarCallsites([["storageSchemaMigrationReceipt.js", receiptSource]]),
+    ).toEqual({});
     for (const candidate of repositoryCandidateNames.filter((name) =>
       name.startsWith("LocalStorage"),
     )) {
@@ -247,7 +288,7 @@ describe("persistence access architecture ratchet", () => {
     expect(constructorCallsites(entries, ["StorageService"])).toEqual({});
     expect(constructorCallsites(entries, repositoryCandidateNames)).toEqual({
       "main.js|LocalStorageSettingsRepository|{ storage: settingsStorage, defaults, }": 1,
-      "main.js|LocalStorageProjectRepository|{ storage: settingsStorage, version: stoData.settings.version, now: () => new Date().toISOString(), settingsDefaults: defaults, }": 1,
+      "main.js|LocalStorageProjectRepository|{ storage: settingsStorage, version: stoData.settings.version, now: () => new Date().toISOString(), }": 1,
       "main.js|LocalStorageVisitedStatePersistence|{ storage: settingsStorage, }": 1,
       "main.js|LocalStorageCommandPresentationPersistence|{ storage: settingsStorage, }": 1,
       "main.js|LocalStorageKeyBrowserPersistence|{ storage: settingsStorage, }": 1,
@@ -301,6 +342,10 @@ describe("persistence access architecture ratchet", () => {
       ],
       "components/storage/LocalStorageSettingsRepository.js": [
         'const SETTINGS_KEY = "sto_keybind_settings"',
+      ],
+      "components/storage/projectSchemaMigrationPersistence.js": [
+        'const ROOT_KEY = "sto_keybind_manager"',
+        'const BACKUP_KEY = "sto_keybind_manager_backup"',
       ],
       "components/storage/LocalStorageCommandPresentationPersistence.js": [
         'const SUFFIX = "_collapsed"',

@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { MAX_PROJECT_JSON_BYTES } from "../../../src/js/components/services/jsonDataBoundary.js";
-import { decodeStoredApplicationJson } from "../../../src/js/components/services/storedApplicationDataBoundary.js";
+import {
+  MAX_PROJECT_JSON_BYTES,
+  MAX_PROJECT_JSON_DEPTH,
+} from "../../../src/js/components/services/jsonDataBoundary.js";
+import {
+  decodeLegacyStoredApplicationJson,
+  decodeStoredApplicationJson,
+} from "../../../src/js/components/services/storedApplicationDataBoundary.js";
 
 const defaults = Object.freeze({
   version: "2.0.0",
@@ -10,11 +16,6 @@ const defaults = Object.freeze({
   currentProfile: null,
   profiles: {},
   globalAliases: {},
-  settings: {
-    theme: "default",
-    autoSave: true,
-    language: "en",
-  },
 });
 
 function profile(overrides = {}) {
@@ -38,7 +39,6 @@ function root(overrides = {}) {
     currentProfile: "captain",
     profiles: { captain: profile() },
     globalAliases: {},
-    settings: { theme: "light", language: "de" },
     ...overrides,
   };
 }
@@ -140,25 +140,138 @@ describe("storedApplicationDataBoundary", () => {
     });
   });
 
-  it("recovers invalid embedded setting fields without expanding a partial record", () => {
-    const decoded = decode(
+  // Embedded-field preservation/recovery is retired by Task 9. Migration
+  // preserves project data while standalone settings remain independent.
+  it.each([null, false, 0, "ignored", [], {}, { theme: "dark" }])(
+    "rejects any own settings property in canonical roots: %j",
+    (settings) => {
+      expect(decode(root({ settings }))).toEqual({
+        success: false,
+        error: "invalid_data",
+        path: "$.settings",
+      });
+    },
+  );
+
+  it.each([
+    null,
+    true,
+    [],
+    { theme: 42, language: "fr" },
+    JSON.parse('{"__proto__":{"polluted":true},"constructor":{}}'),
+  ])(
+    "ignores legacy embedded settings %j and preserves project extensions",
+    (settings) => {
+      const canonical = root({ extension: { source: ["preserved"] } });
+      const decoded = decodeLegacyStoredApplicationJson(
+        JSON.stringify({ ...canonical, settings }),
+        { defaults, version: "2.0.0" },
+      );
+      expect(decoded).toEqual({
+        success: true,
+        changed: true,
+        migrated: true,
+        value: canonical,
+      });
+      canonical.extension.source[0] = "changed";
+      expect(decoded.value.extension.source).toEqual(["preserved"]);
+      expect(decoded.value).not.toHaveProperty("settings");
+      expect({}.polluted).toBeUndefined();
+    },
+  );
+
+  it("removes hostile over-depth embedded settings before cloning the root", () => {
+    let settings = { leaf: true };
+    for (let depth = 0; depth < MAX_PROJECT_JSON_DEPTH + 2; depth++) {
+      settings = { nested: settings };
+    }
+    const canonical = root({ extension: { retained: true } });
+    const decoded = decodeLegacyStoredApplicationJson(
+      JSON.stringify({ ...canonical, settings }),
+      { defaults, version: "2.0.0" },
+    );
+    expect(decoded).toMatchObject({ success: true, value: canonical });
+    expect(decoded.value).not.toHaveProperty("settings");
+  });
+
+  it("accepts canonical input through migration without manufacturing changes", () => {
+    const canonical = root();
+    expect(
+      decodeLegacyStoredApplicationJson(JSON.stringify(canonical), {
+        defaults,
+        version: "2.0.0",
+      }),
+    ).toEqual({
+      success: true,
+      changed: false,
+      migrated: false,
+      value: canonical,
+    });
+  });
+
+  it("preserves nested extension settings and colliding discriminator-like keys", () => {
+    const canonical = root({
+      storageSchemaVersion: { userExtension: true },
+      extension: { settings: { retained: true } },
+    });
+    const decoded = decodeLegacyStoredApplicationJson(
+      JSON.stringify({ ...canonical, settings: { ignored: true } }),
+      { defaults, version: "2.0.0" },
+    );
+    expect(decoded).toMatchObject({ success: true, value: canonical });
+    expect(decoded.value).not.toHaveProperty("settings");
+  });
+
+  it("never reads embedded settings from decoder defaults", () => {
+    const hostileDefaults = { ...defaults };
+    Object.defineProperty(hostileDefaults, "settings", {
+      get() {
+        throw new Error("embedded defaults must not be consulted");
+      },
+    });
+    for (const decoder of [
+      decodeStoredApplicationJson,
+      decodeLegacyStoredApplicationJson,
+    ]) {
+      const decoded = decoder(JSON.stringify(root()), {
+        defaults: hostileDefaults,
+        version: "2.0.0",
+      });
+      expect(decoded).toMatchObject({ success: true, value: root() });
+      expect(decoded.value).not.toHaveProperty("settings");
+    }
+  });
+
+  it("applies the byte cap to discarded embedded settings too", () => {
+    const content = JSON.stringify(
       root({
-        settings: {
-          theme: 42,
-          language: "fr",
-          currentProfile: 12,
-          "plugin:layout": { density: "compact" },
-        },
+        settings: "é".repeat(MAX_PROJECT_JSON_BYTES / 2),
       }),
     );
+    expect(
+      decodeLegacyStoredApplicationJson(content, {
+        defaults,
+        version: "2.0.0",
+      }),
+    ).toEqual({ success: false, error: "invalid_data", path: "$" });
+  });
 
-    expect(decoded).toMatchObject({ success: true, changed: true });
-    if (!decoded.success) throw new Error("expected a decoded root");
-    expect(decoded.value.settings).toEqual({
-      language: "fr",
-      "plugin:layout": { density: "compact" },
+  it("still rejects unsafe project extensions after ignoring embedded settings", () => {
+    expect(
+      decodeLegacyStoredApplicationJson(
+        JSON.stringify(
+          root({
+            settings: { ignored: true },
+            extension: JSON.parse('{"constructor":{}}'),
+          }),
+        ),
+        { defaults, version: "2.0.0" },
+      ),
+    ).toEqual({
+      success: false,
+      error: "invalid_data",
+      path: "$.extension.constructor",
     });
-    expect(decoded.value.settings).not.toHaveProperty("autoSave");
   });
 
   it.each([
@@ -186,15 +299,13 @@ describe("storedApplicationDataBoundary", () => {
   it("adds historically repaired missing root sections from trusted defaults", () => {
     const value = root();
     delete value.globalAliases;
-    delete value.settings;
 
     const decoded = decode(value);
 
     expect(decoded).toMatchObject({ success: true, changed: true });
     if (!decoded.success) throw new Error("expected a decoded root");
     expect(decoded.value.globalAliases).toEqual({});
-    expect(decoded.value.settings).toEqual(defaults.settings);
-    expect(decoded.value.settings).not.toBe(defaults.settings);
+    expect(decoded.value).not.toHaveProperty("settings");
   });
 
   it("validates and detaches supported global aliases without rewriting them", () => {
@@ -327,6 +438,12 @@ describe("storedApplicationDataBoundary", () => {
         version: "2.0.0",
       }),
     ).toEqual({ success: false, error: "invalid_data", path: "$" });
+    expect(
+      decodeLegacyStoredApplicationJson(oversized, {
+        defaults,
+        version: "2.0.0",
+      }),
+    ).toEqual({ success: false, error: "invalid_data", path: "$" });
   });
 
   it("enforces the UTF-8 byte limit independently of JavaScript string length", () => {
@@ -362,6 +479,12 @@ describe("storedApplicationDataBoundary", () => {
       throw new Error("expected invalid data");
     }
     expect(decoded.path).toMatch(/^\$\.extension(?:\.next)+$/);
+    expect(
+      decodeLegacyStoredApplicationJson(
+        JSON.stringify(root({ settings: null, extension: nested })),
+        { defaults, version: "2.0.0" },
+      ),
+    ).toMatchObject({ success: false, error: "invalid_data" });
   });
 
   it("marks an accepted storage-version mismatch for repair", () => {

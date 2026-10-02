@@ -54,7 +54,6 @@ const createStorageData = (profiles, currentProfile = null) => ({
   sto_keybind_manager: {
     currentProfile,
     profiles,
-    settings: {},
     version: "1.0.0",
     lastModified: "2026-07-16T00:00:00.000Z",
   },
@@ -346,8 +345,8 @@ describe("DataCoordinator lifecycle and state ownership", () => {
         state: {
           ready: true,
           revision: 1,
-          currentProfile: null,
-          profiles: {},
+          currentProfile: "default_space",
+          profiles: { default_space: { name: "Default Space" } },
         },
       });
       expect(states[1]).toMatchObject({

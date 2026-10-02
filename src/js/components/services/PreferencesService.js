@@ -1,4 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
+import { materializeStorageSchemaMigrationReceipt } from "../storage/storageSchemaMigrationReceipt.js";
 import { localizeCommands as defaultLocalizeCommands } from "../../data.js";
 import { extensionPreferenceKey } from "./preferenceKeys.js";
 import {
@@ -59,9 +60,13 @@ let preferencesEffectTail = Promise.resolve();
  * Pure logic / no DOM querying.  UI interactions live in PreferencesUI.
  */
 export default class PreferencesService extends ComponentBase {
-  /** @param {{ settingsRepository?: import('../../types/storage-contracts.js').SettingsRepositoryPort, defaults?: import('../../types/data-contracts.js').CanonicalSettings, eventBus?: import('./serviceTypes.js').EventBus, i18n?: import('./serviceTypes.js').I18n, localizeCommands?: typeof defaultLocalizeCommands, applyTranslations?: (root?: Document | Element | null) => void }} [options] */
+  /** @type {import('../../types/storage-migration-contracts.js').EmbeddedSettingsMigrationReceipt | null | undefined} */
+  #startupMigration;
+
+  /** @param {{ settingsRepository?: import('../../types/storage-contracts.js').SettingsRepositoryPort, startupMigration?: import('../../types/storage-migration-contracts.js').EmbeddedSettingsMigrationReceipt, defaults?: import('../../types/data-contracts.js').CanonicalSettings, eventBus?: import('./serviceTypes.js').EventBus, i18n?: import('./serviceTypes.js').I18n, localizeCommands?: typeof defaultLocalizeCommands, applyTranslations?: (root?: Document | Element | null) => void }} [options] */
   constructor({
     settingsRepository,
+    startupMigration,
     defaults = createDefaultPreferencesSettings(),
     eventBus,
     i18n,
@@ -71,6 +76,10 @@ export default class PreferencesService extends ComponentBase {
     super(eventBus);
     this.componentName = "PreferencesService";
     this.settingsRepository = settingsRepository;
+    this.#startupMigration =
+      startupMigration === undefined
+        ? undefined
+        : materializeStorageSchemaMigrationReceipt(startupMigration);
     this.i18n = i18n;
     this.localizeCommands = localizeCommands ?? defaultLocalizeCommands;
     this.applyTranslations = applyTranslations ?? (() => {});
@@ -224,6 +233,19 @@ export default class PreferencesService extends ComponentBase {
    * @param {number} generation
    */
   async _loadInitialState(generation) {
+    if (
+      this.#startupMigration !== undefined &&
+      this.#startupMigration?.status !== "absent" &&
+      this.#startupMigration?.status !== "complete"
+    ) {
+      return this._blockInitialState(
+        generation,
+        this.#startupMigration?.status === "failed" &&
+          this.#startupMigration.error === "storage_read_failed"
+          ? "storage_read_failed"
+          : "verification_failed",
+      );
+    }
     if (!this.settingsRepository) {
       return this._blockInitialState(generation, "storage_read_failed");
     }

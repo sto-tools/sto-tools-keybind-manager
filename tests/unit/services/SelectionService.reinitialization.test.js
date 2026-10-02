@@ -25,7 +25,6 @@ describe("SelectionService same-instance lifecycle on the real owner protocol", 
         sto_keybind_manager: {
           currentProfile: "captain",
           profiles: { captain: profile },
-          settings: {},
           globalAliases: {},
           version: "1.0.0",
           lastModified: "2026-01-01T00:00:00.000Z",
@@ -70,6 +69,7 @@ describe("SelectionService same-instance lifecycle on the real owner protocol", 
     expect(fixture.readProjectRoot().profiles.captain.selections).toEqual({
       space: "S1",
     });
+    expect(fixture.readProjectRoot()).not.toHaveProperty("settings");
     expect(owner.state.profiles.captain.selections).toEqual({ space: "S1" });
     expect(service.cache.selectedKey).toBe("S1");
   });
@@ -137,6 +137,7 @@ describe("SelectionService same-instance lifecycle on the real owner protocol", 
     expect(fixture.readProjectRoot().profiles.captain.selections).toEqual({
       space: "S0",
     });
+    expect(fixture.readProjectRoot()).not.toHaveProperty("settings");
     expect(selectionStates).not.toContainEqual(
       expect.objectContaining({ selectedKey: "S1" }),
     );

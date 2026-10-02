@@ -30,7 +30,6 @@ describe("DataCoordinator default profiles - selections propagation", () => {
         sto_keybind_manager: {
           currentProfile: null,
           profiles: {},
-          settings: {},
         },
         sto_keybind_settings: {},
       },
@@ -42,7 +41,6 @@ describe("DataCoordinator default profiles - selections propagation", () => {
       value: {
         currentProfile: null,
         profiles: {},
-        settings: {},
         globalAliases: {},
         version: "1.0.0",
         lastModified: "2026-07-19T00:00:00.000Z",
@@ -59,6 +57,7 @@ describe("DataCoordinator default profiles - selections propagation", () => {
       }),
       eventBus,
       projectRepository,
+      i18n: { t: (key) => key },
       defaultProfiles: defaultProfilesData,
     });
     dataCoordinator.init();
@@ -91,6 +90,25 @@ describe("DataCoordinator default profiles - selections propagation", () => {
       ground: "F1",
       alias: "toggle_combatlog",
     });
+  });
+
+  it("keeps explicit try-default failures best-effort without claiming a created profile", async () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    dataCoordinator.needsDefaultProfiles = true;
+    projectRepository.commit.mockReturnValue({
+      status: "write_failed",
+      error: "storage_write_failed",
+    });
+    await expect(
+      dataCoordinator.tryCreateDefaultProfiles(),
+    ).resolves.toBeUndefined();
+    expect(dataCoordinator.state.profiles).toEqual({});
+    expect(dataCoordinator.needsDefaultProfiles).toBe(true);
+    expect(dataCoordinator.getCurrentState().ready).toBe(true);
+    expect(projectRepository.commit.mock.calls[0][1]).toEqual({
+      verification: "not_requested",
+    });
+    errorLog.mockRestore();
   });
 
   it("loads validated defaults directly without consulting RPC transport", async () => {

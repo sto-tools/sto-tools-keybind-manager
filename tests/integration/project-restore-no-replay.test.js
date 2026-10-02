@@ -29,7 +29,6 @@ const destinationRoot = {
     },
   },
   globalAliases: {},
-  settings: {},
 };
 
 const rootOnlyProject = JSON.stringify({

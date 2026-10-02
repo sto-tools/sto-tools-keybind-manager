@@ -36,7 +36,6 @@ const root = {
     },
   },
   globalAliases: {},
-  settings: { theme: "default", autoSave: true },
 };
 
 describe("Persistence failure state integration", () => {
@@ -112,7 +111,10 @@ describe("Persistence failure state integration", () => {
 
     expect(preferences.getCurrentState()).toEqual(before);
     expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeDisk);
-    expect(projectRepository.load().value.settings).toEqual(root.settings);
+    expect(projectRepository.load().value).not.toHaveProperty("settings");
+    expect(
+      JSON.parse(localStorage.getItem("sto_keybind_manager")),
+    ).not.toHaveProperty("settings");
     expect(saved).not.toHaveBeenCalled();
     expect(changed).not.toHaveBeenCalled();
   });

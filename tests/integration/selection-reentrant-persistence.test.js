@@ -35,7 +35,6 @@ describe("SelectionService reentrant owner publication", () => {
       JSON.stringify({
         currentProfile: "captain",
         profiles: { captain: profile },
-        settings: {},
         globalAliases: {},
         version: "1.0.0",
         lastModified: "2026-01-01T00:00:00.000Z",

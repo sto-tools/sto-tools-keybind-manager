@@ -73,7 +73,6 @@ const root = {
   currentProfile: "captain",
   profiles: { captain: profile },
   globalAliases: {},
-  settings: { theme: "default", autoSave: true },
 };
 
 const targets = [

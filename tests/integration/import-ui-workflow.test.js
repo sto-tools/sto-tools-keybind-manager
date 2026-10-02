@@ -74,7 +74,6 @@ describe("ImportUI workflow integration", () => {
           currentProfile: profileId,
           profiles: { [profileId]: initialProfile },
           globalAliases: {},
-          settings: {},
           version: "1.0.0",
           created: "2026-01-01T00:00:00.000Z",
           lastModified: "2026-01-01T00:00:00.000Z",

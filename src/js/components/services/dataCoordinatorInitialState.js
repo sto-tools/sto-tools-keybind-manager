@@ -10,7 +10,6 @@ import {
 import {
   activateDataCoordinatorOwner,
   enqueueDataCoordinatorMutation,
-  recordDataCoordinatorPublication,
 } from "./dataCoordinatorMutationQueue.js";
 
 /** @param {unknown} error */
@@ -149,6 +148,7 @@ async function loadInitialCoordinatorState(coordinator) {
       ? commitCoordinatorProjectRoot(coordinator, candidate, {
           verification: "required",
           consumeResetSentinel: loaded.resetSentinel,
+          purpose: "startup_recovery",
         })
       : data;
     adoptCoordinatorProjectRoot(coordinator, durableData, operation);
@@ -162,22 +162,18 @@ async function loadInitialCoordinatorState(coordinator) {
       profileCount: Object.keys(nextState.profiles).length,
     });
 
-    coordinator._stateReady = true;
-    const initialStatePublication = publishDataCoordinatorState(
-      coordinator,
-      "initial-load",
-    );
-    coordinator._assertCurrentOperation(operation);
-    /** @type {Promise<void>} */
-    let defaultProfilesReady = Promise.resolve();
     if (needsDefaultProfiles) {
-      defaultProfilesReady = coordinator._tryCreateDefaultProfiles();
+      coordinator._stateReady = false;
+      coordinator._currentStateSnapshot = null;
+      await coordinator._tryCreateDefaultProfiles(true);
     }
-    await defaultProfilesReady;
-    recordDataCoordinatorPublication(
-      coordinator,
-      initialStatePublication.settled,
-    );
+    if (!needsDefaultProfiles || !coordinator._stateReady) {
+      // Automatic default creation publishes initial-load itself, only after
+      // its required write/readback. An empty catalog still publishes empty
+      // durable state; nondefault startup keeps its established publication.
+      coordinator._stateReady = true;
+      publishDataCoordinatorState(coordinator, "initial-load");
+    }
     coordinator._assertCurrentOperation(operation);
   } catch (error) {
     if (!coordinator._isCurrentOperation(operation)) {

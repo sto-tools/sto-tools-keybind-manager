@@ -61,7 +61,6 @@ describe("BindsetService replacement ownership", () => {
       currentProfile: "captain",
       profiles: { captain: structuredClone(initialProfile) },
       globalAliases: {},
-      settings: {},
       version: "1.0.0",
       created: "2026-07-16T00:00:00.000Z",
       lastModified: "2026-07-16T00:00:00.000Z",

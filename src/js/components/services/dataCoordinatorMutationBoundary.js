@@ -110,7 +110,6 @@ export function validatePlannedProjectRoot(
       ...candidate,
       version,
       lastModified: maximumTimestamp,
-      settings: {},
     });
   const decoded = decodeStoredApplicationJson(JSON.stringify(candidate), {
     defaults,

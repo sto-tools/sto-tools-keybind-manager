@@ -15,12 +15,6 @@ import { createProjectRepository } from "./helpers/projectRepository.js";
 
 const projectRootKey = "sto_keybind_manager";
 
-const embeddedSettings = {
-  theme: "dark",
-  language: "fr",
-  legacyRootOnly: { preserved: true },
-};
-
 const settingsOnlyProject = {
   version: "1.0.0",
   exported: "2026-07-21T12:00:00.000Z",
@@ -78,7 +72,7 @@ describe("settings-only project restore owner chain", () => {
       initialData: {
         sto_keybind_manager: {
           ...structuredClone(destinationRoot),
-          settings: structuredClone(embeddedSettings),
+          rootOnlyCompatibility: { preserved: true },
         },
         sto_keybind_settings: {
           theme: "dark",
@@ -153,10 +147,8 @@ describe("settings-only project restore owner chain", () => {
     vi.restoreAllMocks();
   });
 
-  it("activates standalone settings without replacing embedded compatibility data", async () => {
-    const embeddedBefore = JSON.stringify(
-      projectRepository.load().value.settings,
-    );
+  it("activates standalone settings while preserving settings-free project data and extensions", async () => {
+    const projectBefore = projectRepository.load().value;
     const dataRevision = coordinator.getCurrentState().revision;
     const preferencesRevision = preferences.getCurrentState().revision;
     eventBusFixture.clearEventHistory();
@@ -191,10 +183,12 @@ describe("settings-only project restore owner chain", () => {
       },
     });
     expect(preferencesI18n.language).toBe("de");
-    expect(JSON.stringify(projectRepository.load().value.settings)).toBe(
-      embeddedBefore,
-    );
-    expect(projectRepository.load().value.settings).toEqual(embeddedSettings);
+    expect(projectRepository.load().value).not.toHaveProperty("settings");
+    expect(projectRepository.load().value).toMatchObject({
+      profiles: projectBefore.profiles,
+      globalAliases: projectBefore.globalAliases,
+      rootOnlyCompatibility: projectBefore.rootOnlyCompatibility,
+    });
 
     const preferenceStates = eventBusFixture.getEventsOfType(
       "preferences:state-changed",

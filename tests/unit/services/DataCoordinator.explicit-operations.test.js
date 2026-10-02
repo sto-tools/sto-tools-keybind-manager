@@ -402,7 +402,6 @@ describe("DataCoordinator explicit profile operations", () => {
     coordinator._projectRoot = {
       currentProfile: PROFILE_ID,
       profiles: { [PROFILE_ID]: createProfile() },
-      settings: {},
       version: "1.0.0",
       lastModified: FIXED_TIME,
     };

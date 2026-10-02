@@ -52,7 +52,6 @@ describe("project artifact producer parity", () => {
           currentProfile: goldenProject.data.currentProfile,
           profiles: structuredClone(goldenProject.data.profiles),
           globalAliases: {},
-          settings: { theme: "stale-root" },
         },
         sto_keybind_settings: structuredClone(goldenProject.data.settings),
       },

@@ -173,7 +173,7 @@ export interface StoredApplicationData {
   currentProfile: string | null;
   profiles: Record<string, ProfileData>;
   globalAliases?: Record<string, AliasDefinition | StoredCommand[] | string>;
-  settings: SettingsData;
+  settings?: never;
   [field: string]: unknown;
 }
 

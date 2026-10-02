@@ -53,7 +53,6 @@ describe("DataCoordinator reload publication acknowledgement", () => {
       value: {
         currentProfile: "alpha",
         profiles: { alpha: profile("Alpha") },
-        settings: { theme: "dark" },
         version: "1.0.0",
         lastModified: "2026-07-21T00:00:00.000Z",
       },
@@ -88,7 +87,6 @@ describe("DataCoordinator reload publication acknowledgement", () => {
       value: {
         currentProfile: "beta",
         profiles: { beta: profile("Beta", "ground") },
-        settings: { theme: "light" },
         version: "1.0.0",
         lastModified: "2026-07-21T01:00:00.000Z",
       },

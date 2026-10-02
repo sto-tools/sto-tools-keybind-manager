@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
+import { runStorageSchemaMigration } from "../../src/js/components/storage/storageSchemaMigration.js";
+import { createDefaultPreferencesSettings } from "../../src/js/components/services/preferencesDefaults.js";
+import LocalStorageSettingsRepository from "../../src/js/components/storage/LocalStorageSettingsRepository.js";
 import { createEventBusFixture } from "../fixtures/core/eventBus.js";
 import { createLocalStorageFixture } from "../fixtures/core/storage.js";
 import { createProjectRepository } from "./helpers/projectRepository.js";
@@ -42,6 +45,23 @@ describe("persisted storage ingress owner chain", () => {
     projectRepository = createProjectRepository({
       version,
     });
+    const defaults = createDefaultPreferencesSettings();
+    const settingsRepository = new LocalStorageSettingsRepository({
+      storage: localStorage,
+      defaults,
+    });
+    const migration = runStorageSchemaMigration({
+      settingsRepository,
+      settingsInspection: settingsRepository.createMigrationInspectionPort(),
+      projectMigration: projectRepository.createSchemaMigrationPort(),
+      defaults,
+      version,
+      now: () => "2026-10-02T17:00:00.000Z",
+    });
+    expect(migration.status).toBe("complete");
+    expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
+      defaults,
+    );
     coordinator = new DataCoordinator({
       visitedState: new LocalStorageVisitedStatePersistence({
         storage: localStorage,
@@ -65,6 +85,7 @@ describe("persisted storage ingress owner chain", () => {
 
     const backup = JSON.parse(localStorage.getItem(BACKUP_KEY));
     const durable = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    expect(durable).not.toHaveProperty("settings");
     const ownerProfile = coordinator.getCurrentState().profiles["legacy-space"];
     expect(backup).toMatchObject({ data: rawRoot, version: "2.0.0" });
     expect(durable.lastBackup).toBe(backup.timestamp);
@@ -117,6 +138,7 @@ describe("persisted storage ingress owner chain", () => {
 
   it("does not publish owner state when required startup repair cannot persist", async () => {
     const legacyRoot = readFixture("legacy-space-root.json");
+    delete legacyRoot.settings;
     const rawRoot = JSON.stringify(legacyRoot);
     const localStorageFixture = createLocalStorageFixture({
       initialData: {

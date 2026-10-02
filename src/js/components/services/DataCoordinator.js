@@ -703,7 +703,8 @@ export default class DataCoordinator extends ComponentBase {
     );
   }
 
-  async _tryCreateDefaultProfiles() {
+  /** @param {boolean} [startupRecovery] */
+  async _tryCreateDefaultProfiles(startupRecovery = false) {
     if (!this.needsDefaultProfiles) {
       return;
     }
@@ -723,7 +724,10 @@ export default class DataCoordinator extends ComponentBase {
         console.log(
           `[${this.componentName}] Got built-in default profiles, creating...`,
         );
-        await this._createDefaultProfilesFromData(defaultProfilesData);
+        await this._createDefaultProfilesFromData(
+          defaultProfilesData,
+          startupRecovery,
+        );
         this._assertCurrentOperation(operation);
         this.needsDefaultProfiles = false;
       } else {
@@ -732,6 +736,7 @@ export default class DataCoordinator extends ComponentBase {
         );
       }
     } catch (error) {
+      if (startupRecovery) throw error;
       if (!this._isCurrentOperation(operation)) return;
       console.error(
         `[${this.componentName}] Failed to create default profiles:`,
@@ -754,8 +759,11 @@ export default class DataCoordinator extends ComponentBase {
     );
   }
 
-  /** @param {Record<string, import('./serviceTypes.js').ProfileData> | null | undefined} defaultProfilesData */
-  async _createDefaultProfilesFromData(defaultProfilesData) {
+  /** @param {Record<string, import('./serviceTypes.js').ProfileData> | null | undefined} defaultProfilesData @param {boolean} [startupRecovery] */
+  async _createDefaultProfilesFromData(
+    defaultProfilesData,
+    startupRecovery = false,
+  ) {
     const operation = this._captureOperationGeneration();
     if (!defaultProfilesData || Object.keys(defaultProfilesData).length === 0) {
       console.warn(
@@ -793,7 +801,13 @@ export default class DataCoordinator extends ComponentBase {
         version: coordinatorProjectVersion(this),
       });
       this._assertCurrentOperation(operation);
-      const accepted = commitCoordinatorProjectRoot(this, nextRoot);
+      const accepted = commitCoordinatorProjectRoot(
+        this,
+        nextRoot,
+        startupRecovery
+          ? { verification: "required", purpose: "startup_recovery" }
+          : undefined,
+      );
       adoptCoordinatorProjectRoot(this, accepted, operation);
       publishCommittedCoordinatorProject(this, accepted);
     } catch (error) {
@@ -804,6 +818,11 @@ export default class DataCoordinator extends ComponentBase {
     }
     this._assertCurrentOperation(operation);
 
+    if (startupRecovery) {
+      this._stateReady = true;
+      publishDataCoordinatorState(this, "initial-load");
+      this._assertCurrentOperation(operation);
+    }
     const publications = [
       publishDataCoordinatorState(this, "default-profiles-created").settled,
     ];

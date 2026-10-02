@@ -28,7 +28,6 @@ const root = {
     },
   },
   globalAliases: {},
-  settings: { theme: "default", autoSave: true },
 };
 
 describe("ImportService quota failure integration", () => {
