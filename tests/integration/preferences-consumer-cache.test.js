@@ -32,7 +32,6 @@ describe("preferences consumer cache lifecycle", () => {
     // publication; production normally takes the late-join path below.
     importService = new ImportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
     });
     importService.init();
     expect(importService.cache.preferences.bindsetsEnabled).toBeUndefined();

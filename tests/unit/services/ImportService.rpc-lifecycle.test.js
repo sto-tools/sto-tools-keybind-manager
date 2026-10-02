@@ -31,7 +31,6 @@ describe("ImportService responder lifecycle", () => {
     fixture = createServiceFixture();
     service = new ImportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
       i18n: { t: (key) => key },
     });
   });

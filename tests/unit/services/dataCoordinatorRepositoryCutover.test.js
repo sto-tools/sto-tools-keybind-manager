@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
-import StorageService from "../../../src/js/components/services/StorageService.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
 const SERVICES_DIRECTORY = join(
@@ -19,15 +18,6 @@ const RETIRED_QUERY_TOPICS = [
   "rpc:data:get-all-profiles",
   "rpc:data:get-keys",
   "rpc:data:get-key-commands",
-];
-
-const RETIRED_STORAGE_METHODS = [
-  "getAllData",
-  "saveAllData",
-  "getProfile",
-  "saveProfile",
-  "deleteProfile",
-  "invalidateCache",
 ];
 
 describe("DataCoordinator ProjectRepository cutover", () => {
@@ -178,15 +168,9 @@ describe("DataCoordinator ProjectRepository cutover", () => {
     missingRepository.destroy();
   });
 
-  it("leaves StorageService inert and installs no retired state-query RPC", async () => {
+  it("installs no retired state-query RPC with repository-only composition", async () => {
     localStorage.setItem("sto_keybind_manager_visited", "true");
     fixture = createServiceFixture();
-    const storage = new StorageService({ eventBus: fixture.eventBus });
-    storage.init();
-    for (const method of RETIRED_STORAGE_METHODS) {
-      expect(storage[method], method).toBeUndefined();
-    }
-
     coordinator = new DataCoordinator({
       visitedState: new LocalStorageVisitedStatePersistence({
         storage: localStorage,
@@ -201,7 +185,6 @@ describe("DataCoordinator ProjectRepository cutover", () => {
     for (const topic of RETIRED_QUERY_TOPICS) {
       expect(fixture.eventBus.getListenerCount(topic), topic).toBe(0);
     }
-    storage.destroy();
   });
 
   it.each([

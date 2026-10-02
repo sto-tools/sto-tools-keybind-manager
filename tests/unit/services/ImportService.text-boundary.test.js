@@ -15,7 +15,6 @@ describe("ImportService STO text boundary", () => {
     fixture = createImportServiceFixture();
     service = new ImportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
       i18n: {
         t: (key, params) =>
           params?.line === undefined ? key : `${key}:${params.line}`,
@@ -28,8 +27,8 @@ describe("ImportService STO text boundary", () => {
       isMirrored: false,
     }));
     respond(fixture.eventBus, "parser:parse-command-string", parseCommand);
-    fixture.storage.getProfile.mockClear();
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.load.mockClear();
+    fixture.projectRepository.commit.mockClear();
   });
 
   afterEach(() => {
@@ -60,8 +59,8 @@ describe("ImportService STO text boundary", () => {
         },
       });
       expect(parseCommand).not.toHaveBeenCalled();
-      expect(fixture.storage.getProfile).not.toHaveBeenCalled();
-      expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+      expect(fixture.projectRepository.load).not.toHaveBeenCalled();
+      expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
     },
   );
 
@@ -75,8 +74,8 @@ describe("ImportService STO text boundary", () => {
       success: false,
       error: "invalid_alias_file_content",
     });
-    expect(fixture.storage.getProfile).not.toHaveBeenCalled();
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.load).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
   });
 
   it("imports valid keybind lines while returning structured-line diagnostics", async () => {
@@ -93,7 +92,7 @@ describe("ImportService STO text boundary", () => {
     });
     expect(parseCommand).toHaveBeenCalledWith({ commandString: "FireAll" });
     expect(
-      fixture.storage.getProfile("default_space").builds.space.keys,
+      fixture.readProjectRoot().profiles["default_space"].builds.space.keys,
     ).toEqual({ F1: ["FireAll"] });
   });
 });

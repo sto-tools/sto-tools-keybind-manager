@@ -3,10 +3,7 @@ import {
   requireProfileIdentifier,
   validatePlannedProjectRoot,
 } from "./dataCoordinatorMutationBoundary.js";
-import {
-  publishCommittedCoordinatorProject,
-  publishReloadedCoordinatorState,
-} from "./dataCoordinatorPublication.js";
+import { publishReloadedCoordinatorState } from "./dataCoordinatorPublication.js";
 import {
   enqueueDataCoordinatorMutation,
   recordDataCoordinatorPublication,
@@ -332,7 +329,6 @@ export async function replaceProjectFromImport(owner, projectData, options) {
       try {
         owner._assertCurrentOperation(operation);
         adoptCoordinatorProjectRoot(owner, durableRoot, operation);
-        publishCommittedCoordinatorProject(owner, durableRoot);
         const publications = publishReloadedCoordinatorState(owner, operation);
         recordDataCoordinatorPublication(owner, publications);
         owner._assertCurrentOperation(operation);

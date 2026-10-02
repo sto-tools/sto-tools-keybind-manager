@@ -68,7 +68,6 @@ describe("ImportService KBF merge strategies", () => {
 
     service = new ImportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
     });
     service.init();
     service._cacheDataState(
@@ -78,7 +77,7 @@ describe("ImportService KBF merge strategies", () => {
         profiles: { [profileId]: sourceProfile },
       }),
     );
-    respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
+    respondWithImportedProfileCommits(fixture.eventBus, fixture);
     fixture.eventBus.emit(
       "preferences:state-changed",
       createPreferencesStateChange({ bindsetsEnabled: true }),
@@ -147,8 +146,9 @@ describe("ImportService KBF merge strategies", () => {
         overwritten: expectedResult.overwritten,
         cleared: expectedResult.cleared,
       });
-      expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
-      const savedProfile = fixture.storage.saveProfile.mock.calls[0][1];
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
+      const savedProfile =
+        fixture.projectRepository.commit.mock.calls[0][0].profiles[profileId];
       expect(savedProfile.builds.space.keys).toEqual(expectedKeys);
       expect(savedProfile.keybindMetadata).toEqual(expectedMetadata);
       expect(sourceProfile.builds.space.keys).toEqual({
@@ -198,7 +198,7 @@ describe("ImportService KBF merge strategies", () => {
       success: false,
       error: "multiple_bindsets_not_allowed",
     });
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
     expect(
       fixture
         .getEventHistory()

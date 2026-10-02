@@ -104,8 +104,8 @@ describe("project artifact producer parity", () => {
       capturePort,
       version: stoData.settings.version,
     });
-    fixture.storage.getAllData.mockImplementation(() => {
-      throw new Error("legacy storage read must not run after owner capture");
+    fixture.projectRepository.load.mockImplementation(() => {
+      throw new Error("repository read must not run after owner capture");
     });
     const exporter = new ExportService({
       eventBus: fixture.eventBus,

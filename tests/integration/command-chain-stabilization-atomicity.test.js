@@ -376,10 +376,14 @@ describe("CommandChainService stabilization owner atomicity", () => {
       ).toHaveLength(1);
       expect(
         emitted.filter(({ event }) => event === "storage:data-changed"),
+      ).toEqual([]);
+      expect(
+        emitted.filter(({ event }) => event === "data:state-changed"),
       ).toEqual([
         expect.objectContaining({
           data: {
-            data: expect.objectContaining({
+            reason: "profile-updated",
+            state: expect.objectContaining({
               profiles: expect.objectContaining({ captain: durableAfter }),
             }),
           },

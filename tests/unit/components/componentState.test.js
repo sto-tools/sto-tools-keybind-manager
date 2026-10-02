@@ -121,4 +121,14 @@ describe("component late-join state registry", () => {
     ).toBeNull();
     expect(createComponentStateReply("DataService", null)).toBeNull();
   });
+
+  it("rejects the retired storage capability even when it offers lifecycle state", () => {
+    expect(componentStateOwnerNames).not.toContain("StorageService");
+    expect(
+      createComponentStateReply("StorageService", {
+        service: { isInitialized: () => true },
+        isReady: true,
+      }),
+    ).toBeNull();
+  });
 });

@@ -234,8 +234,11 @@ export default class ComponentBase {
       this._cacheSelectionState(state);
     });
 
-    this.addEventListener("data:state-changed", ({ state }) => {
-      this._cacheDataState(state);
+    this.addEventListener("data:state-changed", (change) => {
+      if (this._cacheDataState(change.state)) {
+        const accepted = this.cache.dataState;
+        if (accepted) this.onDataStateAccepted({ ...change, state: accepted });
+      }
     });
 
     // Cache environment changes
@@ -323,6 +326,17 @@ export default class ComponentBase {
    * @param {import('../types/events/preferences.js').PreferencesStateChangedEvent} _change
    */
   onPreferencesStateAccepted(_change) {
+    void _change;
+    // Override in subclasses that need to react to accepted owner state.
+  }
+
+  /**
+   * Hook invoked only after a live DataCoordinator publication has passed
+   * adoption ordering and atomically replaced the snapshot and cache views.
+   * Late-join replies hydrate the cache without representing a new mutation.
+   * @param {import('../types/events/data.js').DataStateChangedPayload} _change
+   */
+  onDataStateAccepted(_change) {
     void _change;
     // Override in subclasses that need to react to accepted owner state.
   }

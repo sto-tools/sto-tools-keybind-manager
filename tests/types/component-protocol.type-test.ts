@@ -2,8 +2,38 @@ import ComponentBase from "../../src/js/components/ComponentBase.js";
 import eventBus from "../../src/js/core/eventBus.js";
 import type { DynamicEventTopic } from "../../src/js/types/events/index.js";
 import type { DynamicRpcTopic } from "../../src/js/types/rpc/index.js";
+import type {
+  ComponentState,
+  ComponentStateReply,
+  ComponentStateSender,
+} from "../../src/js/types/events/component-state.js";
+import type { ComponentReplyTopic } from "../../src/js/types/events/dynamic.js";
 
 const component = new ComponentBase(eventBus);
+
+// @ts-expect-error The removed storage shell is not a state sender.
+const retiredStorageSender: ComponentStateSender = "StorageService";
+// @ts-expect-error The removed capability has no component-state contract.
+type RetiredStorageState = ComponentState<"StorageService">;
+const retiredStorageReply: ComponentStateReply = {
+  // @ts-expect-error A lifecycle-only storage reply cannot regain registration.
+  sender: "StorageService",
+  // @ts-expect-error No surviving owner snapshot accepts the retired capability.
+  state: { service: { isInitialized: () => true }, isReady: true },
+};
+declare const componentReplyTopic: ComponentReplyTopic;
+// @ts-expect-error Removed state owners cannot publish on late-join topics.
+component.emit(componentReplyTopic, {
+  sender: "StorageService",
+  state: { service: { isInitialized: () => true }, isReady: true },
+});
+// @ts-expect-error Storage notifications cannot regain a listener contract.
+component.addEventListener("storage:data-changed", () => undefined);
+// @ts-expect-error Storage reset is an owner workflow, not a storage topic.
+component.emit("storage:data-reset", null);
+void retiredStorageSender;
+void retiredStorageReply;
+void ({} as RetiredStorageState);
 
 component.addEventListener("toast:show", (payload) => {
   payload.message.toUpperCase();

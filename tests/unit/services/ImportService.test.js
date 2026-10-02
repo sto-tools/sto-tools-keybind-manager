@@ -257,13 +257,9 @@ describe("ImportService", () => {
           revision: 0,
         }),
       );
-      fixture.storage.getProfile.mockReturnValue(null);
-      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(
-        (id, profile) => {
-          // Store the profile for inspection
-          mockProfile.profile = profile;
-        },
-      );
+      fixture.projectRepository.load.mockImplementation(() => {
+        throw new Error("consumer must not load persisted state");
+      });
 
       const kbfContent = "VmFsaWQgS0JGIEZvcm1hdA=="; // Base64 encoded "Valid KBF Format"
       const profileId = "test-profile";
@@ -294,7 +290,8 @@ describe("ImportService", () => {
       expect(result.imported.keys).toBe(2);
       expect(result.imported.aliases).toBe(1);
       expect(result.imported.bindsets).toBe(1);
-      expect(fixture.storage.getProfile).not.toHaveBeenCalled();
+      expect(fixture.projectRepository.load).not.toHaveBeenCalled();
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
 
       vi.restoreAllMocks();
     });
@@ -348,17 +345,19 @@ describe("ImportService", () => {
       service._cacheDataState(
         createProfileState("profile", mockProfile, { revision: 2 }),
       );
-      fixture.storage.getProfile.mockReturnValue(null);
-      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(() => {});
+      fixture.projectRepository.load.mockImplementation(() => {
+        throw new Error("consumer must not load persisted state");
+      });
 
       const result = await service.importKBFFile("content", "profile", "space");
 
       expect(result.success).toBe(true);
       expect(result.imported.aliases).toBe(1); // only the global alias
-      const savedProfile = fixture.storage.saveProfile.mock.calls[0][1];
+      const savedProfile =
+        fixture.projectRepository.commit.mock.calls[0][0].profiles["profile"];
       expect(savedProfile.aliases.globalAlias.commands).toEqual(["doGlobal"]);
       expect(savedProfile.aliases.shouldNotImport).toBeUndefined();
-      expect(fixture.storage.getProfile).not.toHaveBeenCalled();
+      expect(fixture.projectRepository.load).not.toHaveBeenCalled();
 
       vi.restoreAllMocks();
     });
@@ -460,15 +459,6 @@ describe("ImportService", () => {
         completeKBFParseResult(mockParseResult),
       );
 
-      // Persistence remains observable at the commit seam; planning reads the
-      // accepted snapshot above.
-      const mockProfile = createStoredProfile();
-      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(
-        (id, profile) => {
-          mockProfile.profile = profile;
-        },
-      );
-
       const kbfContent = "VmFsaWQgS0JGIEZvcm1hdA==";
 
       // Test the endpoint via request
@@ -483,6 +473,7 @@ describe("ImportService", () => {
       expect(result.imported.bindsets).toBe(2);
       expect(result.imported.keys).toBe(4);
       expect(result.masterBindset.hasMasterBindset).toBe(true);
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
 
       vi.restoreAllMocks();
     });
@@ -595,7 +586,9 @@ describe("ImportService", () => {
         completeKBFParseResult(mockParseResult),
       );
 
-      fixture.storage.getProfile.mockReturnValue(createStoredProfile());
+      fixture.projectRepository.load.mockImplementation(() => {
+        throw new Error("consumer must not load persisted state");
+      });
 
       const kbfContent = "VmFsaWQgRm9ybWF0";
 
@@ -611,7 +604,7 @@ describe("ImportService", () => {
       expect(result.message).toContain(
         'Profile with ID "nonexistent-profile" not found',
       );
-      expect(fixture.storage.getProfile).not.toHaveBeenCalled();
+      expect(fixture.projectRepository.load).not.toHaveBeenCalled();
 
       vi.restoreAllMocks();
     });
@@ -658,14 +651,6 @@ describe("ImportService", () => {
         completeKBFParseResult(mockParseResult),
       );
 
-      // Mock storage service and capture saved profile
-      let savedProfile = null;
-      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(
-        (id, profile) => {
-          savedProfile = profile;
-        },
-      );
-
       const kbfContent = "TWV0YWRhdGEgVGVzdA==";
 
       // Test the endpoint via request
@@ -676,6 +661,8 @@ describe("ImportService", () => {
       });
 
       expect(result.success).toBe(true);
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
+      const savedProfile = fixture.readProjectRoot().profiles["test-profile"];
       expect(savedProfile).toBeDefined();
       // Check if metadata is handled correctly by the actual implementation
 
@@ -730,14 +717,6 @@ describe("ImportService", () => {
         completeKBFParseResult(mockParseResult),
       );
 
-      // Mock storage service
-      const mockProfile = createStoredProfile();
-      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(
-        (id, profile) => {
-          mockProfile.profile = profile;
-        },
-      );
-
       const kbfContent = "TG9hZEJpbmRTZXQgVGVzdA==";
 
       // Test the endpoint via request
@@ -749,10 +728,12 @@ describe("ImportService", () => {
 
       expect(result.success).toBe(true);
       expect(result.imported.bindsets).toBe(2);
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
+      const savedProfile = fixture.readProjectRoot().profiles["test-profile"];
       // LoadBindSet activities are processed - verify the bindset was imported correctly
-      expect(mockProfile.profile).toBeDefined();
-      expect(mockProfile.profile.bindsets).toBeDefined();
-      expect(Object.keys(mockProfile.profile.bindsets)).toContain("PvP");
+      expect(savedProfile).toBeDefined();
+      expect(savedProfile.bindsets).toBeDefined();
+      expect(Object.keys(savedProfile.bindsets)).toContain("PvP");
 
       vi.restoreAllMocks();
     });
@@ -797,14 +778,6 @@ describe("ImportService", () => {
         completeKBFParseResult(mockParseResult),
       );
 
-      // Mock storage service
-      const mockProfile = createStoredProfile();
-      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(
-        (id, profile) => {
-          mockProfile.profile = profile;
-        },
-      );
-
       const kbfContent = "V2FybmluZ3MgVGVzdA==";
 
       // Test the endpoint via request
@@ -815,6 +788,7 @@ describe("ImportService", () => {
       });
 
       expect(result.success).toBe(true);
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
       expect(result.warnings).toBeDefined();
       expect(result.warnings.length).toBeGreaterThanOrEqual(2);
       expect(
@@ -904,14 +878,6 @@ describe("ImportService", () => {
         completeKBFParseResult(mockParseResult),
       );
 
-      // Mock storage service
-      const mockProfile = createStoredProfile();
-      vi.spyOn(fixture.storage, "saveProfile").mockImplementation(
-        (id, profile) => {
-          mockProfile.profile = profile;
-        },
-      );
-
       const kbfContent = "R3JvdW5kIFRlc3Q=";
 
       // Test the endpoint via request with ground environment
@@ -922,11 +888,13 @@ describe("ImportService", () => {
       });
 
       expect(result.success).toBe(true);
-      expect(mockProfile.profile.builds.ground.keys).toBeDefined();
-      expect(mockProfile.profile.builds.ground.keys["1"]).toEqual([
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
+      const savedProfile = fixture.readProjectRoot().profiles["test-profile"];
+      expect(savedProfile.builds.ground.keys).toBeDefined();
+      expect(savedProfile.builds.ground.keys["1"]).toEqual([
         "power_exec FireWeapon 1",
       ]);
-      expect(mockProfile.profile.builds.space.keys).toEqual({}); // Should remain empty
+      expect(savedProfile.builds.space.keys).toEqual({}); // Should remain empty
 
       vi.restoreAllMocks();
     });

@@ -7,7 +7,6 @@ import {
   commitCoordinatorProjectRoot,
   coordinatorProjectVersion,
 } from "./dataCoordinatorProjectPersistence.js";
-import { publishCommittedCoordinatorProject } from "./dataCoordinatorPublication.js";
 
 /** @param {unknown} error */
 const errorMessage = (error) =>
@@ -54,7 +53,6 @@ export async function normalizeCoordinatorProfiles(
       owner._assertCurrentOperation(operation);
       const accepted = commitCoordinatorProjectRoot(owner, nextRoot);
       adoptCoordinatorProjectRoot(owner, accepted, operation);
-      publishCommittedCoordinatorProject(owner, accepted);
     }
   } catch (error) {
     throw new Error(

@@ -133,7 +133,7 @@ describe("VFXManagerService", () => {
       ...profileWithVFX(null),
       migrationVersion: "2.1.1",
     };
-    fixture.storage.saveAllData({
+    fixture.storageFixture.setData("sto_keybind_manager", {
       currentProfile: "test-profile",
       profiles: { "test-profile": storedProfile },
       settings: {},

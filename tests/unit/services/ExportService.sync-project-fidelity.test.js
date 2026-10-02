@@ -385,7 +385,8 @@ describe("ExportService sync project fidelity", () => {
           version: "1.0.0",
           currentProfile: null,
           profiles: {},
-          settings: { theme: "destination-root" },
+          globalAliases: {},
+          lastModified: goldenProject.exported,
         },
         sto_keybind_settings: {
           theme: "dark",
@@ -414,10 +415,10 @@ describe("ExportService sync project fidelity", () => {
       currentProfile: goldenProject.data.currentProfile,
       imported: { profiles: 1, settings: true },
     });
-    expect(destination.storage.getAllData().profiles).toEqual(
+    expect(destination.readProjectRoot().profiles).toEqual(
       goldenProject.data.profiles,
     );
-    expect(destination.storage.getAllData().currentProfile).toBe(
+    expect(destination.readProjectRoot().currentProfile).toBe(
       goldenProject.data.currentProfile,
     );
     expect(destination.settingsRepository.load().value).toEqual(

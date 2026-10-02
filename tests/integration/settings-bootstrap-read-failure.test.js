@@ -61,7 +61,6 @@ describe("real settings bootstrap failure barrier", () => {
         busModule,
         preferencesModule,
         repositoryModule,
-        storageModule,
         coordinatorModule,
         appModule,
       ] = await Promise.all([
@@ -70,7 +69,6 @@ describe("real settings bootstrap failure barrier", () => {
         import(
           "../../src/js/components/storage/LocalStorageSettingsRepository.js"
         ),
-        import("../../src/js/components/services/StorageService.js"),
         import("../../src/js/components/services/DataCoordinator.js"),
         import("../../src/js/app.js"),
       ]);
@@ -96,7 +94,6 @@ describe("real settings bootstrap failure barrier", () => {
       );
       const load = vi.spyOn(repositoryModule.default.prototype, "load");
       const replace = vi.spyOn(repositoryModule.default.prototype, "replace");
-      const storageInit = vi.spyOn(storageModule.default.prototype, "init");
       const coordinatorInit = vi.spyOn(
         coordinatorModule.default.prototype,
         "init",
@@ -207,7 +204,6 @@ describe("real settings bootstrap failure barrier", () => {
       }
       expect(read("sto_keybind_manager")).toBe(legacyRoot);
       expect(read("sto_keybind_manager_backup")).toBe(legacyBackup);
-      expect(storageInit).not.toHaveBeenCalled();
       expect(coordinatorInit).not.toHaveBeenCalled();
       expect(appInit).not.toHaveBeenCalled();
     },

@@ -45,7 +45,7 @@ describe("ImportService text-profile planner facade", () => {
 
   beforeEach(() => {
     fixture = createServiceFixture();
-    fixture.storage.saveProfile(
+    fixture.storageFixture.addProfile(
       profileId,
       profile({
         builds: {
@@ -55,7 +55,7 @@ describe("ImportService text-profile planner facade", () => {
         aliases: {},
       }),
     );
-    fixture.storage.saveProfile.mockClear();
+    fixture.projectRepository.commit.mockClear();
     trace = [];
     commitPayloads = [];
 
@@ -66,14 +66,18 @@ describe("ImportService text-profile planner facade", () => {
         const { profileId: targetProfileId, updates } = payload;
         commitPayloads.push(structuredClone(payload));
         trace.push("commit");
-        const saved = await fixture.storage.saveProfile(
-          targetProfileId,
-          structuredClone(updates.replacement),
-        );
-        if (saved === false) return { success: false };
+        const destination = fixture.readProjectRoot();
+        const saved = await fixture.projectRepository.commit({
+          ...destination,
+          profiles: {
+            ...destination.profiles,
+            [targetProfileId]: structuredClone(updates.replacement),
+          },
+        });
+        if (saved.status !== "committed") return { success: false };
         return {
           success: true,
-          profile: structuredClone(updates.replacement),
+          profile: saved.value.profiles[targetProfileId],
         };
       },
     );
@@ -93,7 +97,6 @@ describe("ImportService text-profile planner facade", () => {
 
     service = new ImportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
       i18n: { t: (key) => key },
     });
     service.init();
@@ -145,8 +148,8 @@ describe("ImportService text-profile planner facade", () => {
       "legacy",
       "resolved",
     ]);
-    expect(fixture.storage.getProfile).not.toHaveBeenCalled();
-    expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
+    expect(fixture.projectRepository.load).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
     expect(commitPayloads).toEqual([
       {
         profileId,
@@ -169,7 +172,7 @@ describe("ImportService text-profile planner facade", () => {
         precondition: { authorityEpoch: 1, revision: 1 },
       },
     ]);
-    expect(fixture.storage.getProfile(profileId)).toMatchObject({
+    expect(fixture.readProjectRoot().profiles[profileId]).toMatchObject({
       builds: {
         space: {
           keys: {
@@ -205,20 +208,20 @@ describe("ImportService text-profile planner facade", () => {
       errors: [],
       message: "import_completed_aliases",
     });
-    expect(fixture.storage.getProfile).not.toHaveBeenCalled();
-    expect(fixture.storage.getProfile(profileId)).toMatchObject({
+    expect(fixture.projectRepository.load).not.toHaveBeenCalled();
+    expect(fixture.readProjectRoot().profiles[profileId]).toMatchObject({
       aliases: {
         Existing: { commands: ["ImportedAlias"], description: "" },
         Fresh: { commands: ["First", "Second"], description: "" },
       },
       aliasMetadata: { Orphan: { source: "orphan" } },
     });
-    expect(fixture.storage.getProfile(profileId).aliases).not.toHaveProperty(
-      "sto_kb_existing",
-    );
-    expect(fixture.storage.getProfile(profileId).aliases).not.toHaveProperty(
-      "sto_kb_generated",
-    );
+    expect(
+      fixture.readProjectRoot().profiles[profileId].aliases,
+    ).not.toHaveProperty("sto_kb_existing");
+    expect(
+      fixture.readProjectRoot().profiles[profileId].aliases,
+    ).not.toHaveProperty("sto_kb_generated");
     expect(trace.slice(-2)).toEqual(["commit", "legacy"]);
   });
 
@@ -244,7 +247,8 @@ describe("ImportService text-profile planner facade", () => {
         overwritten,
         cleared: 0,
       });
-      const keys = fixture.storage.getProfile(profileId).builds.space.keys;
+      const keys =
+        fixture.readProjectRoot().profiles[profileId].builds.space.keys;
       expect(keys.F9).toEqual(["ExistingOnly"]);
       expect(keys.F1).toEqual(skipped === 1 ? ["Existing"] : ["Imported"]);
     },
@@ -261,7 +265,7 @@ describe("ImportService text-profile planner facade", () => {
         ),
       imported: { keys: 1 },
       preserved: () =>
-        fixture.storage.getProfile(profileId).builds.space.keys.F1,
+        fixture.readProjectRoot().profiles[profileId].builds.space.keys.F1,
       expectedPreserved: ["Existing"],
     },
     {
@@ -272,7 +276,8 @@ describe("ImportService text-profile planner facade", () => {
           profileId,
         ),
       imported: { aliases: 1 },
-      preserved: () => fixture.storage.getProfile(profileId).aliases.Existing,
+      preserved: () =>
+        fixture.readProjectRoot().profiles[profileId].aliases.Existing,
       expectedPreserved: { commands: ["ExistingAlias"] },
     },
   ])("defaults a direct $kind text import to merge_keep", async (scenario) => {
@@ -309,7 +314,7 @@ describe("ImportService text-profile planner facade", () => {
         overwritten,
         cleared: 0,
       });
-      const aliases = fixture.storage.getProfile(profileId).aliases;
+      const aliases = fixture.readProjectRoot().profiles[profileId].aliases;
       expect(aliases.sto_kb_existing).toEqual({
         commands: ["GeneratedExisting"],
       });
@@ -327,16 +332,16 @@ describe("ImportService text-profile planner facade", () => {
     const result = await service.importKeybindFile('F2 "Imported"', profileId);
 
     expect(result).toMatchObject({ success: true, imported: { keys: 1 } });
-    expect(fixture.storage.getProfile(profileId).builds.space.keys.F2).toEqual([
-      "Imported",
-    ]);
+    expect(
+      fixture.readProjectRoot().profiles[profileId].builds.space.keys.F2,
+    ).toEqual(["Imported"]);
     expect(warn).toHaveBeenCalledWith(
       "[ImportService] No environment specified for keybind import, defaulting to space",
     );
   });
 
   it("rejects invalid environments and absent profile ids before profile access", async () => {
-    fixture.storage.getProfile.mockClear();
+    fixture.projectRepository.load.mockClear();
 
     await expect(
       service.importKeybindFile('F2 "Imported"', profileId, "pvp"),
@@ -351,7 +356,7 @@ describe("ImportService text-profile planner facade", () => {
     await expect(
       service.importKeybindFile('F2 "Imported"', null, "space"),
     ).resolves.toEqual({ success: false, error: "no_active_profile" });
-    expect(fixture.storage.getProfile).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.load).not.toHaveBeenCalled();
     expect(commitPayloads).toEqual([]);
   });
 
@@ -396,7 +401,7 @@ describe("ImportService text-profile planner facade", () => {
       error: "import_failed",
       params: { reason: "operation_cancelled" },
     });
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -432,7 +437,9 @@ describe("ImportService text-profile planner facade", () => {
           profiles: {},
         }),
       );
-      fixture.storage.getProfile.mockReturnValue(profile());
+      fixture.projectRepository.load.mockImplementation(() => {
+        throw new Error("consumer must not load persisted state");
+      });
 
       const result = await importContent();
 
@@ -443,7 +450,7 @@ describe("ImportService text-profile planner facade", () => {
         createIfMissing: true,
         updates: { replacement: expectedReplacement },
       });
-      expect(fixture.storage.getProfile).not.toHaveBeenCalled();
+      expect(fixture.projectRepository.load).not.toHaveBeenCalled();
     },
   );
 
@@ -464,7 +471,7 @@ describe("ImportService text-profile planner facade", () => {
         };
       },
     );
-    const before = fixture.storage.getProfile(profileId);
+    const before = fixture.readProjectRoot().profiles[profileId];
     trace.length = 0;
 
     const result = await service.importKeybindFile(
@@ -479,8 +486,8 @@ describe("ImportService text-profile planner facade", () => {
       error: "import_failed",
       params: { reason: "mid-plan parser failure" },
     });
-    expect(fixture.storage.getProfile(profileId)).toEqual(before);
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(fixture.readProjectRoot().profiles[profileId]).toEqual(before);
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
     expect(trace).not.toContain("commit");
     expect(trace).not.toContain("legacy");
     expect(trace).not.toContain("modified");

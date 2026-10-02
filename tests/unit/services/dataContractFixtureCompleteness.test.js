@@ -15,6 +15,36 @@ const fixtureDirectory = join(
   "../../fixtures/storage",
 );
 
+// The historical manifest stays immutable. Record later approved retirements
+// separately, matching Task 10's shell-test disposition rather than filtering
+// arbitrary missing paths out of the frozen inventory.
+const task10RetiredTests = [
+  {
+    path: "tests/unit/services/StorageService.test.js",
+    tranche: 10,
+    removedRequirement:
+      "The deleted inert StorageService shell no longer has a ComponentBase lifecycle compatibility requirement; generic lifecycle and authoritative-owner behavior remain covered.",
+    equivalentCoverage: [
+      "tests/unit/components/ComponentBase.late-join.test.js",
+      "tests/unit/components/ComponentBase.regression.test.js",
+      "tests/integration/data-state-lifecycle-ownership.test.js",
+      "tests/unit/services/storageServiceAbsence.test.js",
+    ],
+  },
+  {
+    path: "tests/unit/services/StorageService.characterization.test.js",
+    tranche: 10,
+    removedRequirement:
+      "The deleted inert StorageService shell no longer requires instance-method absence or zero-operation initialization. Source/type/export/registry/bundle absence replaces shell inspection; repository authority and read-only inspection retain their requirements.",
+    equivalentCoverage: [
+      "tests/unit/services/storageServiceAbsence.test.js",
+      "tests/unit/services/dataCoordinatorRepositoryCutover.test.js",
+      "tests/unit/storage/LocalStorageProjectRepository.inspection.test.js",
+      "tests/integration/settings-bootstrap-read-failure.test.js",
+    ],
+  },
+];
+
 function readFixture(fileName) {
   return JSON.parse(readFileSync(join(fixtureDirectory, fileName), "utf8"));
 }
@@ -255,9 +285,11 @@ describe("complete persisted-data contract fixture", () => {
     const baseline = readFixture("tranche-0-baseline.json");
     const pathList = fixtureText(baseline.activeTests.pathList);
     const testPaths = pathList.trimEnd().split("\n");
-    const retiredPaths = new Set(
-      baseline.testDisposition.retired.map(({ path }) => path),
-    );
+    const retiredTests = [
+      ...baseline.testDisposition.retired,
+      ...task10RetiredTests,
+    ];
+    const retiredPaths = new Set(retiredTests.map(({ path }) => path));
     const categories = {
       unit: testPaths.filter((path) => path.startsWith("tests/unit/")).length,
       integration: testPaths.filter((path) =>
@@ -271,6 +303,16 @@ describe("complete persisted-data contract fixture", () => {
 
     expect(sha256(pathList)).toBe(baseline.activeTests.sha256);
     expect(categories).toEqual(baseline.activeTests.counts);
+    expect(retiredPaths.size).toBe(retiredTests.length);
+    expect(
+      task10RetiredTests.map(({ path, tranche }) => ({ path, tranche })),
+    ).toEqual([
+      { path: "tests/unit/services/StorageService.test.js", tranche: 10 },
+      {
+        path: "tests/unit/services/StorageService.characterization.test.js",
+        tranche: 10,
+      },
+    ]);
     expect(
       testPaths.filter(
         (path) =>
@@ -280,7 +322,7 @@ describe("complete persisted-data contract fixture", () => {
     expect([...retiredPaths].every((path) => testPaths.includes(path))).toBe(
       true,
     );
-    for (const disposition of baseline.testDisposition.retired) {
+    for (const disposition of retiredTests) {
       expect(existsSync(join(process.cwd(), disposition.path))).toBe(false);
       expect(disposition.removedRequirement).not.toBe("");
       expect(disposition.equivalentCoverage.length).toBeGreaterThan(0);

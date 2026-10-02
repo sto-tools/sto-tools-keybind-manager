@@ -4,7 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import LocalStorageProjectRepository from "../../src/js/components/storage/LocalStorageProjectRepository.js";
 import { request } from "../../src/js/core/requestResponse.js";
-import { createEventBusFixture } from "../fixtures/core/eventBus.js";
+import {
+  createEventBusFixture,
+  createRealEventBusFixture,
+} from "../fixtures/core/eventBus.js";
 
 const rootKey = "sto_keybind_manager";
 const backupKey = "sto_keybind_manager_backup";
@@ -97,15 +100,12 @@ describe("real project repository owner chain", () => {
     const owner = await start(bus.eventBus, projectRepository);
     owners.push(owner);
     const publications = [];
-    bus.eventBus.on("storage:data-changed", ({ data }) => {
+    bus.eventBus.on("data:state-changed", ({ reason, state }) => {
       publications.push({
-        event: "storage",
-        data,
+        reason,
+        state,
         durable: JSON.parse(storage.getItem(rootKey)),
       });
-    });
-    bus.eventBus.on("data:state-changed", ({ state }) => {
-      publications.push({ event: "state", state });
     });
 
     const created = await request(bus.eventBus, "data:create-profile", {
@@ -132,12 +132,26 @@ describe("real project repository owner chain", () => {
       profileId: cloned.profileId,
     });
 
-    expect(publications.length).toBeGreaterThan(0);
-    for (const publication of publications.filter(
-      ({ event }) => event === "storage",
-    )) {
-      expect(publication.data).toEqual(publication.durable);
+    expect(publications.map(({ reason }) => reason)).toEqual([
+      "profile-created",
+      "profile-switched",
+      "profile-updated",
+      "profile-renamed",
+      "profile-cloned",
+      "environment-changed",
+      "profile-deleted",
+    ]);
+    for (const publication of publications) {
+      expect(publication.state.profiles).toEqual(publication.durable.profiles);
+      expect(publication.state.currentProfile).toBe(
+        publication.durable.currentProfile,
+      );
+      expect(publication.state.metadata).toEqual({
+        version: publication.durable.version,
+        lastModified: publication.durable.lastModified,
+      });
     }
+    expect(bus.getEventsOfType("storage:data-changed")).toEqual([]);
     expect(
       projectRepository.load().value.profiles[created.profileId],
     ).toMatchObject({
@@ -317,38 +331,47 @@ describe("real project repository owner chain", () => {
     });
   });
 
-  it("keeps a durable commit while suppressing the replaced owner's later publications", async () => {
+  it("keeps a durable commit while cancelling replacement before adoption and publication", async () => {
     const storage = memoryStorage();
     const projectRepository = repository(storage);
     const bus = createEventBusFixture();
     buses.push(bus);
     const first = await start(bus.eventBus, projectRepository);
     owners.push(first);
+    const before = first.getCurrentState();
     const stateChanged = vi.fn();
     bus.eventBus.on("data:state-changed", stateChanged);
     let replacement;
-    bus.eventBus.on("storage:data-changed", () => {
-      first.destroy();
-      replacement = new DataCoordinator({
-        visitedState: new LocalStorageVisitedStatePersistence({
-          storage: localStorage,
-        }),
-        eventBus: bus.eventBus,
-        projectRepository,
-        i18n: { t: (key) => key },
-        defaultProfiles: {},
-      });
-      owners.push(replacement);
-      replacement.init();
-    });
+    const commit = projectRepository.commit.bind(projectRepository);
+    vi.spyOn(projectRepository, "commit").mockImplementation(
+      (draft, options) => {
+        const accepted = commit(draft, options);
+        expect(accepted.status).toBe("committed");
+        expect(stateChanged).not.toHaveBeenCalled();
+        first.destroy();
+        replacement = new DataCoordinator({
+          visitedState: new LocalStorageVisitedStatePersistence({
+            storage: localStorage,
+          }),
+          eventBus: bus.eventBus,
+          projectRepository,
+          i18n: { t: (key) => key },
+          defaultProfiles: {},
+        });
+        owners.push(replacement);
+        replacement.init();
+        return accepted;
+      },
+    );
 
     await expect(
       first.updateProfile("captain", {
         properties: { description: "committed before replacement" },
       }),
-    ).resolves.toMatchObject({ success: true });
+    ).rejects.toThrow("failed_to_save_profile");
     await replacement.initialStateReady;
 
+    expect(first.state.profiles.captain).toEqual(before.profiles.captain);
     expect(projectRepository.load().value.profiles.captain.description).toBe(
       "committed before replacement",
     );
@@ -359,5 +382,63 @@ describe("real project repository owner chain", () => {
     expect(stateChanged).toHaveBeenLastCalledWith(
       expect.objectContaining({ reason: "initial-load" }),
     );
+    expect(bus.getEventsOfType("storage:data-changed")).toEqual([]);
+  });
+
+  it("keeps an accepted reply pending independently while a replacement loads during listener settlement", async () => {
+    const storage = memoryStorage();
+    const projectRepository = repository(storage);
+    const bus = await createRealEventBusFixture();
+    buses.push(bus);
+    const first = await start(bus.eventBus, projectRepository);
+    owners.push(first);
+    const before = first.getCurrentState();
+    let release;
+    const settlement = new Promise((resolve) => {
+      release = resolve;
+    });
+    const published = [];
+    const legacyStorageChanged = vi.fn();
+    bus.eventBus.on("storage:data-changed", legacyStorageChanged);
+    bus.eventBus.on("data:state-changed", ({ reason, state }) => {
+      published.push({ reason, state });
+      if (reason === "profile-updated") return settlement;
+      return undefined;
+    });
+    let replied = false;
+    const action = first
+      .updateProfile("captain", {
+        properties: { description: "accepted before replacement" },
+      })
+      .then((result) => {
+        replied = true;
+        return result;
+      });
+    await vi.waitFor(() => expect(published).toHaveLength(1));
+    expect(published[0].state.revision).toBe(before.revision + 1);
+    expect(published[0].state.profiles).toEqual(
+      projectRepository.load().value.profiles,
+    );
+    expect(replied).toBe(false);
+
+    first.destroy();
+    const replacement = await start(bus.eventBus, projectRepository);
+    owners.push(replacement);
+    expect(published.map(({ reason }) => reason)).toEqual([
+      "profile-updated",
+      "initial-load",
+    ]);
+    expect(replacement.getCurrentState().profiles.captain.description).toBe(
+      "accepted before replacement",
+    );
+    expect(replied).toBe(false);
+
+    release();
+    await expect(action).resolves.toMatchObject({
+      success: true,
+      profile: { description: "accepted before replacement" },
+    });
+    expect(replied).toBe(true);
+    expect(legacyStorageChanged).not.toHaveBeenCalled();
   });
 });

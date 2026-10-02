@@ -228,7 +228,9 @@ describe("Integration: key-capture lifecycle and owner flow", () => {
         ownerState.profiles[profileId].builds.space.keys[capturedKey],
       ).toEqual([]);
       expect(
-        fixture.storage.getProfile(profileId).builds.space.keys[capturedKey],
+        fixture.readProjectRoot().profiles[profileId].builds.space.keys[
+          capturedKey
+        ],
       ).toEqual([]);
       expect(captureUi.cache.dataState).toEqual(ownerState);
       expect(captureService.getCurrentState().isCapturing).toBe(false);

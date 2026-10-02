@@ -66,8 +66,8 @@ describe("project backup and import profile contract", () => {
         showPlayerSay: true,
       },
     };
-    source.storage.saveAllData({
-      ...source.storage.getAllData(),
+    source.storageFixture.setData("sto_keybind_manager", {
+      ...source.readProjectRoot(),
       profiles: { "canonical-profile": canonicalProfile },
       currentProfile: "canonical-profile",
       settings: { theme: "default" },
@@ -141,10 +141,10 @@ describe("project backup and import profile contract", () => {
       currentProfile: "canonical-profile",
       imported: { profiles: 1, settings: true },
     });
-    expect(destination.storage.getProfile("canonical-profile")).toEqual(
+    expect(destination.readProjectRoot().profiles["canonical-profile"]).toEqual(
       canonicalProfile,
     );
-    expect(destination.storage.getAllData().currentProfile).toBe(
+    expect(destination.readProjectRoot().currentProfile).toBe(
       "canonical-profile",
     );
     expect(destination.settingsRepository.load().value).toMatchObject(

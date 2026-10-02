@@ -15,7 +15,6 @@ import {
   commitCoordinatorProjectRoot,
   coordinatorProjectVersion,
 } from "./dataCoordinatorProjectPersistence.js";
-import { publishCommittedCoordinatorProject } from "./dataCoordinatorPublication.js";
 
 /** @param {unknown} error */
 const errMsg = (error) =>
@@ -67,7 +66,6 @@ export async function executeProfileSwitch(owner, profileId) {
   owner._assertCurrentOperation(operation);
   const accepted = commitCoordinatorProjectRoot(owner, candidate);
   adoptCoordinatorProjectRoot(owner, accepted, operation);
-  publishCommittedCoordinatorProject(owner, accepted);
 
   // Build virtual profile for response
   const virtualProfile = createVirtualProfile(
@@ -139,7 +137,6 @@ export async function executeProfileCreate(owner, name, description, mode) {
     owner._assertCurrentOperation(operation);
     const accepted = commitCoordinatorProjectRoot(owner, candidate);
     adoptCoordinatorProjectRoot(owner, accepted, operation);
-    publishCommittedCoordinatorProject(owner, accepted);
     const persistedProfile = owner.state.profiles[profileId];
 
     owner._publishState("profile-created");
@@ -200,7 +197,6 @@ export async function executeProfileClone(owner, sourceId, newName) {
     owner._assertCurrentOperation(operation);
     const accepted = commitCoordinatorProjectRoot(owner, candidate);
     adoptCoordinatorProjectRoot(owner, accepted, operation);
-    publishCommittedCoordinatorProject(owner, accepted);
     const persistedProfile = owner.state.profiles[profileId];
 
     owner._publishState("profile-cloned");
@@ -263,7 +259,6 @@ export async function executeProfileRename(
     owner._assertCurrentOperation(operation);
     const accepted = commitCoordinatorProjectRoot(owner, candidate);
     adoptCoordinatorProjectRoot(owner, accepted, operation);
-    publishCommittedCoordinatorProject(owner, accepted);
     const persistedProfile = owner.state.profiles[profileId];
 
     owner._publishState("profile-renamed");
@@ -351,7 +346,6 @@ export async function executeProfileDelete(owner, profileId) {
     owner._assertCurrentOperation(operation);
     const durableRoot = commitCoordinatorProjectRoot(owner, nextRoot);
     adoptCoordinatorProjectRoot(owner, durableRoot, operation);
-    publishCommittedCoordinatorProject(owner, durableRoot);
 
     owner._publishState("profile-deleted");
 

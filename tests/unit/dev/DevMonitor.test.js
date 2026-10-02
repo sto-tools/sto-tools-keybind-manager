@@ -262,13 +262,13 @@ describe("DevMonitor localization capability", () => {
     const firstEventBus = { name: "first" };
     const first = monitor.registerRuntimeDiagnostics({
       eventBus: firstEventBus,
-      storageService: { name: "storage" },
+      preferencesService: { name: "preferences" },
     });
 
     expect(first).toBe(monitor.getRuntimeDiagnostics());
     expect(first).toEqual({
       eventBus: firstEventBus,
-      storageService: { name: "storage" },
+      preferencesService: { name: "preferences" },
     });
     expect(Object.isFrozen(first)).toBe(true);
     expect(() => {

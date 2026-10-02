@@ -1,18 +1,102 @@
 import ComponentBase from "../ComponentBase.js";
+import { cloneJsonData } from "./jsonDataBoundary.js";
+
+/** Compare JSON-like accepted project content independently of record order.
+ * @param {unknown} left
+ * @param {unknown} right
+ * @returns {boolean}
+ */
+function sameProjectValue(left, right) {
+  if (left === right) return true;
+  if (
+    !left ||
+    !right ||
+    typeof left !== "object" ||
+    typeof right !== "object" ||
+    Array.isArray(left) !== Array.isArray(right)
+  )
+    return false;
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every(
+      (key) =>
+        Object.prototype.hasOwnProperty.call(right, key) &&
+        sameProjectValue(Reflect.get(left, key), Reflect.get(right, key)),
+    )
+  );
+}
 
 /**
- * AutoSync – watches for storage changes and triggers stoSync operations.
+ * Side-effect guard, not a second owner-state decoder. ComponentBase retains
+ * responsibility for adopting and ordering snapshots; only complete ready
+ * project projections may become an AutoSync baseline or schedule work.
+ * @param {import('../../types/events/component-state.js').DataCoordinatorStateSnapshot | null} state
+ */
+function isSyncProjection(state) {
+  if (!state || typeof state.ready !== "boolean") return false;
+  const keys = Object.keys(state);
+  const record = (/** @type {unknown} */ value) =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  const complete =
+    keys.length === 8 &&
+    keys.every((key) =>
+      [
+        "authorityEpoch",
+        "ready",
+        "revision",
+        "currentProfile",
+        "currentEnvironment",
+        "currentProfileData",
+        "profiles",
+        "metadata",
+      ].includes(key),
+    ) &&
+    (state.currentProfile === null ||
+      typeof state.currentProfile === "string") &&
+    typeof state.currentEnvironment === "string" &&
+    (state.currentProfileData === null || record(state.currentProfileData)) &&
+    record(state.profiles) &&
+    Object.values(state.profiles).every(record) &&
+    record(state.metadata) &&
+    typeof state.metadata.version === "string" &&
+    (state.metadata.lastModified == null ||
+      typeof state.metadata.lastModified === "string");
+  if (!complete) return false;
+  try {
+    // Validation-only detachment uses the existing depth-bounded JSON boundary
+    // to reject cycles, unsafe keys, nonfinite numbers and non-JSON records.
+    // Never replace the accepted cache/baseline with this temporary projection.
+    cloneJsonData(
+      {
+        profiles: state.profiles,
+        currentProfileData: state.currentProfileData,
+        metadata: {
+          ...state.metadata,
+          // The snapshot contract permits undefined here, unlike nested JSON.
+          lastModified: state.metadata.lastModified ?? null,
+        },
+      },
+      "$.syncProjection",
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * AutoSync – watches accepted project changes and triggers stoSync operations.
  */
 export default class AutoSync extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, syncManager?: import('./SyncService.js').default, ui?: import('./serviceTypes.js').ToastUI, i18n?: import('./serviceTypes.js').I18n }} [options] */
-  constructor({ eventBus, syncManager, ui, i18n } = {}) {
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, syncManager?: import('./SyncService.js').default, ui?: import('./serviceTypes.js').ToastUI, i18n: import('./serviceTypes.js').I18n }} options */
+  constructor({ eventBus, syncManager, ui, i18n }) {
     super(eventBus);
     this.componentName = "AutoSync";
     this.syncManager = syncManager; // instance of SyncService
     this.ui = ui;
-    this.i18n =
-      i18n ??
-      /** @type {import('./serviceTypes.js').I18n} */ ({ t: (key) => key });
+    this.i18n = i18n;
     this.isEnabled = false;
     this.interval = "change"; // 'change' or seconds string
     /** @type {ReturnType<typeof setInterval> | null} */
@@ -27,11 +111,17 @@ export default class AutoSync extends ComponentBase {
     /** @type {ReturnType<typeof setTimeout> | null} */
     this._indicatorTimeout = null;
 
-    // Bind for off()
-    this._onStorageChange = () => this.debouncedSync();
+    /** @type {import('../../types/events/component-state.js').DataCoordinatorStateSnapshot | null} */
+    this._dataBaseline = null;
   }
 
   onInit() {
+    // Late join has already hydrated the accepted cache. Reinitialization must
+    // not compare new owner state with the snapshot from a prior attachment.
+    this._dataBaseline =
+      isSyncProjection(this.cache.dataState) && this.cache.dataState?.ready
+        ? this.cache.dataState
+        : null;
     this.setupPreferencesListeners();
     this.setupFromSettings();
   }
@@ -82,8 +172,53 @@ export default class AutoSync extends ComponentBase {
     if (reason === "startup-loaded" && state.ready) this.setupFromSettings();
   }
 
+  /**
+   * Revision is publication ordering, not evidence of a durable change: a
+   * read-only reload advances it too. Compare canonical project content so a
+   * committed import with the same state-reloaded reason still triggers sync.
+   * An identical import suppresses the old redundant storage-notification sync
+   * because it does not change the owner projection or the synced artifact.
+   * @param {import('../../types/events/data.js').DataStateChangedPayload} change
+   */
+  onDataStateAccepted({ reason, state }) {
+    if (!isSyncProjection(state)) return;
+    // A pre-ready replacement cancels predecessor work without treating its
+    // empty projection as a project mutation. Malformed projections are inert.
+    if (state.ready === false) {
+      this._dataBaseline = null;
+      if (this._syncDebounceTimeout !== null) {
+        clearTimeout(this._syncDebounceTimeout);
+        this._syncDebounceTimeout = null;
+      }
+      return;
+    }
+    const previous = this._dataBaseline;
+    this._dataBaseline = state;
+    if (
+      !previous ||
+      previous.authorityEpoch !== state.authorityEpoch ||
+      reason === "initial-load"
+    ) {
+      if (this._syncDebounceTimeout !== null) {
+        clearTimeout(this._syncDebounceTimeout);
+        this._syncDebounceTimeout = null;
+      }
+      return;
+    }
+    if (
+      this.isEnabled &&
+      this.interval === "change" &&
+      (!sameProjectValue(previous.profiles, state.profiles) ||
+        !sameProjectValue(previous.metadata, state.metadata) ||
+        previous.currentProfile !== state.currentProfile ||
+        previous.currentEnvironment !== state.currentEnvironment)
+    )
+      this.debouncedSync();
+  }
+
   onDestroy() {
     this.disable();
+    this._dataBaseline = null;
     if (this._indicatorTimeout !== null) {
       clearTimeout(this._indicatorTimeout);
       this._indicatorTimeout = null;
@@ -112,9 +247,7 @@ export default class AutoSync extends ComponentBase {
     this.isEnabled = true;
     this.interval = interval;
 
-    if (interval === "change") {
-      this.eventBus?.on("storage:data-changed", this._onStorageChange);
-    } else {
+    if (interval !== "change") {
       // Validate interval is a valid positive number
       const parsedInterval = parseInt(interval, 10);
       if (isNaN(parsedInterval) || parsedInterval <= 0) {
@@ -122,7 +255,6 @@ export default class AutoSync extends ComponentBase {
           `[AutoSync] Invalid interval '${interval}', falling back to 'change' mode`,
         );
         this.interval = "change";
-        this.eventBus?.on("storage:data-changed", this._onStorageChange);
       } else {
         const ms = parsedInterval * 1000;
         this._intervalId = setInterval(() => this.sync(), ms);
@@ -136,7 +268,6 @@ export default class AutoSync extends ComponentBase {
 
   disable() {
     this.isEnabled = false;
-    this.eventBus?.off("storage:data-changed", this._onStorageChange);
     if (this._intervalId) {
       clearInterval(this._intervalId);
       this._intervalId = null;

@@ -31,7 +31,6 @@ export async function createBasicTestEnvironment(options = {}) {
   return {
     eventBus: eventBus.eventBus,
     eventBusFixture: eventBus,
-    storage: storage.storageService,
     projectRepository: storage.projectRepository,
     settingsRepository: storage.settingsRepository,
     readProjectRoot: storage.readProjectRoot,

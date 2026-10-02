@@ -93,7 +93,6 @@ describe("DataCoordinator normalization facade", () => {
       "clock:normalization",
       "[DataCoordinator] Profile legacy migrated from 2.0.0 to 2.1.1",
       "storage:save-all",
-      '[DataCoordinator] emit → storage:data-changed (options: {"synchronous":true})',
       "[DataCoordinator] Migrated 1 profiles",
     ]);
     // Public normalization now detaches its request before queue/owner access.
@@ -112,6 +111,11 @@ describe("DataCoordinator normalization facade", () => {
     expect(profiles.legacy.builds.space.keys.F1).toEqual([
       { command: "FireAll" },
     ]);
+    expect(coordinator._projectRoot.profiles).toEqual(persisted);
+    expect(coordinator.state.profiles).toEqual(persisted);
+    expect(
+      fixture.eventBusFixture.getEventsOfType("storage:data-changed"),
+    ).toEqual([]);
   });
 
   it("returns before any storage or normalization effect for a current version", async () => {
@@ -171,6 +175,9 @@ describe("DataCoordinator normalization facade", () => {
       migrationVersion: "2.1.1",
       repositoryCanonical: true,
     });
+    expect(
+      fixture.eventBusFixture.getEventsOfType("storage:data-changed"),
+    ).toEqual([]);
   });
 
   it("uses the accepted owner root for a null override and stamps down a future version", async () => {
@@ -242,10 +249,9 @@ describe("DataCoordinator normalization facade", () => {
       "clock:normalization",
       "[DataCoordinator] Profile future migrated from 9.0.0 to 2.1.1",
       "storage:save-all",
-      '[DataCoordinator] emit → storage:data-changed (options: {"synchronous":true})',
       "[DataCoordinator] Migrated 1 profiles",
     ]);
-    expect(logSpy).toHaveBeenCalledTimes(4);
+    expect(logSpy).toHaveBeenCalledTimes(3);
     expect(isoSpy).toHaveBeenCalledTimes(1);
     expect(profiles.future).toBe(sourceProfile);
     expect(

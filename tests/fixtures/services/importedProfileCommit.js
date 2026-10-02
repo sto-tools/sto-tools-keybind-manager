@@ -5,10 +5,10 @@ import { respond } from "../../../src/js/core/requestResponse.js";
  * tests pair ImportService with the real DataCoordinator instead.
  *
  * @param {import('../../../src/js/components/services/serviceTypes.js').EventBus} eventBus
- * @param {import('../../../src/js/components/services/serviceTypes.js').Storage} storage
+ * @param {Object} fixture - project repository and detached persisted-root reader
  * @returns {() => void}
  */
-export function respondWithImportedProfileCommits(eventBus, storage) {
+export function respondWithImportedProfileCommits(eventBus, fixture) {
   return respond(eventBus, "data:update-profile", async (payload) => {
     const updates = payload.updates || payload;
     const profile = structuredClone(
@@ -16,9 +16,13 @@ export function respondWithImportedProfileCommits(eventBus, storage) {
     );
     profile.lastModified = new Date().toISOString();
 
-    const saved = await storage.saveProfile(payload.profileId, profile);
-    if (saved === false) throw new Error("storage_write_failed");
+    const destination = fixture.readProjectRoot();
+    const saved = await fixture.projectRepository.commit({
+      ...destination,
+      profiles: { ...destination.profiles, [payload.profileId]: profile },
+    });
+    if (saved.status !== "committed") throw new Error("storage_write_failed");
 
-    return { success: true, profile };
+    return { success: true, profile: saved.value.profiles[payload.profileId] };
   });
 }

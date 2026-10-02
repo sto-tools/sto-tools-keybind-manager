@@ -1,5 +1,4 @@
 import eventBus from "../../src/js/core/eventBus.js";
-import type StorageService from "../../src/js/components/services/StorageService.js";
 import type { CurrentProjectArtifactEnvelope } from "../../src/js/types/data-contracts.js";
 import type { SyncDirectoryHandle } from "../../src/js/types/sync-boundary.js";
 import {
@@ -634,7 +633,7 @@ bus.emit("stabilize-changed", {
 });
 // @ts-expect-error Import readiness is represented by direct initialization and registered action responders.
 bus.emit("import-service-ready");
-declare const retiredStorageServicePayload: StorageService;
+declare const retiredStorageServicePayload: { isInitialized(): boolean };
 // @ts-expect-error Storage readiness is represented by direct synchronous initialization and injection.
 bus.emit("storage:ready", { service: retiredStorageServicePayload });
 // @ts-expect-error Clipboard actions return their result through the canonical RPC.

@@ -94,7 +94,6 @@ describe("KeyService Structured Response Tests", () => {
 
     service = new KeyService({
       eventBus: eventBus,
-      storage: fixture.storage,
       i18n: { t: (key, params) => `${key}:${JSON.stringify(params)}` },
     });
     service.init();
@@ -113,7 +112,7 @@ describe("KeyService Structured Response Tests", () => {
         },
       },
     };
-    fixture.storage.saveProfile("test-profile", testProfile);
+    fixture.storageFixture.addProfile("test-profile", testProfile);
 
     // Use proper profile switching via DataCoordinator
     await service.request("data:switch-profile", { profileId: "test-profile" });
@@ -154,7 +153,6 @@ describe("KeyService Structured Response Tests", () => {
       // Create a new service with no profile to test the no profile case
       const noProfileService = new KeyService({
         eventBus: fixture.eventBus,
-        storage: fixture.storage,
         i18n: { t: (key, params) => `${key}:${JSON.stringify(params)}` },
       });
       noProfileService.init();
@@ -217,7 +215,6 @@ describe("KeyService Structured Response Tests", () => {
       // Create a new service with no profile to test the no profile case
       const noProfileService = new KeyService({
         eventBus: fixture.eventBus,
-        storage: fixture.storage,
         i18n: { t: (key, params) => `${key}:${JSON.stringify(params)}` },
       });
       noProfileService.init();
@@ -270,7 +267,6 @@ describe("KeyService Structured Response Tests", () => {
       // Create a new service with no profile to test the no profile case
       const noProfileService = new KeyService({
         eventBus: fixture.eventBus,
-        storage: fixture.storage,
         i18n: { t: (key, params) => `${key}:${JSON.stringify(params)}` },
       });
       noProfileService.init();
@@ -320,7 +316,6 @@ describe("KeyService Structured Response Tests", () => {
     it("should return structured error when no profile selected", async () => {
       const noProfileService = new KeyService({
         eventBus: fixture.eventBus,
-        storage: fixture.storage,
         i18n: { t: (key, params) => `${key}:${JSON.stringify(params)}` },
       });
       noProfileService.init();

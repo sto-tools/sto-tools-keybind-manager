@@ -113,7 +113,7 @@ describe("ProjectManagementService Preferences activation", () => {
       expect(runPreferencesTransition).toHaveBeenCalledOnce();
       expect(persistImportedSettings).toHaveBeenCalledOnce();
       expect(replaceProjectFromImport).toHaveBeenCalledOnce();
-      expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
       expect(activatePersistedSettings).toHaveBeenCalledOnce();
       expect(request).not.toHaveBeenCalled();
     },
@@ -133,7 +133,7 @@ describe("ProjectManagementService Preferences activation", () => {
     expect(persistImportedSettings).not.toHaveBeenCalled();
     expect(activatePersistedSettings).not.toHaveBeenCalled();
     expect(replaceProjectFromImport).toHaveBeenCalledOnce();
-    expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
+    expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
     expect(request).not.toHaveBeenCalled();
   });
 });

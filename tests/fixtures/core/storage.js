@@ -59,6 +59,7 @@ export function createStorageFixture(options = {}) {
           },
         },
         version: "1.0.0",
+        globalAliases: {},
         lastModified: new Date().toISOString(),
       }),
       sto_keybind_settings: JSON.stringify({
@@ -119,75 +120,6 @@ export function createStorageFixture(options = {}) {
     },
   };
 
-  // Mock StorageService interface
-  const mockStorageService = {
-    version: "1.0.0",
-    getAllData: vi.fn(() => {
-      const data = mockLocalStorage.getItem("sto_keybind_manager");
-      if (data) {
-        return JSON.parse(data);
-      }
-      return {
-        currentProfile: "default_space",
-        profiles: {},
-        version: "1.0.0",
-      };
-    }),
-
-    saveAllData: vi.fn((data) => {
-      try {
-        mockLocalStorage.setItem("sto_keybind_manager", JSON.stringify(data));
-        return true;
-      } catch {
-        return false;
-      }
-    }),
-
-    getProfile: vi.fn((profileId) => {
-      const data = mockStorageService.getAllData();
-      return data.profiles[profileId] || null;
-    }),
-
-    saveProfile: vi.fn((profileId, profile) => {
-      try {
-        const data = mockStorageService.getAllData();
-        data.profiles[profileId] = {
-          ...profile,
-          lastModified: new Date().toISOString(),
-        };
-        return mockStorageService.saveAllData(data);
-      } catch {
-        return false;
-      }
-    }),
-
-    deleteProfile: vi.fn((profileId) => {
-      try {
-        const data = mockStorageService.getAllData();
-        delete data.profiles[profileId];
-
-        // Switch to another profile if this was current
-        if (data.currentProfile === profileId) {
-          const remainingProfiles = Object.keys(data.profiles);
-          data.currentProfile = remainingProfiles[0] || null;
-        }
-
-        return mockStorageService.saveAllData(data);
-      } catch {
-        return false;
-      }
-    }),
-
-    invalidateCache: vi.fn(),
-
-    // StorageService component methods
-    init: vi.fn(() => Promise.resolve()),
-    destroy: vi.fn(() => Promise.resolve()),
-    isInitialized: vi.fn(() => true),
-    isDestroyed: vi.fn(() => false),
-    getComponentName: vi.fn(() => "StorageService"),
-  };
-
   const repository = new LocalStorageSettingsRepository({
     storage: mockLocalStorage,
     defaults: createDefaultPreferencesSettings(),
@@ -215,7 +147,6 @@ export function createStorageFixture(options = {}) {
 
   const fixture = {
     localStorage: mockLocalStorage,
-    storageService: mockStorageService,
     projectRepository,
     settingsRepository,
 
@@ -283,7 +214,7 @@ export function createStorageFixture(options = {}) {
 
     // Profile utilities
     addProfile: (profileId, profile) => {
-      const data = mockStorageService.getAllData();
+      const data = fixture.readProjectRoot();
       data.profiles[profileId] = {
         name: profile.name || "Test Profile",
         description: profile.description || "",
@@ -297,13 +228,13 @@ export function createStorageFixture(options = {}) {
         lastModified: new Date().toISOString(),
         ...profile,
       };
-      mockStorageService.saveAllData(data);
+      fixture.setData("sto_keybind_manager", data);
     },
 
     setCurrentProfile: (profileId) => {
-      const data = mockStorageService.getAllData();
+      const data = fixture.readProjectRoot();
       data.currentProfile = profileId;
-      mockStorageService.saveAllData(data);
+      fixture.setData("sto_keybind_manager", data);
     },
 
     // State management
@@ -331,6 +262,7 @@ export function createStorageFixture(options = {}) {
               },
             },
             version: "1.0.0",
+            globalAliases: {},
             lastModified: new Date().toISOString(),
           }),
         };
@@ -348,11 +280,9 @@ export function createStorageFixture(options = {}) {
           mockLocalStorage[key].mockReset();
         }
       });
-      Object.keys(mockStorageService).forEach((key) => {
-        if (vi.isMockFunction(mockStorageService[key])) {
-          mockStorageService[key].mockReset();
-        }
-      });
+      for (const port of [projectRepository, settingsRepository]) {
+        Object.values(port).forEach((method) => method.mockReset());
+      }
     },
 
     // Cleanup

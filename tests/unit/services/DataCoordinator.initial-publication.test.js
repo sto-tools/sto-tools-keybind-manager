@@ -130,6 +130,8 @@ describe("DataCoordinator initial publication settlement", () => {
     const profileGate = deferred();
     const settled = [];
     const environmentChanged = vi.fn();
+    const legacyStorageChanged = vi.fn();
+    eventBus.on("storage:data-changed", legacyStorageChanged);
 
     eventBus.on("data:state-changed", ({ reason }) => {
       invoked.push(`state:${reason}`);
@@ -196,11 +198,15 @@ describe("DataCoordinator initial publication settlement", () => {
       "state:default-profiles-created",
     ]);
     expect(environmentChanged).not.toHaveBeenCalled();
+    expect(legacyStorageChanged).not.toHaveBeenCalled();
     expect(coordinator.getCurrentState()).toMatchObject({
       ready: true,
       revision: 2,
       currentProfile: "default_space",
     });
+    expect(coordinator.getCurrentState().profiles).toEqual(
+      durableRoot.profiles,
+    );
     expect(eventBus.hasListeners("rpc:data:create-profile")).toBe(true);
   });
 

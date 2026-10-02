@@ -1,7 +1,4 @@
-import {
-  publishCommittedCoordinatorProject,
-  publishDataCoordinatorState,
-} from "./dataCoordinatorPublication.js";
+import { publishDataCoordinatorState } from "./dataCoordinatorPublication.js";
 import {
   adoptCoordinatorProjectRoot,
   commitCoordinatorProjectRoot,
@@ -152,9 +149,6 @@ async function loadInitialCoordinatorState(coordinator) {
         })
       : data;
     adoptCoordinatorProjectRoot(coordinator, durableData, operation);
-    if (requiresCommit) {
-      publishCommittedCoordinatorProject(coordinator, durableData);
-    }
     coordinator.needsDefaultProfiles = needsDefaultProfiles;
     console.log(`[${coordinator.componentName}] Loaded initial state:`, {
       currentProfile: nextState.currentProfile,

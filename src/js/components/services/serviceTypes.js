@@ -4,7 +4,6 @@
  *
  * @typedef {typeof import('../../core/eventBus.js').default} EventBus
  * @typedef {typeof import('i18next').default} I18n
- * @typedef {import('./StorageService.js').default} Storage
  * @typedef {import('./FileSystemService.js').default} FileSystem
  *
  * @typedef {Object} RichCommand

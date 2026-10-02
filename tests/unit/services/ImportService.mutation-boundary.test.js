@@ -27,11 +27,10 @@ describe("ImportService guarded mutation ingress", () => {
   let fixture, service, stopParser, stopCommit, parser;
   beforeEach(() => {
     fixture = createServiceFixture();
-    fixture.storage.saveProfile("captain", profile());
-    fixture.storage.saveProfile.mockClear();
+    fixture.storageFixture.addProfile("captain", profile());
+    fixture.projectRepository.commit.mockClear();
     service = new ImportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
     });
     service.init();
     service._cacheDataState(
@@ -40,10 +39,7 @@ describe("ImportService guarded mutation ingress", () => {
         currentProfileData: profile(),
       }),
     );
-    stopCommit = respondWithImportedProfileCommits(
-      fixture.eventBus,
-      fixture.storage,
-    );
+    stopCommit = respondWithImportedProfileCommits(fixture.eventBus, fixture);
     parser = vi.fn(({ commandString }) => ({
       commands: [{ command: commandString }],
       isMirrored: false,
@@ -106,7 +102,7 @@ describe("ImportService guarded mutation ingress", () => {
         configurable: true,
         get: readState,
       });
-      fixture.storage.getProfile.mockClear();
+      fixture.projectRepository.load.mockClear();
       const result = await request(
         fixture.eventBus,
         `import:${format}-file`,
@@ -116,8 +112,8 @@ describe("ImportService guarded mutation ingress", () => {
       expect(getter).not.toHaveBeenCalled();
       expect(readState).not.toHaveBeenCalled();
       expect(parser).not.toHaveBeenCalled();
-      expect(fixture.storage.getProfile).not.toHaveBeenCalled();
-      expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+      expect(fixture.projectRepository.load).not.toHaveBeenCalled();
+      expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
     },
   );
 
@@ -158,7 +154,7 @@ describe("ImportService guarded mutation ingress", () => {
       success: false,
       error: "import_failed",
     });
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
     expect(
       fixture.eventBusFixture.getEventsOfType("profile:updated"),
     ).toHaveLength(0);
@@ -201,7 +197,8 @@ describe("ImportService guarded mutation ingress", () => {
       imported: { keys: 1 },
     });
     expect(
-      fixture.storage.saveProfile.mock.calls[0][1].builds.space.keys.F1,
+      fixture.projectRepository.commit.mock.calls[0][0].profiles["captain"]
+        .builds.space.keys.F1,
     ).toEqual(["FireAll"]);
   });
 
@@ -215,10 +212,15 @@ describe("ImportService guarded mutation ingress", () => {
         fixture.eventBus,
         "data:update-profile",
         async (payload) => {
-          fixture.storage.saveProfile(
-            payload.profileId,
-            payload.updates.replacement,
-          );
+          const destination = fixture.readProjectRoot();
+          const committed = fixture.projectRepository.commit({
+            ...destination,
+            profiles: {
+              ...destination.profiles,
+              [payload.profileId]: payload.updates.replacement,
+            },
+          });
+          expect(committed.status).toBe("committed");
           entered.resolve();
           await resume.promise;
           return { success: true, profile: payload.updates.replacement };
@@ -234,9 +236,15 @@ describe("ImportService guarded mutation ingress", () => {
         service.destroy();
         service.init();
       } else {
-        const successor = fixture.storage.getProfile("captain");
+        const successor = fixture.readProjectRoot().profiles["captain"];
         successor.description = "newer accepted description";
-        fixture.storage.saveProfile("captain", successor);
+        const destination = fixture.readProjectRoot();
+        expect(
+          fixture.projectRepository.commit({
+            ...destination,
+            profiles: { ...destination.profiles, captain: successor },
+          }).status,
+        ).toBe("committed");
         service._cacheDataState(
           createDataCoordinatorState({
             currentProfile: "captain",
@@ -248,7 +256,7 @@ describe("ImportService guarded mutation ingress", () => {
       resume.resolve();
       expect(await pending).toMatchObject({ success: true });
       expect(
-        fixture.storage.getProfile("captain").builds.space.keys.F1,
+        fixture.readProjectRoot().profiles["captain"].builds.space.keys.F1,
       ).toEqual(["FireAll"]);
       expect(
         fixture.eventBusFixture.getEventsOfType("profile:updated"),

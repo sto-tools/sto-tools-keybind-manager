@@ -409,6 +409,10 @@ describe("DataCoordinator explicit profile operations", () => {
       status: "committed",
       value: structuredClone(candidate),
     }));
+    // Exercise an accepted, ready owner: pre-ready mutations deliberately do
+    // not broadcast a snapshot until the final initial-load publication.
+    coordinator._stateReady = true;
+    const beforeState = coordinator.getCurrentState();
     const emitSpy = vi.spyOn(coordinator, "emit");
 
     const result = await coordinator.updateProfile(PROFILE_ID, {
@@ -427,6 +431,32 @@ describe("DataCoordinator explicit profile operations", () => {
     ).toEqual(result.profile);
 
     expect(emitSpy).toHaveBeenCalledTimes(2);
+    expect(emitSpy.mock.calls.map(([event]) => event)).toEqual([
+      "data:state-changed",
+      "profile:updated",
+    ]);
+    const statePayload = emitSpy.mock.calls[0][1];
+    expect(statePayload).toEqual({
+      reason: "profile-updated",
+      state: coordinator.getCurrentState(),
+    });
+    expect(statePayload.state).toMatchObject({
+      ready: true,
+      revision: beforeState.revision + 1,
+      profiles: { [PROFILE_ID]: result.profile },
+    });
+    expect(statePayload.state.profiles[PROFILE_ID]).not.toBe(ownerProfile);
+    expect(Object.isFrozen(statePayload.state)).toBe(true);
+    expect(
+      Object.isFrozen(
+        statePayload.state.profiles[PROFILE_ID].builds.space.keys.AddedKey,
+      ),
+    ).toBe(true);
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      "storage:data-changed",
+      expect.anything(),
+      expect.anything(),
+    );
     expect(emitSpy).toHaveBeenCalledWith("profile:updated", {
       profileId: PROFILE_ID,
       profile: result.profile,
@@ -451,5 +481,7 @@ describe("DataCoordinator explicit profile operations", () => {
 
     expect(coordinator.state.profiles[PROFILE_ID]).toEqual(ownerSnapshot);
     expect(coordinator.getCurrentState().revision).toBe(revision);
+    expect(statePayload.state.profiles[PROFILE_ID]).toEqual(ownerSnapshot);
+    expect(beforeState.profiles[PROFILE_ID]).toEqual(createProfile());
   });
 });

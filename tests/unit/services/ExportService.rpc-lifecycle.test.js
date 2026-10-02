@@ -27,7 +27,6 @@ describe("ExportService responder lifecycle", () => {
     fixture = createServiceFixture();
     service = new ExportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
       i18n: { t: (key) => key },
     });
   });

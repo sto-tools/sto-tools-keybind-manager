@@ -13,7 +13,6 @@ const componentStateOwners = Object.freeze(
     PreferencesService: true,
     ProfileUI: true,
     SelectionService: true,
-    StorageService: true,
     VFXManagerService: true,
   }),
 );

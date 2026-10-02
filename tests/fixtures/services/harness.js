@@ -18,7 +18,7 @@ import { respondWithImportedProfileCommits } from "./importedProfileCommit.js";
 /**
  * Create a basic service fixture.
  * @param {Object} options – optional overrides
- * @param {Object} options.initialStorageData – seed data for StorageService mock
+ * @param {Object} options.initialStorageData – persisted repository fixture records
  * @param {boolean} options.trackEvents – forward to EventBus fixture
  * @param {boolean} options.enableFS – whether to create a file system fixture
  * @param {Object} options.fsSeed – seed data for file system fixture
@@ -44,8 +44,6 @@ export function createServiceFixture(options = {}) {
   const fixture = {
     // Expose raw mock objects
     eventBus: eventBusFixture.eventBus,
-    storage: storageFixture.storageService,
-    storageService: storageFixture.storageService,
     projectRepository: storageFixture.projectRepository,
     settingsRepository: storageFixture.settingsRepository,
     readProjectRoot: storageFixture.readProjectRoot,
@@ -90,7 +88,7 @@ export function createServiceFixture(options = {}) {
 /** Create a service fixture with ImportService's coordinator seam wired. */
 export function createImportServiceFixture(options = {}) {
   const fixture = createServiceFixture(options);
-  respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
+  respondWithImportedProfileCommits(fixture.eventBus, fixture);
   return fixture;
 }
 
@@ -119,8 +117,6 @@ export async function createRealServiceFixture(options = {}) {
 
   const fixture = {
     eventBus: eventBusFixture.eventBus,
-    storage: storageFixture.storageService,
-    storageService: storageFixture.storageService,
     projectRepository: storageFixture.projectRepository,
     settingsRepository: storageFixture.settingsRepository,
     readProjectRoot: storageFixture.readProjectRoot,

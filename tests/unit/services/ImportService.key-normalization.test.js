@@ -39,7 +39,6 @@ describe("ImportService - KBF Key Token Normalization", () => {
     fixture = createServiceFixture();
     service = new ImportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
     });
     service.init();
     service._cacheDataState(
@@ -49,7 +48,7 @@ describe("ImportService - KBF Key Token Normalization", () => {
         profiles: { "test-profile": sourceProfile },
       }),
     );
-    respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
+    respondWithImportedProfileCommits(fixture.eventBus, fixture);
 
     // Register responder for parser on the fixture event bus
     respond(
@@ -111,7 +110,10 @@ describe("ImportService - KBF Key Token Normalization", () => {
 
     console.log("Import result:", JSON.stringify(result, null, 2));
     expect(result.success).toBe(true);
-    const profile = fixture.storage.saveProfile.mock.calls[0][1];
+    const profile =
+      fixture.projectRepository.commit.mock.calls[0][0].profiles[
+        "test-profile"
+      ];
 
     // Verify the imported profile structure
     expect(profile.bindsets).toBeDefined();
@@ -179,7 +181,10 @@ describe("ImportService - KBF Key Token Normalization", () => {
     );
 
     expect(result.success).toBe(true);
-    const profile = fixture.storage.saveProfile.mock.calls[0][1];
+    const profile =
+      fixture.projectRepository.commit.mock.calls[0][0].profiles[
+        "test-profile"
+      ];
 
     // **CRITICAL TEST**: Verify that CTRL was imported as-is (current behavior)
     const importedKeys = profile.bindsets["test-ctrl-bindset"].space.keys;
@@ -236,7 +241,10 @@ describe("ImportService - KBF Key Token Normalization", () => {
     );
 
     expect(result.success).toBe(true);
-    const profile = fixture.storage.saveProfile.mock.calls[0][1];
+    const profile =
+      fixture.projectRepository.commit.mock.calls[0][0].profiles[
+        "test-profile"
+      ];
 
     // Verify keys are imported as-is (current behavior - no normalization)
     const bindsetKeys = profile.bindsets["test-mixed-keys"].space.keys;

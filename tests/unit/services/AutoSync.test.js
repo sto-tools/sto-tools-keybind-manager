@@ -1,11 +1,25 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import AutoSync from "../../../src/js/components/services/AutoSync.js";
 import ComponentBase from "../../../src/js/components/ComponentBase.js";
-import { createPreferencesState } from "../../fixtures/core/componentState.js";
+import {
+  createDataCoordinatorState,
+  createPreferencesState,
+} from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
 function createMockSyncManager() {
   return { syncProject: vi.fn().mockResolvedValue({ success: true }) };
+}
+
+const i18n = { t: (key) => key };
+
+function projectState(revision, overrides = {}) {
+  return createDataCoordinatorState({
+    authorityEpoch: 1,
+    revision,
+    profiles: { captain: { name: `Captain ${revision}` } },
+    ...overrides,
+  });
 }
 
 describe("AutoSync", () => {
@@ -17,7 +31,7 @@ describe("AutoSync", () => {
     eventBus = fixture.eventBus;
 
     syncManager = createMockSyncManager();
-    autoSync = new AutoSync({ eventBus, syncManager });
+    autoSync = new AutoSync({ eventBus, syncManager, i18n });
     services.push(autoSync);
     autoSync.init();
   });
@@ -30,18 +44,244 @@ describe("AutoSync", () => {
     fixture.destroy();
   });
 
-  it('enable("change") listens for storage changes and debounces', async () => {
+  function publish(state, reason = "profile-updated") {
+    eventBus.emit("data:state-changed", { reason, state });
+  }
+
+  it('enable("change") debounces accepted project changes for exactly 500ms', async () => {
     vi.useFakeTimers();
     autoSync.enable("change");
-
-    // Emit storage change twice quickly
-    eventBus.emit("storage:data-changed");
-    eventBus.emit("storage:data-changed");
-
-    // Fast-forward debounce delay
-    vi.advanceTimersByTime(600);
-
+    publish(projectState(1), "initial-load");
+    publish(projectState(2));
+    vi.advanceTimersByTime(250);
+    publish(projectState(3));
+    vi.advanceTimersByTime(499);
+    expect(syncManager.syncProject).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
     expect(syncManager.syncProject).toHaveBeenCalledTimes(1);
+    expect(syncManager.syncProject).toHaveBeenCalledWith("auto");
+  });
+
+  it("does not sync initial state or read-only reload, but does sync a committed reload", () => {
+    vi.useFakeTimers();
+    autoSync.enable("change");
+    const initial = projectState(1, {
+      profiles: { captain: { name: "Captain", description: "Original" } },
+    });
+    publish(initial, "initial-load");
+    // Different record ordering and a new revision do not represent a write.
+    publish(
+      projectState(2, {
+        profiles: { captain: { description: "Original", name: "Captain" } },
+      }),
+      "state-reloaded",
+    );
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).not.toHaveBeenCalled();
+    publish(
+      projectState(3, {
+        profiles: { captain: { name: "Imported", description: "Original" } },
+      }),
+      "state-reloaded",
+    );
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["metadata", { metadata: { version: "1.0.0", lastModified: "committed" } }],
+    ["current profile", { currentProfile: "captain" }],
+    ["environment", { currentEnvironment: "ground" }],
+  ])("syncs accepted %s changes", (_field, changed) => {
+    vi.useFakeTimers();
+    autoSync.enable("change");
+    publish(projectState(1));
+    publish(
+      projectState(2, {
+        profiles: { captain: { name: "Captain 1" } },
+        ...changed,
+      }),
+    );
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).toHaveBeenCalledOnce();
+  });
+
+  it("keeps malformed, duplicate, stale, and pre-ready data publications inert", () => {
+    vi.useFakeTimers();
+    autoSync.enable("change");
+    publish(projectState(2));
+    publish(projectState(2, { profiles: { captain: { name: "Duplicate" } } }));
+    publish(projectState(1));
+    publish(projectState(3, { authorityEpoch: 0 }));
+    publish({ ...projectState(3), unexpected: true });
+    publish(projectState(4, { ready: /** @type {any} */ ("true") }));
+    publish(projectState(5, { profiles: /** @type {any} */ ([]) }));
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).not.toHaveBeenCalled();
+    publish(projectState(6, { authorityEpoch: 2, ready: false }));
+    publish(projectState(7, { authorityEpoch: 2 }));
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).not.toHaveBeenCalled();
+    publish(projectState(8, { authorityEpoch: 2 }));
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).toHaveBeenCalledOnce();
+  });
+
+  it("rejects consecutive cyclic inputs before comparison or baseline adoption", () => {
+    vi.useFakeTimers();
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    autoSync.enable("change");
+    publish(projectState(1));
+    const baseline = autoSync._dataBaseline;
+    const cycle = () => {
+      const value = {};
+      value.self = value;
+      return value;
+    };
+    publish(
+      projectState(2, {
+        profiles: { captain: { name: "Captain 1", extension: cycle() } },
+      }),
+    );
+    publish(
+      projectState(3, {
+        profiles: { captain: { name: "Captain 1", extension: cycle() } },
+      }),
+    );
+    publish(projectState(4, { currentProfileData: { extension: cycle() } }));
+    expect(errors).not.toHaveBeenCalled();
+    expect(autoSync._dataBaseline).toBe(baseline);
+    expect(autoSync._syncDebounceTimeout).toBeNull();
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).not.toHaveBeenCalled();
+    publish(projectState(5));
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["NaN", NaN],
+    ["infinity", Infinity],
+    ["undefined", undefined],
+    ["date", new Date("2026-10-02T00:00:00.000Z")],
+    ["map", new Map([["key", "value"]])],
+    ["unsafe key", { constructor: "unsafe" }],
+  ])(
+    "keeps nested %s profile and current-projection values inert",
+    (_description, value) => {
+      vi.useFakeTimers();
+      autoSync.enable("change");
+      publish(projectState(1));
+      const baseline = autoSync._dataBaseline;
+      publish(
+        projectState(2, {
+          profiles: { captain: { name: "Captain 1", extension: value } },
+        }),
+      );
+      publish(projectState(3, { currentProfileData: { extension: value } }));
+      expect(autoSync._dataBaseline).toBe(baseline);
+      expect(autoSync._syncDebounceTimeout).toBeNull();
+      vi.advanceTimersByTime(500);
+      expect(syncManager.syncProject).not.toHaveBeenCalled();
+    },
+  );
+
+  it("uses replacement owner readiness as a fresh baseline and cancels predecessor work", () => {
+    vi.useFakeTimers();
+    autoSync.enable("change");
+    publish(projectState(1));
+    publish(projectState(2));
+    expect(autoSync._syncDebounceTimeout).not.toBeNull();
+    publish(projectState(0, { authorityEpoch: 2, ready: false }));
+    expect(autoSync._syncDebounceTimeout).toBeNull();
+    publish(projectState(1, { authorityEpoch: 2 }), "initial-load");
+    publish(projectState(99, { authorityEpoch: 1 }));
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).not.toHaveBeenCalled();
+    publish(projectState(2, { authorityEpoch: 2 }));
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).toHaveBeenCalledOnce();
+  });
+
+  it("tracks accepted state while disabled without replaying changes when enabled", () => {
+    vi.useFakeTimers();
+    publish(projectState(1));
+    publish(projectState(2));
+    autoSync.enable("change");
+    publish(
+      projectState(3, { profiles: { captain: { name: "Captain 2" } } }),
+      "state-reloaded",
+    );
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).not.toHaveBeenCalled();
+    publish(projectState(4));
+    autoSync.disable();
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).not.toHaveBeenCalled();
+    expect(autoSync._syncDebounceTimeout).toBeNull();
+  });
+
+  it.each(["invalid", "0", "-1"])(
+    "falls back from interval %s to change mode",
+    (interval) => {
+      vi.useFakeTimers();
+      autoSync.enable(interval);
+      expect(autoSync.interval).toBe("change");
+      expect(autoSync._intervalId).toBeNull();
+      publish(projectState(1));
+      publish(projectState(2));
+      vi.advanceTimersByTime(500);
+      expect(syncManager.syncProject).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("retains numeric intervals and cancels their work on reconfiguration and teardown", () => {
+    vi.useFakeTimers();
+    autoSync.enable("2");
+    publish(projectState(1));
+    publish(projectState(2));
+    vi.advanceTimersByTime(1999);
+    expect(syncManager.syncProject).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(syncManager.syncProject).toHaveBeenCalledOnce();
+    autoSync.enable("change");
+    expect(autoSync._intervalId).toBeNull();
+    vi.advanceTimersByTime(2000);
+    expect(syncManager.syncProject).toHaveBeenCalledOnce();
+    publish(projectState(3));
+    autoSync.destroy();
+    vi.advanceTimersByTime(2000);
+    expect(syncManager.syncProject).toHaveBeenCalledOnce();
+  });
+
+  it("reconfigures from accepted preferences and preserves immediate preference sync", () => {
+    vi.useFakeTimers();
+    eventBus.emit("preferences:state-changed", {
+      reason: "startup-loaded",
+      state: createPreferencesState({ autoSync: true, autoSyncInterval: "2" }),
+    });
+    expect(autoSync.interval).toBe("2");
+    eventBus.emit("preferences:state-changed", {
+      reason: "settings-set",
+      state: createPreferencesState(
+        { autoSync: true, autoSyncInterval: "change" },
+        { revision: 2 },
+      ),
+    });
+    eventBus.emit("preferences:changed", {
+      changes: { autoSyncInterval: "change" },
+    });
+    expect(autoSync.interval).toBe("change");
+    expect(autoSync._intervalId).toBeNull();
+    expect(syncManager.syncProject).toHaveBeenCalledOnce();
+    eventBus.emit("preferences:state-changed", {
+      reason: "settings-set",
+      state: createPreferencesState({ autoSync: false }, { revision: 3 }),
+    });
+    eventBus.emit("preferences:changed", { key: "autoSync", value: false });
+    vi.advanceTimersByTime(2000);
+    expect(autoSync.isEnabled).toBe(false);
+    expect(syncManager.syncProject).toHaveBeenCalledOnce();
   });
 
   it("advances sync status only for an accepted sync result", async () => {
@@ -104,18 +344,14 @@ describe("AutoSync", () => {
 
     autoSync._updateIndicator("synced");
     expect(indicator.textContent.trim()).toBe("Synchronized");
-    expect(indicator.querySelector("i")?.classList.contains("fa-check")).toBe(
-      true,
-    );
+    expect(indicator.querySelector("i")?.className).toBe("fas fa-check");
     expect(autoSync._indicatorTimeout).not.toBeNull();
 
     autoSync._updateIndicator("error");
     expect(indicator.textContent.trim()).toBe("Sync failed");
-    expect(
-      indicator
-        .querySelector("i")
-        ?.classList.contains("fa-exclamation-triangle"),
-    ).toBe(true);
+    expect(indicator.querySelector("i")?.className).toBe(
+      "fas fa-exclamation-triangle",
+    );
     expect(autoSync.i18n.t).toHaveBeenCalledWith("sync_status_synced");
     expect(autoSync.i18n.t).toHaveBeenCalledWith("sync_status_error");
 
@@ -127,7 +363,7 @@ describe("AutoSync", () => {
     indicator.remove();
   });
 
-  it("owns preference and enabled-storage subscriptions across its lifecycle", () => {
+  it("owns preference and accepted-data subscriptions across its lifecycle", () => {
     const expectPreferenceOwner = (expected) => {
       expect(
         eventBus.getListenerCount("preferences:autosync-settings-changed"),
@@ -136,6 +372,7 @@ describe("AutoSync", () => {
       expect(eventBus.getListenerCount("preferences:state-changed")).toBe(
         expected,
       );
+      expect(eventBus.getListenerCount("data:state-changed")).toBe(expected);
     };
 
     expectPreferenceOwner(1);
@@ -149,24 +386,20 @@ describe("AutoSync", () => {
         { authorityEpoch: 100, revision: 1 },
       ),
     });
-    expect(eventBus.getListenerCount("storage:data-changed")).toBe(1);
 
     autoSync.destroy();
     expectPreferenceOwner(0);
-    expect(eventBus.getListenerCount("storage:data-changed")).toBe(0);
     expect(autoSync._syncDebounceTimeout).toBeNull();
 
     autoSync.init();
     expectPreferenceOwner(1);
-    expect(eventBus.getListenerCount("storage:data-changed")).toBe(1);
 
     autoSync.destroy();
-    const replacement = new AutoSync({ eventBus, syncManager });
+    const replacement = new AutoSync({ eventBus, syncManager, i18n });
     services.push(replacement);
     expectPreferenceOwner(0);
     replacement.init();
     expectPreferenceOwner(1);
-    expect(eventBus.getListenerCount("storage:data-changed")).toBe(0);
   });
 
   it("hydrates from an owner-first late join without reading storage", () => {
@@ -193,6 +426,7 @@ describe("AutoSync", () => {
       /** @type {any} */ ({
         eventBus,
         syncManager,
+        i18n: { t: (key) => key },
         storage: poisonedStorage,
       }),
     );
@@ -201,6 +435,44 @@ describe("AutoSync", () => {
     expect(() => consumer.init()).not.toThrow();
     expect(consumer.cache.preferences.autoSync).toBe(true);
     expect(consumer.isEnabled).toBe(true);
+  });
+
+  it("captures late-join and reinitialization data baselines without an initial sync", () => {
+    vi.useFakeTimers();
+    autoSync.destroy();
+    class DataCoordinator extends ComponentBase {
+      state = projectState(1);
+      getCurrentState() {
+        return this.state;
+      }
+    }
+    const owner = new DataCoordinator(eventBus);
+    services.push(owner);
+    owner.init();
+    autoSync.init();
+    autoSync.enable("change");
+    publish(
+      projectState(2, { profiles: { captain: { name: "Captain 1" } } }),
+      "state-reloaded",
+    );
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).not.toHaveBeenCalled();
+    publish(projectState(3));
+    expect(autoSync._syncDebounceTimeout).not.toBeNull();
+    autoSync.destroy();
+    owner.state = projectState(4);
+    publish(owner.state);
+    autoSync.init();
+    autoSync.enable("change");
+    publish(
+      projectState(5, { profiles: { captain: { name: "Captain 4" } } }),
+      "state-reloaded",
+    );
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).not.toHaveBeenCalled();
+    publish(projectState(6));
+    vi.advanceTimersByTime(500);
+    expect(syncManager.syncProject).toHaveBeenCalledOnce();
   });
 
   it("uses a consumer-first startup snapshot but keeps sync-folder staging inert", () => {

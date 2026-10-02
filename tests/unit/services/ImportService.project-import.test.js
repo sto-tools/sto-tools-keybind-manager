@@ -201,9 +201,8 @@ describe("ImportService project import", () => {
         error: "invalid_project_options",
         params: { path },
       });
-      expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
       expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
-      expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+      expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
     });
 
     it("publishes the project-options failure translation key in English", () => {
@@ -297,7 +296,7 @@ describe("ImportService project import", () => {
       expect(result.imported.profiles).toBe(1);
 
       // Verify the profile was sanitized to new format
-      const savedProfile = fixture.storage.getProfile("legacy-profile");
+      const savedProfile = fixture.readProjectRoot().profiles["legacy-profile"];
       expect(savedProfile).toBeDefined();
       expect(savedProfile.builds).toBeDefined();
       expect(savedProfile.builds.space.keys).toEqual({ k: ["legacy_cmd"] });
@@ -348,9 +347,7 @@ describe("ImportService project import", () => {
         success: true,
         currentProfile: "active-profile",
       });
-      expect(fixture.storage.getAllData().currentProfile).toBe(
-        "active-profile",
-      );
+      expect(fixture.readProjectRoot().currentProfile).toBe("active-profile");
     });
 
     it("prefers the canonical top-level current profile over the legacy setting", async () => {
@@ -372,7 +369,7 @@ describe("ImportService project import", () => {
         success: true,
         currentProfile: "canonical",
       });
-      expect(fixture.storage.getAllData().currentProfile).toBe("canonical");
+      expect(fixture.readProjectRoot().currentProfile).toBe("canonical");
     });
 
     it.each([
@@ -413,9 +410,8 @@ describe("ImportService project import", () => {
           error: "invalid_project_file",
           params: { path },
         });
-        expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
         expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
-        expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+        expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
       },
     );
 
@@ -431,7 +427,7 @@ describe("ImportService project import", () => {
         success: true,
         currentProfile: "default_space",
       });
-      expect(fixture.storage.getAllData().currentProfile).toBe("default_space");
+      expect(fixture.readProjectRoot().currentProfile).toBe("default_space");
     });
 
     it("preserves destination version and first-run settings during overlay", async () => {

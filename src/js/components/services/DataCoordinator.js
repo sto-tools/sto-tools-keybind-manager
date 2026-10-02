@@ -54,7 +54,6 @@ import {
 } from "./dataCoordinatorMutationQueue.js";
 import {
   publishCurrentCoordinatorProfile,
-  publishCommittedCoordinatorProject,
   publishDataCoordinatorState,
   publishReloadedCoordinatorState,
 } from "./dataCoordinatorPublication.js";
@@ -544,7 +543,6 @@ export default class DataCoordinator extends ComponentBase {
       this._assertCurrentOperation(operation);
       const accepted = commitCoordinatorProjectRoot(this, candidate);
       adoptCoordinatorProjectRoot(this, accepted, operation);
-      publishCommittedCoordinatorProject(this, accepted);
       const persistedProfile = this.state.profiles[profileId];
 
       if (publishState) {
@@ -809,7 +807,6 @@ export default class DataCoordinator extends ComponentBase {
           : undefined,
       );
       adoptCoordinatorProjectRoot(this, accepted, operation);
-      publishCommittedCoordinatorProject(this, accepted);
     } catch (error) {
       const message = this.i18n.t("failed_to_save_profile", {
         error: errMsg(error),
@@ -885,7 +882,6 @@ export default class DataCoordinator extends ComponentBase {
       this._assertCurrentOperation(operation);
       const accepted = commitCoordinatorProjectRoot(this, nextRoot);
       adoptCoordinatorProjectRoot(this, accepted, operation);
-      publishCommittedCoordinatorProject(this, accepted);
     } catch (error) {
       const message = this.i18n.t("failed_to_save_profile", {
         error: errMsg(error),
@@ -1000,7 +996,6 @@ export default class DataCoordinator extends ComponentBase {
           })
         : allData;
       adoptCoordinatorProjectRoot(this, durableRoot, operation);
-      if (requiresCommit) publishCommittedCoordinatorProject(this, durableRoot);
 
       // Commit the fully normalized draft as one owner-state transition.
       const publicationsSettled = publishReloadedCoordinatorState(

@@ -6,7 +6,7 @@ import { vi } from "vitest";
  */
 export function createProjectImportOwnerAction(fixture) {
   return vi.fn(async (projectData, { persistImportedSettings } = {}) => {
-    const destination = fixture.storage.getAllData();
+    const destination = fixture.readProjectRoot();
     const profiles = {
       ...(destination.profiles || {}),
       ...(projectData.profiles || {}),
@@ -63,13 +63,12 @@ export function createProjectImportOwnerAction(fixture) {
 
     const currentProfile =
       typeof selected === "string" ? selected : (selected ?? null);
-    if (
-      (await fixture.storage.saveAllData({
-        ...destination,
-        profiles,
-        currentProfile,
-      })) === false
-    ) {
+    const committed = await fixture.projectRepository.commit({
+      ...destination,
+      profiles,
+      currentProfile,
+    });
+    if (committed.status !== "committed") {
       return {
         success: false,
         error: "storage_write_failed",
@@ -93,7 +92,7 @@ export function createProjectImportOwnerAction(fixture) {
           : { status: "skipped", committed: false },
       },
       activationMaterial: {
-        project: { profiles, currentProfile },
+        project: committed.value,
         ...(settings ? { settings: settings.value } : {}),
       },
     };

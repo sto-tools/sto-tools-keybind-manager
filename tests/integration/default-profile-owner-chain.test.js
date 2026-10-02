@@ -123,14 +123,14 @@ describe("default-profile real storage owner chain", () => {
     expect(source).toEqual(sourceBefore);
     expect(
       eventBusFixture.getEventsOfType("storage:data-changed"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(relevantEvents().map(({ event }) => event)).toEqual([
-      "storage:data-changed",
       "data:state-changed",
       "profile:switched",
     ]);
-    expect(relevantEvents()[1].data.reason).toBe("default-profiles-created");
-    expect(relevantEvents()[2].data).toMatchObject({
+    expect(relevantEvents()[0].data.reason).toBe("default-profiles-created");
+    expect(relevantEvents()[0].data.state).toBe(state);
+    expect(relevantEvents()[1].data).toMatchObject({
       profileId: "first",
       environment: "ground",
       profile: { id: "first", environment: "ground" },
@@ -166,14 +166,14 @@ describe("default-profile real storage owner chain", () => {
     expect(projectRepository.load().value.profiles).toEqual(state.profiles);
     expect(
       eventBusFixture.getEventsOfType("storage:data-changed"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(relevantEvents().map(({ event }) => event)).toEqual([
-      "storage:data-changed",
       "data:state-changed",
       "profile:switched",
     ]);
-    expect(relevantEvents()[1].data.reason).toBe("fallback-profiles-created");
-    expect(relevantEvents()[2].data).toMatchObject({
+    expect(relevantEvents()[0].data.reason).toBe("fallback-profiles-created");
+    expect(relevantEvents()[0].data.state).toBe(state);
+    expect(relevantEvents()[1].data).toMatchObject({
       profileId: "default",
       environment: "space",
       profile: { id: "default", environment: "space" },

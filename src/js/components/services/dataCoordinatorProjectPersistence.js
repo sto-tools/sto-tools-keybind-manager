@@ -87,7 +87,7 @@ export function coordinatorProjectVersion(owner) {
 
 /**
  * Persist one complete candidate. The caller must adopt the returned root before
- * publishing either the compatibility storage event or owner state.
+ * publishing owner state.
  * @param {import('./DataCoordinator.js').default} owner
  * @param {unknown} candidate
  * @param {{verification?: "required" | "not_requested", consumeResetSentinel?: string | null, purpose?: "startup_recovery"}} [options]

@@ -5,6 +5,19 @@ import { createProjectImportOwnerAction } from "../../fixtures/services/importPr
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { createImportServiceFixture } from "../../fixtures/index.js";
 
+const failedProjectWrite = {
+  status: "write_failed",
+  error: "storage_write_failed",
+  backup: { status: "acknowledged" },
+  rootWrite: {
+    status: "indeterminate",
+    error: "storage_write_failed",
+    category: "unknown",
+  },
+  verification: { status: "not_attempted" },
+  resetSentinel: { status: "not_attempted" },
+};
+
 describe("ImportService complete-root project import persistence", () => {
   let fixture;
   let service;
@@ -30,15 +43,17 @@ describe("ImportService complete-root project import persistence", () => {
     fixture.destroy();
   });
 
-  it.each(["false", "throw"])(
+  it.each(["write_failed", "throw"])(
     "reports no profile progress when the single complete-root action returns %s",
     async (failureMode) => {
       if (failureMode === "throw") {
-        fixture.storage.saveAllData.mockImplementationOnce(() => {
+        fixture.projectRepository.commit.mockImplementationOnce(() => {
           throw new Error("complete root write failed");
         });
       } else {
-        fixture.storage.saveAllData.mockReturnValueOnce(false);
+        fixture.projectRepository.commit.mockReturnValueOnce(
+          failedProjectWrite,
+        );
       }
 
       const result = await service.importProjectFile(
@@ -62,10 +77,9 @@ describe("ImportService complete-root project import persistence", () => {
         committed: { profiles: [], settings: false, project: false },
       });
       expect(replaceProjectFromImport).toHaveBeenCalledOnce();
-      expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
-      expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
-      expect(fixture.storage.getProfile("first")).toBeNull();
-      expect(fixture.storage.getProfile("second")).toBeNull();
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
+      expect(fixture.readProjectRoot().profiles["first"]).toBeUndefined();
+      expect(fixture.readProjectRoot().profiles["second"]).toBeUndefined();
     },
   );
 
@@ -95,19 +109,20 @@ describe("ImportService complete-root project import persistence", () => {
       committed: { profiles: [], settings: false, project: false },
     });
     expect(replaceProjectFromImport).toHaveBeenCalledOnce();
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
   });
 
-  it.each(["false", "throw"])(
+  it.each(["write_failed", "throw"])(
     "reports only the acknowledged settings stage when the complete-root write returns %s",
     async (failureMode) => {
       if (failureMode === "throw") {
-        fixture.storage.saveAllData.mockImplementationOnce(() => {
+        fixture.projectRepository.commit.mockImplementationOnce(() => {
           throw new Error("complete root write failed");
         });
       } else {
-        fixture.storage.saveAllData.mockReturnValueOnce(false);
+        fixture.projectRepository.commit.mockReturnValueOnce(
+          failedProjectWrite,
+        );
       }
 
       const result = await service.importProjectFile(
@@ -131,8 +146,7 @@ describe("ImportService complete-root project import persistence", () => {
       expect(fixture.settingsRepository.load().value).toMatchObject({
         theme: "light",
       });
-      expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
-      expect(fixture.storage.getProfile("first")).toBeNull();
+      expect(fixture.readProjectRoot().profiles["first"]).toBeUndefined();
     },
   );
 
@@ -156,8 +170,7 @@ describe("ImportService complete-root project import persistence", () => {
       committed: { profiles: [], settings: false, project: false },
     });
     expect(replaceProjectFromImport).toHaveBeenCalledOnce();
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
   });
 
   it("reports success only after the owner acknowledges one durable complete root", async () => {
@@ -182,15 +195,14 @@ describe("ImportService complete-root project import persistence", () => {
       expect.objectContaining({ currentProfile: "complete" }),
       { persistImportedSettings: expect.any(Function) },
     );
-    expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
-    expect(fixture.storage.getProfile("complete")).toMatchObject({
+    expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
+    expect(fixture.readProjectRoot().profiles["complete"]).toMatchObject({
       name: "Complete",
     });
     expect(fixture.settingsRepository.load().value).toMatchObject({
       theme: "light",
     });
-    expect(fixture.storage.getAllData().currentProfile).toBe("complete");
+    expect(fixture.readProjectRoot().currentProfile).toBe("complete");
     expect(preferences.getCurrentState().settings.theme).toBe("light");
     expect(fixture.settingsRepository.replace).toHaveBeenCalledOnce();
   });
@@ -228,8 +240,7 @@ describe("ImportService complete-root project import persistence", () => {
       write: { status: "acknowledged" },
     });
     expect(preferences.getCurrentState()).toBe(before);
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
-    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
   });
 
   it.each(["failure", "throw", "malformed"])(
@@ -277,8 +288,7 @@ describe("ImportService complete-root project import persistence", () => {
         },
       });
       expect(replaceProjectFromImport).toHaveBeenCalledOnce();
-      expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
-      expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+      expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
       expect(fixture.settingsRepository.replace).toHaveBeenCalledOnce();
       expect(preferences.getCurrentState()).toBe(before);
       expect(fixture.settingsRepository.load().value.theme).toBe("light");
@@ -306,7 +316,7 @@ describe("ImportService complete-root project import persistence", () => {
       committed: { profiles: [], settings: false, project: false },
     });
     expect(replaceProjectFromImport).not.toHaveBeenCalled();
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
+    expect(fixture.projectRepository.commit).not.toHaveBeenCalled();
     expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
 
     await expect(
@@ -326,6 +336,6 @@ describe("ImportService complete-root project import persistence", () => {
       currentProfile: "imported",
     });
     expect(replaceProjectFromImport).toHaveBeenCalledOnce();
-    expect(fixture.storage.saveAllData).toHaveBeenCalledOnce();
+    expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
   });
 });

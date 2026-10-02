@@ -124,19 +124,6 @@ export type PreferencesStateSnapshot = {
     }
 );
 
-/** Lifecycle-only compatibility shape retained until Task 10 removes the
- * retired StorageService component-state sender. It deliberately exposes no
- * project data or persistence capability.
- */
-export interface StorageServiceCapability {
-  isInitialized(): boolean;
-}
-
-export interface StorageStateSnapshot {
-  service: StorageServiceCapability;
-  isReady: boolean;
-}
-
 export interface CommandLibraryUiStateSnapshot {
   aliases: AliasMap;
   currentProfile: string | null;
@@ -163,7 +150,6 @@ export interface ComponentStateProtocol {
   KeyCaptureService: KeyCaptureStateSnapshot;
   PreferencesService: PreferencesStateSnapshot;
   SelectionService: SelectionStateSnapshot;
-  StorageService: StorageStateSnapshot;
   VFXManagerService: VfxSettingsSnapshot;
   CommandLibraryUI: CommandLibraryUiStateSnapshot;
   ProfileUI: ProfileUiStateSnapshot;

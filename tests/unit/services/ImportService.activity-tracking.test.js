@@ -35,7 +35,6 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
     fixture = createServiceFixture();
     importService = new ImportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
     });
     importService.init();
     importService._cacheDataState(
@@ -45,7 +44,7 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
         profiles: { "test-profile": sourceProfile },
       }),
     );
-    respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
+    respondWithImportedProfileCommits(fixture.eventBus, fixture);
 
     // Register responder for parser on the fixture event bus
     respond(
@@ -113,7 +112,10 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
       expect(result.success).toBe(true);
 
       // Verify that stabilizeExecutionOrder metadata was set based on Activity 13
-      const savedProfile = fixture.storage.saveProfile.mock.calls[0][1];
+      const savedProfile =
+        fixture.projectRepository.commit.mock.calls[0][0].profiles[
+          "test-profile"
+        ];
 
       expect(savedProfile.bindsetMetadata.TestBindset.space.F1).toMatchObject({
         stabilizeExecutionOrder: true,
@@ -183,7 +185,10 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
       expect(result.success).toBe(true);
 
       // Verify that stabilizeExecutionOrder metadata was set based on Activity 26
-      const savedProfile = fixture.storage.saveProfile.mock.calls[0][1];
+      const savedProfile =
+        fixture.projectRepository.commit.mock.calls[0][0].profiles[
+          "test-profile"
+        ];
       expect(savedProfile.bindsetMetadata.TestBindset.space.F1).toMatchObject({
         stabilizeExecutionOrder: true,
       });
@@ -245,7 +250,10 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
       expect(result.success).toBe(true);
 
       // Verify that stabilizeExecutionOrder metadata was set based on Activity 95
-      const savedProfile = fixture.storage.saveProfile.mock.calls[0][1];
+      const savedProfile =
+        fixture.projectRepository.commit.mock.calls[0][0].profiles[
+          "test-profile"
+        ];
       expect(savedProfile.bindsetMetadata.TestBindset.space.F1).toMatchObject({
         stabilizeExecutionOrder: true,
       });
@@ -298,7 +306,10 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
       expect(result.success).toBe(true);
 
       // Verify that no stabilization metadata was set for non-TrayExec activities
-      const savedProfile = fixture.storage.saveProfile.mock.calls[0][1];
+      const savedProfile =
+        fixture.projectRepository.commit.mock.calls[0][0].profiles[
+          "test-profile"
+        ];
       expect(savedProfile.keybindMetadata.space || {}).toEqual({});
     });
   });

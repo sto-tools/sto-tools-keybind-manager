@@ -27,6 +27,8 @@ describe("Persisted storage browser boundary", () => {
     const { dataCoordinator: coordinator, eventBus: bus } = app;
     expect(app).not.toHaveProperty("storageService");
     expect(app).not.toHaveProperty("projectRepository");
+    expect(bus.hasListeners("storage:data-changed")).toBe(false);
+    expect(bus.hasListeners("storage:data-reset")).toBe(false);
     expect(coordinator.getCurrentState().ready).toBe(true);
     expect(
       JSON.parse(localStorage.getItem(PROJECT_ROOT_KEY)),

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ComponentBase from "../../../src/js/components/ComponentBase.js";
 import eventBus from "../../../src/js/core/eventBus.js";
@@ -113,6 +113,54 @@ describe("ComponentBase DataCoordinator state cache", () => {
       "compatibility mutation",
     ]);
     expect(consumer.cache.dataState?.profiles.captain.name).toBeUndefined();
+  });
+
+  it("invokes the internal accepted-data hook after live cache adoption only", () => {
+    const owner = new DataCoordinator(eventBus, snapshot(1, "late-join"));
+    const consumer = new DataStateConsumer(eventBus);
+    const accepted = vi
+      .spyOn(consumer, "onDataStateAccepted")
+      .mockImplementation((change) => {
+        expect(change.state).toBe(consumer.cache.dataState);
+        expect(consumer.cache.currentProfile).toBe(change.state.currentProfile);
+        expect(consumer._lastDataStateRevision).toBe(change.state.revision);
+      });
+    components.push(owner, consumer);
+    owner.init();
+    consumer.init();
+    expect(accepted).not.toHaveBeenCalled();
+
+    const live = snapshot(2, "live");
+    eventBus.emit("data:state-changed", {
+      reason: "profile-updated",
+      state: live,
+    });
+    expect(accepted).toHaveBeenCalledOnce();
+    expect(accepted).toHaveBeenCalledWith({
+      reason: "profile-updated",
+      state: live,
+    });
+    expect(accepted.mock.calls[0][0].state).not.toBe(live);
+
+    eventBus.emit("data:state-changed", {
+      reason: "profile-updated",
+      state: snapshot(2, "duplicate"),
+    });
+    eventBus.emit("data:state-changed", {
+      reason: "profile-updated",
+      state: snapshot(1, "stale"),
+    });
+    eventBus.emit("data:state-changed", {
+      reason: "profile-updated",
+      state: snapshot(3, "invalid", "space", 0),
+    });
+    expect(accepted).toHaveBeenCalledOnce();
+    consumer.destroy();
+    eventBus.emit("data:state-changed", {
+      reason: "profile-updated",
+      state: snapshot(3, "destroyed"),
+    });
+    expect(accepted).toHaveBeenCalledOnce();
   });
 
   it("replaces complete live state without retaining omitted fields", () => {

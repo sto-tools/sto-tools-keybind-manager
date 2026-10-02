@@ -40,12 +40,10 @@ describe("import/export helper responders", () => {
     fixture = createServiceFixture();
     exportService = new ExportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
       i18n: { t: (key) => key },
     });
     importService = new ImportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
       i18n: { t: (key) => key },
     });
   });

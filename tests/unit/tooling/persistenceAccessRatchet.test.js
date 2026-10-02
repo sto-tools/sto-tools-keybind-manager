@@ -307,13 +307,14 @@ describe("persistence access architecture ratchet", () => {
       existsSync(join(sourceRoot, "components/services/storageWrites.js")),
     ).toBe(false);
 
-    const storageServiceSource = readFileSync(
-      join(sourceRoot, "components/services/StorageService.js"),
-      "utf8",
-    );
-    expect(storageServiceSource).not.toMatch(
-      /\b(?:getAllData|saveAllData|getProfile|saveProfile|deleteProfile|createBackup|invalidateCache)\s*\(/,
-    );
+    expect(
+      existsSync(join(sourceRoot, "components/services/StorageService.js")),
+    ).toBe(false);
+    for (const [file, source] of entries) {
+      expect(source, file).not.toMatch(
+        /\bStorageService\b|storage:data-(?:changed|reset)/,
+      );
+    }
 
     expect(
       Object.keys(expectedScalarWrites).every((row) =>

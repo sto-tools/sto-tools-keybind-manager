@@ -137,7 +137,7 @@ describe("STO text import browser boundary", () => {
     const beforeRoot = localStorage.getItem(PROJECT_ROOT_KEY);
     const beforeProfile = structuredClone(beforeState.profiles[profileId]);
     const ownershipEvents = [];
-    let durableAtStorageEvent;
+    let durableAtStateEvent;
     let detachStorage = () => {};
     let detachState = () => {};
     let detachLegacy = () => {};
@@ -156,12 +156,12 @@ describe("STO text import browser boundary", () => {
       );
 
       detachStorage = bus.on("storage:data-changed", () => {
-        durableAtStorageEvent = JSON.parse(
-          localStorage.getItem(PROJECT_ROOT_KEY),
-        );
         ownershipEvents.push({ event: "storage:data-changed" });
       });
       detachState = bus.on("data:state-changed", ({ state }) => {
+        durableAtStateEvent = JSON.parse(
+          localStorage.getItem(PROJECT_ROOT_KEY),
+        );
         ownershipEvents.push({ event: "data:state-changed", state });
       });
       detachLegacy = bus.on("profile:updated", (payload) => {
@@ -195,19 +195,18 @@ describe("STO text import browser boundary", () => {
         description: "",
       });
       expect(ownershipEvents.map(({ event }) => event)).toEqual([
-        "storage:data-changed",
         "data:state-changed",
         "profile:updated",
       ]);
       expect(
-        durableAtStorageEvent.profiles[profileId].aliases[importedAlias],
+        durableAtStateEvent.profiles[profileId].aliases[importedAlias],
       ).toEqual(committedProfile.aliases[importedAlias]);
-      expect(ownershipEvents[1].state).toBe(committedState);
-      expect(ownershipEvents[2].payload).toEqual({
+      expect(ownershipEvents[0].state).toBe(committedState);
+      expect(ownershipEvents[1].payload).toEqual({
         profileId,
         profile: committedProfile,
       });
-      expect(ownershipEvents[2].payload).not.toHaveProperty("environment");
+      expect(ownershipEvents[1].payload).not.toHaveProperty("environment");
 
       await vi.waitFor(() => {
         expect(consumer.cache.dataState).toBe(committedState);

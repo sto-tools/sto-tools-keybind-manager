@@ -2,7 +2,6 @@
 export { default as ProjectManagementService } from "./ProjectManagementService.js";
 export { default as ApplicationResetService } from "./ApplicationResetService.js";
 export { default as AutoSync } from "./AutoSync.js";
-export { default as StorageService } from "./StorageService.js";
 export { default as CommandLibraryService } from "./CommandLibraryService.js";
 export { default as CommandPresentationService } from "./CommandPresentationService.js";
 export { default as CommandService } from "./CommandService.js";

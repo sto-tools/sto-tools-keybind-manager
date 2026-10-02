@@ -26,7 +26,6 @@ describe("ProjectManagementService restore UI and ownership", () => {
     services = [];
     service = new ProjectManagementService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
       i18n: {
         t: (key, params = {}) => {
           if (key === "backup_restored_successfully")
@@ -274,7 +273,6 @@ describe("ProjectManagementService restore UI and ownership", () => {
 
     const replacement = new ProjectManagementService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
       i18n: { t: (key) => key },
     });
     services.push(replacement);

@@ -3,26 +3,6 @@ import { createVirtualProfile } from "./dataState.js";
 import { recordDataCoordinatorPublication } from "./dataCoordinatorMutationQueue.js";
 
 /**
- * Preserve the storage-change compatibility signal while moving publication to
- * the sole project owner. Call only after the exact committed root is adopted.
- * @param {import('./DataCoordinator.js').default} coordinator
- * @param {import('./dataCoordinatorProjectPersistence.js').CoordinatorProjectRoot} root
- */
-export function publishCommittedCoordinatorProject(coordinator, root) {
-  const settled = coordinator.emit(
-    "storage:data-changed",
-    {
-      data: /** @type {import('../../types/events/storage.js').SavedStorageData} */ (
-        /** @type {unknown} */ (structuredClone(root))
-      ),
-    },
-    { synchronous: true },
-  );
-  recordDataCoordinatorPublication(coordinator, settled);
-  return settled;
-}
-
-/**
  * Publish one authoritative snapshot and retain the event-bus settlement
  * promise for response boundaries that must acknowledge async consumers.
  *

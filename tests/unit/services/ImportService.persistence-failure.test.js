@@ -32,13 +32,12 @@ describe("ImportService persistence failures", () => {
 
   beforeEach(() => {
     fixture = createServiceFixture();
-    fixture.storage.saveProfile(profileId, profile);
-    fixture.storage.saveProfile.mockClear();
-    beforeProfile = fixture.storage.getProfile(profileId);
+    fixture.storageFixture.addProfile(profileId, profile);
+    fixture.projectRepository.commit.mockClear();
+    beforeProfile = fixture.readProjectRoot().profiles[profileId];
 
     service = new ImportService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
     });
     service.init();
     service._cacheDataState(
@@ -48,7 +47,7 @@ describe("ImportService persistence failures", () => {
         profiles: { [profileId]: profile },
       }),
     );
-    respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
+    respondWithImportedProfileCommits(fixture.eventBus, fixture);
     fixture.eventBus.emit(
       "preferences:state-changed",
       createPreferencesStateChange({ bindsetsEnabled: true }),
@@ -64,7 +63,18 @@ describe("ImportService persistence failures", () => {
     );
     profileUpdated = vi.fn();
     fixture.eventBus.on("profile:updated", profileUpdated);
-    fixture.storage.saveProfile.mockReturnValue(false);
+    fixture.projectRepository.commit.mockReturnValue({
+      status: "write_failed",
+      error: "storage_write_failed",
+      backup: { status: "acknowledged" },
+      rootWrite: {
+        status: "indeterminate",
+        error: "storage_write_failed",
+        category: "unknown",
+      },
+      verification: { status: "not_attempted" },
+      resetSentinel: { status: "not_attempted" },
+    });
   });
 
   afterEach(() => {
@@ -85,8 +95,11 @@ describe("ImportService persistence failures", () => {
       error: "import_failed",
       params: { reason: "storage_write_failed" },
     });
-    expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
-    expect(fixture.storage.getProfile(profileId)).toEqual(beforeProfile);
+    expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
+    expect(fixture.readProjectRoot().profiles[profileId]).toEqual(
+      beforeProfile,
+    );
+    fixture.expectOperationCount("setItem", 0);
     expect(profileUpdated).not.toHaveBeenCalled();
   });
 
@@ -101,8 +114,11 @@ describe("ImportService persistence failures", () => {
       error: "import_failed",
       params: { reason: "storage_write_failed" },
     });
-    expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
-    expect(fixture.storage.getProfile(profileId)).toEqual(beforeProfile);
+    expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
+    expect(fixture.readProjectRoot().profiles[profileId]).toEqual(
+      beforeProfile,
+    );
+    fixture.expectOperationCount("setItem", 0);
     expect(profileUpdated).not.toHaveBeenCalled();
   });
 
@@ -140,8 +156,11 @@ describe("ImportService persistence failures", () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe("kbf_import_critical_error");
     expect(result.errors).toContain("storage_write_failed");
-    expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
-    expect(fixture.storage.getProfile(profileId)).toEqual(beforeProfile);
+    expect(fixture.projectRepository.commit).toHaveBeenCalledOnce();
+    expect(fixture.readProjectRoot().profiles[profileId]).toEqual(
+      beforeProfile,
+    );
+    fixture.expectOperationCount("setItem", 0);
     expect(profileUpdated).not.toHaveBeenCalled();
   });
 });
