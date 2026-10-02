@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { describe, it, beforeEach, afterEach, expect } from "vitest";
 import { createRealServiceFixture } from "../fixtures";
 import AliasBrowserService from "../../src/js/components/services/AliasBrowserService.js";
@@ -70,6 +71,9 @@ describe("Regression: Import from Key or Alias request routing", () => {
 
     // Spin up DataCoordinator so it can register respond handlers
     dataCoordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus,
       projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },

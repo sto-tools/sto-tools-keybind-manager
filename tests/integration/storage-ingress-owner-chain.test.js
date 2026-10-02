@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,6 +43,9 @@ describe("persisted storage ingress owner chain", () => {
       version,
     });
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: eventBusFixture.eventBus,
       projectRepository,
       i18n: { t: (key) => key },
@@ -126,6 +130,9 @@ describe("persisted storage ingress owner chain", () => {
       version: "2.0.0",
     });
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: eventBusFixture.eventBus,
       projectRepository,
       i18n: { t: (key) => key },

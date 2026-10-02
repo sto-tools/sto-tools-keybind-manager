@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ComponentBase from "../../src/js/components/ComponentBase.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
@@ -61,6 +62,9 @@ describe("DataCoordinator state cache lifecycle", () => {
     });
 
     const coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },

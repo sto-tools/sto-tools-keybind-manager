@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
@@ -73,6 +74,9 @@ describe("DataCoordinator lifecycle generation", () => {
       return { status: "committed", value: structuredClone(durableRoot) };
     });
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },

@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
@@ -73,6 +74,9 @@ describe("DataCoordinator initial publication settlement", () => {
     });
 
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus,
       projectRepository: storageFixture.projectRepository,
       i18n: { t: (key) => key },
@@ -149,6 +153,9 @@ describe("DataCoordinator initial publication settlement", () => {
     eventBus.on("environment:changed", environmentChanged);
 
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus,
       projectRepository: storageFixture.projectRepository,
       i18n: { t: (key) => key },
@@ -219,6 +226,9 @@ describe("DataCoordinator initial publication settlement", () => {
       }
     });
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus,
       projectRepository: storageFixture.projectRepository,
       i18n: { t: (key) => key },

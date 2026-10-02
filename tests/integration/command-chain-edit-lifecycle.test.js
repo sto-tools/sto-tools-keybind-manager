@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import CommandChainService from "../../src/js/components/services/CommandChainService.js";
@@ -96,6 +97,9 @@ describe("CommandChainService edit planning lifecycle", () => {
       initialStorageData: { sto_keybind_manager: root },
     });
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
@@ -310,6 +314,9 @@ describe("CommandChainService edit planning lifecycle", () => {
 
     coordinator.destroy();
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },

@@ -107,7 +107,7 @@ async function loadInitialCoordinatorState(coordinator) {
 
     let needsDefaultProfiles = false;
     if (Object.keys(nextState.profiles).length === 0) {
-      const isFirstTime = !localStorage.getItem("sto_keybind_manager_visited");
+      const isFirstTime = coordinator._isFirstVisit();
       if (isFirstTime) {
         needsDefaultProfiles = true;
         console.log(

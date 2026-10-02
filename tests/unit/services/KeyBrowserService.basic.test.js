@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import KeyBrowserService from "../../../src/js/components/services/KeyBrowserService.js";
+import LocalStorageKeyBrowserPersistence from "../../../src/js/components/storage/LocalStorageKeyBrowserPersistence.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
@@ -16,7 +17,12 @@ describe("KeyBrowserService – cache helpers", () => {
 
   beforeEach(async () => {
     // No need for injected eventBus because tests cover pure helpers
-    service = new KeyBrowserService({ i18n });
+    service = new KeyBrowserService({
+      persistence: new LocalStorageKeyBrowserPersistence({
+        storage: localStorage,
+      }),
+      i18n,
+    });
     await service.init();
   });
 
@@ -43,7 +49,12 @@ describe("KeyBrowserService – data processing methods", () => {
   let service;
 
   beforeEach(async () => {
-    service = new KeyBrowserService({ i18n });
+    service = new KeyBrowserService({
+      persistence: new LocalStorageKeyBrowserPersistence({
+        storage: localStorage,
+      }),
+      i18n,
+    });
     await service.init();
   });
 
@@ -221,6 +232,9 @@ describe("KeyBrowserService – data processing methods", () => {
         () => ({ commands: [{ category: "combat" }] }),
       );
       const serviceWithBus = new KeyBrowserService({
+        persistence: new LocalStorageKeyBrowserPersistence({
+          storage: localStorage,
+        }),
         eventBus: fixture.eventBus,
         i18n,
       });

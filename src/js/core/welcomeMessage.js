@@ -1,5 +1,3 @@
-const VISITED_KEY = "sto_keybind_manager_visited";
-
 /**
  * @typedef {{
  *   commit: () => void,
@@ -8,18 +6,18 @@ const VISITED_KEY = "sto_keybind_manager_visited";
  */
 
 /**
- * @param {Storage} storage
+ * @param {import('../components/storage/VisitedStatePort.js').VisitedStatePort} visitedState
  * @param {{
  *   show?: (modalId: string) => unknown,
  *   hide?: (modalId: string) => unknown
  * } | null | undefined} modalManager
  * @returns {WelcomeMessageAttempt | null}
  */
-export function checkAndShowWelcomeMessage(storage, modalManager) {
-  const previousValue = storage.getItem(VISITED_KEY);
+export function checkAndShowWelcomeMessage(visitedState, modalManager) {
+  const previousValue = visitedState.loadExact();
   if (previousValue) return null;
 
-  storage.setItem(VISITED_KEY, "true");
+  visitedState.markVisited();
 
   let active = true;
   let hideOnRollback = false;
@@ -41,10 +39,7 @@ export function checkAndShowWelcomeMessage(storage, modalManager) {
       }
 
       try {
-        if (storage.getItem(VISITED_KEY) === "true") {
-          if (previousValue === null) storage.removeItem(VISITED_KEY);
-          else storage.setItem(VISITED_KEY, previousValue);
-        }
+        visitedState.compensate("true", previousValue);
       } catch (error) {
         rollbackError ??= error;
       }

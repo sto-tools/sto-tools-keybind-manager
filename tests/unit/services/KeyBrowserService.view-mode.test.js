@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import KeyBrowserService from "../../../src/js/components/services/KeyBrowserService.js";
+import LocalStorageKeyBrowserPersistence from "../../../src/js/components/storage/LocalStorageKeyBrowserPersistence.js";
 import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
 
 const createStorage = (initial = {}) => {
@@ -10,6 +11,7 @@ const createStorage = (initial = {}) => {
   return {
     getItem: vi.fn((key) => entries.get(key) ?? null),
     setItem: vi.fn((key, value) => entries.set(key, String(value))),
+    removeItem: vi.fn((key) => entries.delete(key)),
     key: vi.fn((index) => [...entries.keys()][index] ?? null),
     get length() {
       return entries.size;
@@ -42,7 +44,9 @@ describe("KeyBrowserService owned view mode", () => {
     );
     service = new KeyBrowserService({
       eventBus: fixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageKeyBrowserPersistence({
+        storage: localStorage,
+      }),
     });
 
     service.init();
@@ -68,7 +72,9 @@ describe("KeyBrowserService owned view mode", () => {
     });
     service = new KeyBrowserService({
       eventBus: fixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageKeyBrowserPersistence({
+        storage: localStorage,
+      }),
     });
     service.init();
     await vi.waitFor(() => expect(states).toHaveLength(1));
@@ -121,7 +127,9 @@ describe("KeyBrowserService owned view mode", () => {
     });
     service = new KeyBrowserService({
       eventBus: fixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageKeyBrowserPersistence({
+        storage: localStorage,
+      }),
     });
     service.init();
     await vi.waitFor(() => expect(states).toHaveLength(1));
@@ -145,7 +153,9 @@ describe("KeyBrowserService owned view mode", () => {
     const localStorage = createStorage();
     service = new KeyBrowserService({
       eventBus: fixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageKeyBrowserPersistence({
+        storage: localStorage,
+      }),
     });
     service.init();
     const initial = service.getCurrentState();

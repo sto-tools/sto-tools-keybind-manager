@@ -1,22 +1,6 @@
 /** @typedef {import('../../types/events/component-state.js').CommandPresentationStateSnapshot} CommandPresentationStateSnapshot */
 /** @typedef {import('../../types/events/base.js').CommandGroupType} CommandGroupType */
 
-/**
- * The narrow persistence capability required by command presentation state.
- *
- * @typedef {{
- *   readonly length: number,
- *   key: (index: number) => string | null,
- *   getItem: (key: string) => string | null,
- *   setItem: (key: string, value: string) => void,
- *   removeItem: (key: string) => void
- * }} CommandPresentationStorage
- */
-
-const collapsedSuffix = "_collapsed";
-const commandCategoryPrefix = "commandCategory_";
-const commandGroupPrefix = "commandGroup_";
-
 const COMMAND_PRESENTATION_GROUPS = Object.freeze(
   /** @type {CommandGroupType[]} */ (["non-trayexec", "palindromic", "pivot"]),
 );
@@ -41,17 +25,6 @@ function isCategoryId(value) {
   return typeof value === "string" && value.length > 0;
 }
 
-/**
- * @param {string} key
- * @param {string} prefix
- * @returns {string | null}
- */
-function collapsedName(key, prefix) {
-  if (!key.startsWith(prefix) || !key.endsWith(collapsedSuffix)) return null;
-  const name = key.slice(prefix.length, -collapsedSuffix.length);
-  return name.length > 0 ? name : null;
-}
-
 /** @param {Iterable<string>} names @returns {string[]} */
 function orderedCategories(names) {
   return [...names].sort();
@@ -64,47 +37,22 @@ function orderedGroups(groups) {
 }
 
 /**
- * Hydrate the complete command-presentation state without repairing or
- * rewriting any legacy value. Only the exact string `true` is collapsed.
+ * Attach owner identity to detached canonical persistence data. This pure
+ * helper has no knowledge of storage keys or capabilities.
  *
- * @param {CommandPresentationStorage} storage
+ * @param {Omit<CommandPresentationStateSnapshot, 'authorityEpoch' | 'revision'>} data
  * @param {{ authorityEpoch: number, revision: number }} identity
  * @returns {CommandPresentationStateSnapshot}
  */
 export function readCommandPresentationState(
-  storage,
+  data,
   { authorityEpoch, revision },
 ) {
-  /** @type {Set<string>} */
-  const collapsedCategories = new Set();
-  /** @type {Set<CommandGroupType>} */
-  const collapsedGroups = new Set();
-
-  for (let index = 0; index < storage.length; index += 1) {
-    const key = storage.key(index);
-    if (typeof key !== "string") continue;
-
-    const categoryId = collapsedName(key, commandCategoryPrefix);
-    if (categoryId !== null) {
-      if (storage.getItem(key) === "true") collapsedCategories.add(categoryId);
-      continue;
-    }
-
-    const groupType = collapsedName(key, commandGroupPrefix);
-    if (
-      groupType !== null &&
-      isCommandGroupType(groupType) &&
-      storage.getItem(key) === "true"
-    ) {
-      collapsedGroups.add(groupType);
-    }
-  }
-
   return {
     authorityEpoch,
     revision,
-    collapsedCategories: orderedCategories(collapsedCategories),
-    collapsedGroups: orderedGroups(collapsedGroups),
+    collapsedCategories: orderedCategories(data.collapsedCategories),
+    collapsedGroups: orderedGroups(data.collapsedGroups),
   };
 }
 
@@ -258,47 +206,4 @@ export function isCommandGroupCollapsed(state, groupType) {
   return Boolean(
     isCommandGroupType(groupType) && state?.collapsedGroups.includes(groupType),
   );
-}
-
-/**
- * Preserve the shipped category format: expansion writes the literal `false`
- * rather than removing the key.
- *
- * @param {CommandPresentationStorage} storage
- * @param {string} categoryId
- * @param {boolean} isCollapsed
- */
-export function writeCommandCategoryCollapse(storage, categoryId, isCollapsed) {
-  if (!isCategoryId(categoryId)) {
-    throw new TypeError("Command category ID must be a non-empty string");
-  }
-  if (typeof isCollapsed !== "boolean") {
-    throw new TypeError("Command category collapse state must be boolean");
-  }
-  storage.setItem(
-    `${commandCategoryPrefix}${categoryId}${collapsedSuffix}`,
-    String(isCollapsed),
-  );
-  return isCollapsed;
-}
-
-/**
- * Preserve the shipped group format: expansion removes the key.
- *
- * @param {CommandPresentationStorage} storage
- * @param {CommandGroupType} groupType
- * @param {boolean} isCollapsed
- */
-export function writeCommandGroupCollapse(storage, groupType, isCollapsed) {
-  if (!isCommandGroupType(groupType)) {
-    throw new TypeError("Command group type is not supported");
-  }
-  if (typeof isCollapsed !== "boolean") {
-    throw new TypeError("Command group collapse state must be boolean");
-  }
-
-  const key = `${commandGroupPrefix}${groupType}${collapsedSuffix}`;
-  if (isCollapsed) storage.setItem(key, "true");
-  else storage.removeItem(key);
-  return isCollapsed;
 }

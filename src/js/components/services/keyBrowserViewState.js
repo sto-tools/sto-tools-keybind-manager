@@ -4,21 +4,7 @@ import { sortKeyNames } from "./keySorting.js";
 /** @typedef {import('../../types/events/base.js').KeyViewMode} KeyViewMode */
 /** @typedef {import('./serviceTypes.js').ProfileData} ProfileData */
 /** @typedef {import('./serviceTypes.js').StoredCommand} StoredCommand */
-/**
- * @typedef {{
- *   readonly length: number,
- *   key: (index: number) => string | null,
- *   getItem: (key: string) => string | null,
- *   setItem: (key: string, value: string) => void
- * }} KeyBrowserStorage
- */
 /** @typedef {{ name: string, keys: string[], isCollapsed: boolean, keyCount: number }} BindsetSection */
-
-const collapsedSuffix = "_collapsed";
-const commandCategoryPrefix = "keyCategory_";
-const keyTypeCategoryPrefix = "keyTypeCategory_";
-const bindsetPrefix = "bindsetSection_";
-const keyViewModeStorageKey = "keyViewMode";
 
 let latestAuthorityEpoch = 0;
 
@@ -47,60 +33,23 @@ function isKeyViewMode(value) {
 }
 
 /**
- * @param {string} key
- * @param {string} prefix
- * @returns {string | null}
- */
-function collapsedName(key, prefix) {
-  if (!key.startsWith(prefix) || !key.endsWith(collapsedSuffix)) return null;
-  return key.slice(prefix.length, -collapsedSuffix.length);
-}
-
-/**
- * Read a complete detached view-state snapshot from the injected persistence
+ * Attach owner identity to detached persistence data without accessing any
  * capability. Arrays keep dynamic names such as `__proto__` data-only.
  *
- * @param {KeyBrowserStorage} storage
+ * @param {Omit<KeyBrowserViewStateSnapshot, 'authorityEpoch' | 'revision'>} data
  * @param {{ authorityEpoch: number, revision: number }} identity
  * @returns {KeyBrowserViewStateSnapshot}
  */
-export function readKeyBrowserViewState(storage, { authorityEpoch, revision }) {
-  /** @type {string[]} */
-  const command = [];
-  /** @type {string[]} */
-  const keyType = [];
-  /** @type {string[]} */
-  const collapsedBindsets = [];
-
-  for (let index = 0; index < storage.length; index += 1) {
-    const key = storage.key(index);
-    if (key === null || storage.getItem(key) !== "true") continue;
-
-    const commandName = collapsedName(key, commandCategoryPrefix);
-    if (commandName !== null) {
-      command.push(commandName);
-      continue;
-    }
-
-    const keyTypeName = collapsedName(key, keyTypeCategoryPrefix);
-    if (keyTypeName !== null) {
-      keyType.push(keyTypeName);
-      continue;
-    }
-
-    const bindsetName = collapsedName(key, bindsetPrefix);
-    if (bindsetName !== null) collapsedBindsets.push(bindsetName);
-  }
-
+export function readKeyBrowserViewState(data, { authorityEpoch, revision }) {
   return {
     authorityEpoch,
     revision,
-    mode: decodeKeyViewMode(storage.getItem(keyViewModeStorageKey)),
+    mode: decodeKeyViewMode(data.mode),
     collapsedCategories: {
-      command: command.sort(),
-      keyType: keyType.sort(),
+      command: [...data.collapsedCategories.command].sort(),
+      keyType: [...data.collapsedCategories.keyType].sort(),
     },
-    collapsedBindsets: collapsedBindsets.sort(),
+    collapsedBindsets: [...data.collapsedBindsets].sort(),
   };
 }
 
@@ -248,16 +197,6 @@ export function applyNextKeyViewMode(state) {
 }
 
 /**
- * @param {KeyBrowserStorage} storage
- * @param {KeyViewMode} mode
- * @returns {KeyViewMode}
- */
-export function writeKeyViewMode(storage, mode) {
-  storage.setItem(keyViewModeStorageKey, mode);
-  return mode;
-}
-
-/**
  * @param {KeyBrowserViewStateSnapshot | null | undefined} state
  * @param {string} categoryId
  * @param {string} [mode]
@@ -277,67 +216,6 @@ export function isKeyCategoryCollapsed(state, categoryId, mode = "command") {
  */
 export function isBindsetCollapsed(state, bindsetName) {
   return Boolean(bindsetName && state?.collapsedBindsets.includes(bindsetName));
-}
-
-/** @param {string} categoryId @param {string} mode */
-function categoryStorageKey(categoryId, mode) {
-  const prefix =
-    mode === "key-type" ? keyTypeCategoryPrefix : commandCategoryPrefix;
-  return `${prefix}${categoryId}${collapsedSuffix}`;
-}
-
-/**
- * @param {KeyBrowserStorage} storage
- * @param {string} categoryId
- * @param {string} [mode]
- */
-export function readNextKeyCategoryCollapse(
-  storage,
-  categoryId,
-  mode = "command",
-) {
-  if (!categoryId) return false;
-  return storage.getItem(categoryStorageKey(categoryId, mode)) !== "true";
-}
-
-/**
- * @param {KeyBrowserStorage} storage
- * @param {string} categoryId
- * @param {string} mode
- * @param {boolean} isCollapsed
- */
-export function writeKeyCategoryCollapse(
-  storage,
-  categoryId,
-  mode,
-  isCollapsed,
-) {
-  if (!categoryId) return false;
-  storage.setItem(categoryStorageKey(categoryId, mode), String(isCollapsed));
-  return isCollapsed;
-}
-
-/** @param {KeyBrowserStorage} storage @param {string | undefined} bindsetName */
-export function readNextBindsetCollapse(storage, bindsetName) {
-  if (!bindsetName) return false;
-  return (
-    storage.getItem(`${bindsetPrefix}${bindsetName}${collapsedSuffix}`) !==
-    "true"
-  );
-}
-
-/**
- * @param {KeyBrowserStorage} storage
- * @param {string | undefined} bindsetName
- * @param {boolean} isCollapsed
- */
-export function writeBindsetCollapse(storage, bindsetName, isCollapsed) {
-  if (!bindsetName) return false;
-  storage.setItem(
-    `${bindsetPrefix}${bindsetName}${collapsedSuffix}`,
-    String(isCollapsed),
-  );
-  return isCollapsed;
 }
 
 /**

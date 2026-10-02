@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import CommandChainService from "../../src/js/components/services/CommandChainService.js";
@@ -198,6 +199,9 @@ describe("Parameter command EventBus owner pipeline", () => {
     toastUI = { showToast: vi.fn() };
 
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus,
       projectRepository: fixture.projectRepository,
       i18n,

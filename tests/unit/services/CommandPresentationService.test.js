@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ComponentBase from "../../../src/js/components/ComponentBase.js";
 import CommandPresentationService from "../../../src/js/components/services/CommandPresentationService.js";
+import LocalStorageCommandPresentationPersistence from "../../../src/js/components/storage/LocalStorageCommandPresentationPersistence.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
 function createStorage(initial = {}) {
@@ -49,7 +50,9 @@ describe("CommandPresentationService owned state", () => {
 
     service = new CommandPresentationService({
       eventBus: fixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageCommandPresentationPersistence({
+        storage: localStorage,
+      }),
     });
     const constructionEpoch = service.getCurrentState().authorityEpoch;
     service.init();
@@ -88,7 +91,9 @@ describe("CommandPresentationService owned state", () => {
     });
     service = new CommandPresentationService({
       eventBus: fixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageCommandPresentationPersistence({
+        storage: localStorage,
+      }),
     });
     service.init();
     const authorityEpoch = service.getCurrentState().authorityEpoch;
@@ -146,7 +151,9 @@ describe("CommandPresentationService owned state", () => {
     });
     service = new CommandPresentationService({
       eventBus: fixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageCommandPresentationPersistence({
+        storage: localStorage,
+      }),
     });
     service.init();
     states.length = 0;
@@ -206,7 +213,9 @@ describe("CommandPresentationService owned state", () => {
       });
       service = new CommandPresentationService({
         eventBus: fixture.eventBus,
-        localStorage,
+        persistence: new LocalStorageCommandPresentationPersistence({
+          storage: localStorage,
+        }),
       });
       service.init();
       const before = service.getCurrentState();
@@ -230,7 +239,9 @@ describe("CommandPresentationService owned state", () => {
     });
     service = new CommandPresentationService({
       eventBus: fixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageCommandPresentationPersistence({
+        storage: localStorage,
+      }),
     });
     service.init();
     states.length = 0;
@@ -258,7 +269,9 @@ describe("CommandPresentationService owned state", () => {
     });
     service = new CommandPresentationService({
       eventBus: fixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageCommandPresentationPersistence({
+        storage: localStorage,
+      }),
     });
     service.init();
 

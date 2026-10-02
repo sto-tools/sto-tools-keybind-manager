@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { describe, it, beforeEach, afterEach, expect } from "vitest";
 import { createRealServiceFixture } from "../fixtures";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
@@ -43,6 +44,9 @@ describe("CommandChainService command-chain:clear event", () => {
     eventBus = fixture.eventBus;
 
     dataCoordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus,
       projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },

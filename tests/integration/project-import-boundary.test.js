@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import {
   createProjectSettingsRepository,
   createImportPreferencesOwner,
@@ -57,6 +58,9 @@ describe("project import boundary", () => {
     });
     projectRepository = createProjectRepository();
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: eventBusFixture.eventBus,
       projectRepository,
       i18n: { t: (key) => key },

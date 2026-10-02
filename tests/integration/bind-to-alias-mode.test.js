@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createServiceFixture } from "../fixtures/services/index.js";
 import PreferencesService from "../../src/js/components/services/PreferencesService.js";
@@ -69,6 +70,9 @@ describe("Bind-to-Alias Mode Integration", () => {
     exportService.init();
 
     dataCoordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: serviceFixture.eventBus,
       projectRepository: serviceFixture.projectRepository,
       i18n: mockI18n,

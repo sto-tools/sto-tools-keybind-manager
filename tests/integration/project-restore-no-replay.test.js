@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
@@ -74,6 +75,9 @@ describe("project restore no-replay boundary", () => {
     });
     projectRepository = createProjectRepository();
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: eventBusFixture.eventBus,
       projectRepository,
       i18n: { t: (key) => key },
@@ -316,6 +320,9 @@ describe("project restore no-replay boundary", () => {
     expect(rootWrites).toHaveBeenCalledOnce();
 
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: eventBusFixture.eventBus,
       projectRepository,
       i18n: { t: (key) => key },
@@ -355,6 +362,9 @@ describe("project restore no-replay boundary", () => {
 
     coordinator.destroy();
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: eventBusFixture.eventBus,
       projectRepository,
       i18n: { t: (key) => key },

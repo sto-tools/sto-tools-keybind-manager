@@ -5,6 +5,7 @@ import { createServiceFixture } from "../../fixtures/services/harness.js";
 // Import the services we fixed
 import KeyService from "../../../src/js/components/services/KeyService.js";
 import KeyBrowserService from "../../../src/js/components/services/KeyBrowserService.js";
+import LocalStorageKeyBrowserPersistence from "../../../src/js/components/storage/LocalStorageKeyBrowserPersistence.js";
 import CommandService from "../../../src/js/components/services/CommandService.js";
 import ParameterCommandService from "../../../src/js/components/services/ParameterCommandService.js";
 import VFXManagerService from "../../../src/js/components/services/VFXManagerService.js";
@@ -15,6 +16,7 @@ const createEmptyKeyBrowserStorage = () => ({
   key: () => null,
   getItem: () => null,
   setItem: () => {},
+  removeItem: () => {},
 });
 
 const emptyKeyBrowserViewState = () => ({
@@ -56,7 +58,9 @@ describe("Phase 1a: State Ownership Fixes", () => {
     it("should return only its owned view-collapse state", async () => {
       const service = new KeyBrowserService({
         eventBus: harness.eventBus,
-        localStorage: createEmptyKeyBrowserStorage(),
+        persistence: new LocalStorageKeyBrowserPersistence({
+          storage: createEmptyKeyBrowserStorage(),
+        }),
       });
       await service.init();
 
@@ -148,7 +152,9 @@ describe("Phase 1a: State Ownership Fixes", () => {
         }),
         new KeyBrowserService({
           eventBus: harness.eventBus,
-          localStorage: createEmptyKeyBrowserStorage(),
+          persistence: new LocalStorageKeyBrowserPersistence({
+            storage: createEmptyKeyBrowserStorage(),
+          }),
         }),
         new CommandService({
           storage: harness.storage,

@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ApplicationResetService from "../../src/js/components/services/ApplicationResetService.js";
@@ -271,6 +272,9 @@ describe("application reset durable failure and restart matrix", () => {
 
   const createCoordinator = async () => {
     const next = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: new LocalStorageProjectRepository({
         storage: repositoryStorage,
@@ -347,6 +351,9 @@ describe("application reset durable failure and restart matrix", () => {
     ).toBe("committed");
 
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository,
       i18n,

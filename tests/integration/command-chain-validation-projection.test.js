@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import CommandChainValidatorService from "../../src/js/components/services/CommandChainValidatorService.js";
@@ -50,6 +51,9 @@ describe("command-chain validation projection lifecycle", () => {
     });
 
     const coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },

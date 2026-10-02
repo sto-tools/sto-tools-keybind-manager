@@ -59,7 +59,7 @@ describe("persistence access architecture ratchet", () => {
         (total, count) => total + count,
         0,
       ),
-    ).toBe(38);
+    ).toBe(37);
   });
 
   it("freezes the exact physical scalar writers and their owner-bound modules", () => {
@@ -79,7 +79,7 @@ describe("persistence access architecture ratchet", () => {
       Object.entries(actualWrites)
         .filter(([key]) => !key.startsWith("components/storage/"))
         .reduce((total, [, count]) => total + count, 0),
-    ).toBe(9);
+    ).toBe(0);
   });
 
   it("freezes all IndexedDB boundary blocks inside FileSystemService", () => {
@@ -185,13 +185,22 @@ describe("persistence access architecture ratchet", () => {
     const storageDirectory = join(sourceRoot, "components/storage");
     expect(existsSync(storageDirectory)).toBe(true);
     expect(readdirSync(storageDirectory).sort()).toEqual([
+      "CommandPresentationPersistencePort.js",
+      "DevelopmentFlagPort.js",
+      "KeyBrowserPersistencePort.js",
+      "LocalStorageCommandPresentationPersistence.js",
+      "LocalStorageDevelopmentFlagPersistence.js",
+      "LocalStorageKeyBrowserPersistence.js",
       "LocalStorageProjectRepository.js",
       "LocalStorageSettingsRepository.js",
+      "LocalStorageVisitedStatePersistence.js",
       "ProjectRepository.js",
       "SettingsRepository.js",
+      "VisitedStatePort.js",
       "projectRepositoryBoundary.js",
       "repositoryJsonBoundary.js",
       "repositoryResults.js",
+      "scopedLocalStorage.js",
       "settingsRepositoryBoundary.js",
       "storageSchemaMigration.js",
       "storageSchemaMigrationReceipt.js",
@@ -205,17 +214,17 @@ describe("persistence access architecture ratchet", () => {
       )
       .map((file) => readFileSync(file, "utf8"))
       .join("\n");
-    expect(source).not.toContain("/storage/");
+    // Type-only port references are allowed; concrete runtime imports are not.
+    expect(source).not.toMatch(/(?:from\s*|import\s*)["'][^"']*\/storage\//);
     const composition = ["main.js", "app.js"]
       .map((file) => readFileSync(join(sourceRoot, file), "utf8"))
       .join("\n");
     expect(`${source}\n${composition}`).not.toMatch(
       /storageSchemaMigration|preflightStorageSchemaMigration|createMigrationInspectionPort/,
     );
-    for (const candidate of [
-      "LocalStorageProjectRepository",
-      "LocalStorageSettingsRepository",
-    ]) {
+    for (const candidate of repositoryCandidateNames.filter((name) =>
+      name.startsWith("LocalStorage"),
+    )) {
       expect(source).not.toContain(candidate);
     }
     expect(
@@ -239,6 +248,10 @@ describe("persistence access architecture ratchet", () => {
     expect(constructorCallsites(entries, repositoryCandidateNames)).toEqual({
       "main.js|LocalStorageSettingsRepository|{ storage: settingsStorage, defaults, }": 1,
       "main.js|LocalStorageProjectRepository|{ storage: settingsStorage, version: stoData.settings.version, now: () => new Date().toISOString(), settingsDefaults: defaults, }": 1,
+      "main.js|LocalStorageVisitedStatePersistence|{ storage: settingsStorage, }": 1,
+      "main.js|LocalStorageCommandPresentationPersistence|{ storage: settingsStorage, }": 1,
+      "main.js|LocalStorageKeyBrowserPersistence|{ storage: settingsStorage, }": 1,
+      "main.js|LocalStorageDevelopmentFlagPersistence|{ storage: settingsStorage, }": 1,
     });
 
     const dataCoordinatorSource = readFileSync(
@@ -262,18 +275,10 @@ describe("persistence access architecture ratchet", () => {
     );
 
     expect(
-      Object.keys(expectedScalarWrites).map((row) => row.split("|")[0]),
-    ).toEqual([
-      "components/storage/LocalStorageProjectRepository.js",
-      "components/storage/LocalStorageProjectRepository.js",
-      "components/storage/LocalStorageSettingsRepository.js",
-      "components/storage/LocalStorageSettingsRepository.js",
-      "components/services/commandPresentationState.js",
-      "components/services/commandPresentationState.js",
-      "components/services/keyBrowserViewState.js",
-      "core/welcomeMessage.js",
-      "core/welcomeMessage.js",
-    ]);
+      Object.keys(expectedScalarWrites).every((row) =>
+        row.startsWith("components/storage/"),
+      ),
+    ).toBe(true);
 
     for (const file of javascriptFiles(storageDirectory)) {
       const adapterSource = readFileSync(file, "utf8");
@@ -297,17 +302,17 @@ describe("persistence access architecture ratchet", () => {
       "components/storage/LocalStorageSettingsRepository.js": [
         'const SETTINGS_KEY = "sto_keybind_settings"',
       ],
-      "components/services/commandPresentationState.js": [
-        'const collapsedSuffix = "_collapsed"',
-        'const commandCategoryPrefix = "commandCategory_"',
-        'const commandGroupPrefix = "commandGroup_"',
+      "components/storage/LocalStorageCommandPresentationPersistence.js": [
+        'const SUFFIX = "_collapsed"',
+        'const CATEGORY_PREFIX = "commandCategory_"',
+        "`commandGroup_${group}${SUFFIX}`",
       ],
-      "components/services/keyBrowserViewState.js": [
-        'const collapsedSuffix = "_collapsed"',
-        'const commandCategoryPrefix = "keyCategory_"',
-        'const keyTypeCategoryPrefix = "keyTypeCategory_"',
-        'const bindsetPrefix = "bindsetSection_"',
-        'const keyViewModeStorageKey = "keyViewMode"',
+      "components/storage/LocalStorageKeyBrowserPersistence.js": [
+        'const SUFFIX = "_collapsed"',
+        '"keyCategory_"',
+        '"keyTypeCategory_"',
+        "`bindsetSection_${bindsetName}${SUFFIX}`",
+        'const MODE_KEY = "keyViewMode"',
       ],
       "components/services/FileSystemService.js": [
         'const DB_NAME = "sto-sync-handles"',
@@ -316,10 +321,12 @@ describe("persistence access architecture ratchet", () => {
         'const KEY_SYNC_FOLDER_TRANSITION = "sync-folder-transition-pending"',
         "const SYNC_FOLDER_TRANSITION_MARKER = true",
       ],
-      "core/welcomeMessage.js": [
+      "components/storage/LocalStorageVisitedStatePersistence.js": [
         'const VISITED_KEY = "sto_keybind_manager_visited"',
       ],
-      "dev/DevMonitor.js": ['localStorage.getItem("dev-mode") === "true"'],
+      "components/storage/LocalStorageDevelopmentFlagPersistence.js": [
+        'this.#storage.getItem("dev-mode") === "true"',
+      ],
     };
 
     for (const [fileName, snippets] of Object.entries(snippetsByFile)) {

@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 // Integration test to verify selection restoration fix on page reload
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -56,6 +57,9 @@ describe("Selection Restoration Fix - Page Reload", () => {
 
     // Initialize DataCoordinator first (simulates app startup order)
     dataCoordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus,
       projectRepository,
       i18n: { t: (key) => key },
@@ -153,6 +157,9 @@ describe("Selection Restoration Fix - Page Reload", () => {
 
     // Create new instances to simulate page reload
     dataCoordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus,
       projectRepository,
       i18n: { t: (key) => key },

@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,6 +45,9 @@ describe("DataCoordinator ProjectRepository cutover", () => {
     localStorage.setItem("sto_keybind_manager_visited", "true");
     fixture = createServiceFixture();
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },
@@ -54,6 +58,54 @@ describe("DataCoordinator ProjectRepository cutover", () => {
     fixture.projectRepository.commit.mockClear();
     fixture.eventBusFixture.clearEventHistory();
   }
+
+  it("uses the injected visit marker during empty-root startup with poisoned ambient storage", async () => {
+    fixture = createServiceFixture();
+    fixture.projectRepository.load.mockReturnValue({
+      status: "current",
+      value: {
+        version: "1.0.0",
+        lastModified: "2026-10-02T00:00:00.000Z",
+        currentProfile: null,
+        profiles: {},
+        globalAliases: {},
+        settings: {},
+      },
+    });
+    const visitedState = {
+      loadExact: vi.fn(() => "false"),
+      markVisited: vi.fn(),
+      compensate: vi.fn(),
+    };
+    coordinator = new DataCoordinator({
+      visitedState,
+      eventBus: fixture.eventBus,
+      projectRepository: fixture.projectRepository,
+      i18n: { t: (key) => key },
+    });
+    const descriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "localStorage",
+    );
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      get() {
+        throw new Error("ambient storage is forbidden");
+      },
+    });
+    try {
+      coordinator.init();
+      await coordinator.initialStateReady;
+      expect(visitedState.loadExact).toHaveBeenCalledOnce();
+      expect(visitedState.markVisited).not.toHaveBeenCalled();
+      expect(visitedState.compensate).not.toHaveBeenCalled();
+      expect(coordinator.getCurrentState().profiles).toEqual({});
+      expect(coordinator.needsDefaultProfiles).toBe(false);
+      expect(coordinator).not.toHaveProperty("visitedState");
+    } finally {
+      Object.defineProperty(globalThis, "localStorage", descriptor);
+    }
+  });
 
   it("has no storage injection or storageWrites dependency", () => {
     fixture = createServiceFixture();
@@ -66,6 +118,9 @@ describe("DataCoordinator ProjectRepository cutover", () => {
       },
     );
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       storage: legacyStorage,
@@ -89,6 +144,9 @@ describe("DataCoordinator ProjectRepository cutover", () => {
     fixture = createServiceFixture();
     const legacyWriter = { saveAllData: vi.fn(), saveProfile: vi.fn() };
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       storage: legacyWriter,
@@ -108,6 +166,9 @@ describe("DataCoordinator ProjectRepository cutover", () => {
     expect(legacyWriter.saveProfile).not.toHaveBeenCalled();
 
     const missingRepository = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       i18n: { t: (key) => key },
     });
@@ -128,6 +189,9 @@ describe("DataCoordinator ProjectRepository cutover", () => {
     }
 
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },

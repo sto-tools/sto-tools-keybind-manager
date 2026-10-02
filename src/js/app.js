@@ -59,10 +59,20 @@ import OwnedComponentStack from "./core/ownedComponentStack.js";
 import { checkAndShowWelcomeMessage } from "./core/welcomeMessage.js";
 
 export default class STOToolsKeybindManager {
+  /** @type {import("./components/storage/VisitedStatePort.js").VisitedStatePort | undefined} */
+  #visitedState;
+  /** @type {import("./components/storage/CommandPresentationPersistencePort.js").CommandPresentationPersistencePort | undefined} */
+  #commandPresentationPersistence;
+  /** @type {import("./components/storage/KeyBrowserPersistencePort.js").KeyBrowserPersistencePort | undefined} */
+  #keyBrowserPersistence;
+
   /**
    * @param {{
    *   i18n?: any,
    *   preferencesService?: import('./components/services/PreferencesService.js').default,
+   *   visitedState?: import('./components/storage/VisitedStatePort.js').VisitedStatePort,
+   *   commandPresentationPersistence?: import('./components/storage/CommandPresentationPersistencePort.js').CommandPresentationPersistencePort,
+   *   keyBrowserPersistence?: import('./components/storage/KeyBrowserPersistencePort.js').KeyBrowserPersistencePort,
    *   applicationDataResetTransitionRunner?: import('./types/storage-contracts.js').ApplicationDataResetTransitionRunner,
    *   importedProjectOwnerAction?: import('./types/storage-contracts.js').ImportedProjectOwnerAction,
    *   importedProjectActivationAction?: import('./types/storage-contracts.js').ImportedProjectActivationAction,
@@ -76,6 +86,9 @@ export default class STOToolsKeybindManager {
   constructor({
     i18n,
     preferencesService,
+    visitedState,
+    commandPresentationPersistence,
+    keyBrowserPersistence,
     applicationDataResetTransitionRunner,
     importedProjectOwnerAction,
     importedProjectActivationAction,
@@ -87,6 +100,9 @@ export default class STOToolsKeybindManager {
   } = {}) {
     this.i18n = i18n;
     this.preferencesService = preferencesService;
+    this.#visitedState = visitedState;
+    this.#commandPresentationPersistence = commandPresentationPersistence;
+    this.#keyBrowserPersistence = keyBrowserPersistence;
     this.applicationDataResetTransitionRunner =
       applicationDataResetTransitionRunner;
     this.importedProjectOwnerAction = importedProjectOwnerAction;
@@ -187,6 +203,9 @@ export default class STOToolsKeybindManager {
         !stoUI ||
         !this.syncService ||
         !this.preferencesService ||
+        !this.#visitedState ||
+        !this.#commandPresentationPersistence ||
+        !this.#keyBrowserPersistence ||
         !this.applicationDataResetTransitionRunner
       ) {
         throw new Error("Required dependencies not loaded");
@@ -273,7 +292,7 @@ export default class STOToolsKeybindManager {
       this.keyBrowserService = create(KeyBrowserService, {
         eventBus,
         i18n: this.i18n,
-        localStorage,
+        persistence: this.#keyBrowserPersistence,
       });
 
       this.keyBrowserUI = create(KeyBrowserUI, {
@@ -360,7 +379,7 @@ export default class STOToolsKeybindManager {
 
       this.commandPresentationService = create(CommandPresentationService, {
         eventBus,
-        localStorage: window.localStorage,
+        persistence: this.#commandPresentationPersistence,
       });
 
       this.commandLibraryUI = create(CommandLibraryUI, {
@@ -561,6 +580,11 @@ export default class STOToolsKeybindManager {
   }
 
   checkAndShowWelcomeMessage() {
-    return checkAndShowWelcomeMessage(localStorage, this.modalManagerService);
+    if (!this.#visitedState)
+      throw new Error("Required dependencies not loaded");
+    return checkAndShowWelcomeMessage(
+      this.#visitedState,
+      this.modalManagerService,
+    );
   }
 }

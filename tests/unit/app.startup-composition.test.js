@@ -245,6 +245,8 @@ vi.mock("../../src/js/components/sync/index.js", () => ({
 }));
 
 import STOToolsKeybindManager from "../../src/js/app.js";
+import { createScalarPersistence } from "../fixtures/ui/scalarPersistence.js";
+import { initializePrivateScalarApp } from "../fixtures/ui/scalarCompositionAssertions.js";
 import ImportService from "../../src/js/components/services/ImportService.js";
 import ProjectManagementService from "../../src/js/components/services/ProjectManagementService.js";
 import SyncService from "../../src/js/components/services/SyncService.js";
@@ -304,13 +306,14 @@ describe("STOToolsKeybindManager startup composition", () => {
     });
 
     app = new STOToolsKeybindManager({
+      ...createScalarPersistence(),
       i18n,
       preferencesService: new startupHarness.StubComponent(),
       applicationDataResetTransitionRunner: vi.fn(),
       syncService,
       ui,
     });
-    await app.init();
+    await initializePrivateScalarApp(startupHarness.bus, app);
 
     await vi.waitFor(() => expect(restore).toHaveBeenCalledOnce());
     expect(restore).toHaveBeenCalledWith(
@@ -391,6 +394,7 @@ describe("STOToolsKeybindManager startup composition", () => {
     const i18n = { t: (key) => key };
 
     app = new STOToolsKeybindManager({
+      ...createScalarPersistence(),
       i18n,
       preferencesService: new startupHarness.StubComponent(),
       applicationDataResetTransitionRunner: vi.fn(),
@@ -459,6 +463,7 @@ describe("STOToolsKeybindManager startup composition", () => {
     const ui = { showToast: vi.fn(), destroy: vi.fn() };
     const i18n = { t: (key) => key };
     app = new STOToolsKeybindManager({
+      ...createScalarPersistence(),
       i18n,
       preferencesService: new startupHarness.StubComponent(),
       applicationDataResetTransitionRunner: vi.fn(),

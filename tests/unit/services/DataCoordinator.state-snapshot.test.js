@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
 import { createServiceFixture } from "../../fixtures/index.js";
@@ -71,6 +72,9 @@ describe("DataCoordinator complete state snapshots", () => {
       };
     });
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository,
       i18n: { t: (key) => key },

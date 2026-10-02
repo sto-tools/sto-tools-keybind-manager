@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { createProjectSettingsRepository } from "../fixtures/services/projectRestore.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -58,6 +59,9 @@ describe("project import authoritative owner chain", () => {
       now: () => new Date().toISOString(),
     });
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: eventBusFixture.eventBus,
       projectRepository,
       i18n: { t: (key) => key },

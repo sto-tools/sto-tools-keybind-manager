@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import CommandPresentationService from "../../../src/js/components/services/CommandPresentationService.js";
+import LocalStorageCommandPresentationPersistence from "../../../src/js/components/storage/LocalStorageCommandPresentationPersistence.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
 function createStorage() {
@@ -47,7 +48,9 @@ describe("CommandPresentationService lifecycle", () => {
   function createService() {
     const service = new CommandPresentationService({
       eventBus: fixture.eventBus,
-      localStorage: createStorage(),
+      persistence: new LocalStorageCommandPresentationPersistence({
+        storage: createStorage(),
+      }),
     });
     services.push(service);
     return service;

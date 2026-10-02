@@ -8,9 +8,24 @@ import {
   isCommandCategoryCollapsed,
   isCommandGroupCollapsed,
   readCommandPresentationState,
-  writeCommandCategoryCollapse,
-  writeCommandGroupCollapse,
 } from "../../../src/js/components/services/commandPresentationState.js";
+import LocalStorageCommandPresentationPersistence from "../../../src/js/components/storage/LocalStorageCommandPresentationPersistence.js";
+
+function writeCommandCategoryCollapse(storage, categoryId, isCollapsed) {
+  new LocalStorageCommandPresentationPersistence({ storage }).replaceCategory(
+    categoryId,
+    isCollapsed,
+  );
+  return isCollapsed;
+}
+
+function writeCommandGroupCollapse(storage, groupType, isCollapsed) {
+  new LocalStorageCommandPresentationPersistence({ storage }).replaceGroup(
+    groupType,
+    isCollapsed,
+  );
+  return isCollapsed;
+}
 
 function createStorage(initial = {}) {
   const entries = new Map(Object.entries(initial));
@@ -49,10 +64,13 @@ describe("command presentation state boundary", () => {
     });
 
     expect(
-      readCommandPresentationState(storage, {
-        authorityEpoch: 7,
-        revision: 0,
-      }),
+      readCommandPresentationState(
+        new LocalStorageCommandPresentationPersistence({ storage }).load(),
+        {
+          authorityEpoch: 7,
+          revision: 0,
+        },
+      ),
     ).toEqual({
       authorityEpoch: 7,
       revision: 0,

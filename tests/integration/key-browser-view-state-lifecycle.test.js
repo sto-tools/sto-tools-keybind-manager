@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import KeyBrowserService from "../../src/js/components/services/KeyBrowserService.js";
+import LocalStorageKeyBrowserPersistence from "../../src/js/components/storage/LocalStorageKeyBrowserPersistence.js";
 import {
   createKeyBrowserBindsetSection,
   createKeyBrowserCategoryElement,
@@ -109,7 +110,9 @@ describe("Integration: KeyBrowser view-state ownership", () => {
 
       service = new KeyBrowserService({
         eventBus: eventBusFixture.eventBus,
-        localStorage,
+        persistence: new LocalStorageKeyBrowserPersistence({
+          storage: localStorage,
+        }),
       });
       service.init();
 
@@ -127,7 +130,9 @@ describe("Integration: KeyBrowser view-state ownership", () => {
     localStorage.setItem(viewModeStorageKey, "grid");
     service = new KeyBrowserService({
       eventBus: eventBusFixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageKeyBrowserPersistence({
+        storage: localStorage,
+      }),
     });
     ui = new KeyBrowserUI({
       eventBus: eventBusFixture.eventBus,
@@ -188,7 +193,9 @@ describe("Integration: KeyBrowser view-state ownership", () => {
 
       service = new KeyBrowserService({
         eventBus: eventBusFixture.eventBus,
-        localStorage,
+        persistence: new LocalStorageKeyBrowserPersistence({
+          storage: localStorage,
+        }),
       });
       ui = new KeyBrowserUI({
         eventBus: eventBusFixture.eventBus,
@@ -329,7 +336,9 @@ describe("Integration: KeyBrowser view-state ownership", () => {
     localStorage.setItem(viewModeStorageKey, "grid");
     service = new KeyBrowserService({
       eventBus: eventBusFixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageKeyBrowserPersistence({
+        storage: localStorage,
+      }),
     });
     ui = new KeyBrowserUI({
       eventBus: eventBusFixture.eventBus,

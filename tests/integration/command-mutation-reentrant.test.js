@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CommandService from "../../src/js/components/services/CommandService.js";
 import CommandChainService from "../../src/js/components/services/CommandChainService.js";
@@ -34,6 +35,9 @@ describe("Command mutation reentrant owner listeners", () => {
     });
     projectRepository = createProjectRepository();
     owner = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: bus.eventBus,
       projectRepository,
       i18n: { t: (key) => key },

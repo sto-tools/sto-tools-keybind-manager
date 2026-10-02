@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import CommandService from "../../src/js/components/services/CommandService.js";
@@ -96,6 +97,9 @@ describe("CommandService mutation owner atomicity", () => {
     const i18n = { t: (key) => key };
     ui = { showToast: vi.fn() };
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       i18n,

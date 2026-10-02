@@ -23,19 +23,26 @@ function createI18n(existingKeys = ["known"]) {
   return instance;
 }
 
-async function loadMonitor() {
+async function loadMonitor(developmentFlag = { isEnabled: vi.fn(() => true) }) {
   vi.spyOn(console, "log").mockImplementation(() => {});
   const { default: monitor } = await import(
     "../../../src/js/dev/DevMonitor.js"
   );
+  if (developmentFlag) monitor.configureDevelopmentFlag(developmentFlag);
   return monitor;
 }
 
 describe("DevMonitor localization capability", () => {
   beforeEach(() => {
     vi.resetModules();
-    delete window.devMonitor;
-    localStorage.setItem("dev-mode", "true");
+    vi.stubGlobal("window", {
+      location: {
+        hostname: "keybind.example",
+        protocol: "https:",
+        search: "",
+        origin: "https://keybind.example",
+      },
+    });
   });
 
   afterEach(() => {
@@ -56,6 +63,7 @@ describe("DevMonitor localization capability", () => {
       delete window.applyTranslations;
     }
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("tracks through the explicitly configured instance and restores its exact t method", async () => {
@@ -291,5 +299,131 @@ describe("DevMonitor localization capability", () => {
     expect(monitor.clearRuntimeDiagnostics()).toBe(false);
     expect(monitor.runtimeDiagnostics).toBeNull();
     expect(consoleWarn).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not enable or expose the production singleton before composition supplies its flag", async () => {
+    const monitor = await loadMonitor(null);
+
+    expect(monitor.isDevelopment).toBe(false);
+    expect(monitor.checkDevelopmentMode()).toBe(false);
+    expect(window.devMonitor).toBeUndefined();
+
+    const developmentFlag = { isEnabled: vi.fn(() => true) };
+    monitor.configureDevelopmentFlag(developmentFlag);
+
+    expect(developmentFlag.isEnabled).toHaveBeenCalledOnce();
+    expect(monitor.isDevelopment).toBe(true);
+    expect(window.devMonitor).toBe(monitor);
+  });
+
+  it("keeps a false injected flag disabled on production and does not expose diagnostics", async () => {
+    const developmentFlag = { isEnabled: vi.fn(() => false) };
+    const monitor = await loadMonitor(developmentFlag);
+
+    expect(monitor.isDevelopment).toBe(false);
+    expect(window.devMonitor).toBeUndefined();
+    expect(monitor.enableI18nTracking()).toBe(false);
+    expect(monitor.enableCSSTracking()).toBe(false);
+    expect(monitor.checkCSSNow()).toBe(false);
+  });
+
+  it("withdraws only its own global exposure when the injected flag is disabled", async () => {
+    const monitor = await loadMonitor();
+    const disabledFlag = { isEnabled: vi.fn(() => false) };
+    const independentMonitor = new monitor.constructor(disabledFlag);
+
+    independentMonitor.configureDevelopmentFlag(disabledFlag);
+
+    expect(window.devMonitor).toBe(monitor);
+    monitor.configureDevelopmentFlag(disabledFlag);
+    expect(monitor.isDevelopment).toBe(false);
+    expect(window.devMonitor).toBeUndefined();
+  });
+
+  it.each([
+    { hostname: "localhost", protocol: "https:", search: "" },
+    { hostname: "127.0.0.1", protocol: "https:", search: "" },
+    { hostname: "", protocol: "file:", search: "" },
+    { hostname: "keybind.example", protocol: "https:", search: "?dev=true" },
+  ])(
+    "preserves initial location-based development detection for %j",
+    async (location) => {
+      window.location = location;
+      const monitor = await loadMonitor(null);
+
+      expect(monitor.isDevelopment).toBe(true);
+      expect(window.devMonitor).toBe(monitor);
+      const developmentFlag = {
+        isEnabled: vi.fn(() => {
+          throw new Error("flag must be short-circuited");
+        }),
+      };
+      expect(() =>
+        monitor.configureDevelopmentFlag(developmentFlag),
+      ).not.toThrow();
+      expect(developmentFlag.isEnabled).not.toHaveBeenCalled();
+    },
+  );
+
+  it("propagates injected flag failures without enabling or exposing a production singleton", async () => {
+    const monitor = await loadMonitor(null);
+    const failure = new Error("diagnostic flag unavailable");
+    const developmentFlag = {
+      isEnabled: vi.fn(() => {
+        throw failure;
+      }),
+    };
+
+    expect(() => monitor.configureDevelopmentFlag(developmentFlag)).toThrow(
+      failure,
+    );
+    expect(monitor.isDevelopment).toBe(false);
+    expect(window.devMonitor).toBeUndefined();
+    expect(() => monitor.checkDevelopmentMode()).toThrow(failure);
+  });
+
+  it("supports independently injected constructor flags and never reads poisoned ambient storage", async () => {
+    for (const name of ["localStorage", "sessionStorage"]) {
+      vi.stubGlobal(name, undefined);
+      for (const target of [globalThis, window]) {
+        Object.defineProperty(target, name, {
+          configurable: true,
+          get() {
+            throw new Error(`ambient ${name} read`);
+          },
+        });
+      }
+    }
+    const monitor = await loadMonitor(null);
+    const enabledFlag = { isEnabled: vi.fn(() => true) };
+    const disabledFlag = { isEnabled: vi.fn(() => false) };
+    const enabledMonitor = new monitor.constructor(enabledFlag);
+    const disabledMonitor = new monitor.constructor(disabledFlag);
+
+    expect(enabledMonitor.isDevelopment).toBe(true);
+    expect(disabledMonitor.isDevelopment).toBe(false);
+    expect(monitor.isDevelopment).toBe(false);
+    monitor.configureDevelopmentFlag(enabledFlag);
+    expect(window.devMonitor).toBe(monitor);
+    expect(enabledFlag.isEnabled).toHaveBeenCalledTimes(2);
+    expect(disabledFlag.isEnabled).toHaveBeenCalledOnce();
+  });
+
+  it("does not expose its read-only capability through the public singleton or runtime diagnostics", async () => {
+    const developmentFlag = Object.freeze({ isEnabled: vi.fn(() => true) });
+    const monitor = await loadMonitor(developmentFlag);
+    monitor.registerRuntimeDiagnostics({ eventBus: {} });
+
+    expect(window.devMonitor).toBe(monitor);
+    expect(monitor.developmentFlag).toBeUndefined();
+    expect(monitor.developmentFlagPort).toBeUndefined();
+    expect(Reflect.ownKeys(monitor).map((key) => monitor[key])).not.toContain(
+      developmentFlag,
+    );
+    expect(monitor.getStatus()).not.toHaveProperty("developmentFlag");
+    expect(monitor.getRuntimeDiagnostics()).toEqual({ eventBus: {} });
+    expect(monitor.getItem).toBeUndefined();
+    expect(monitor.setItem).toBeUndefined();
+    expect(monitor.removeItem).toBeUndefined();
   });
 });

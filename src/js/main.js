@@ -15,6 +15,10 @@ import {
 } from "./components/services/projectArtifactCapture.js";
 import LocalStorageSettingsRepository from "./components/storage/LocalStorageSettingsRepository.js";
 import LocalStorageProjectRepository from "./components/storage/LocalStorageProjectRepository.js";
+import LocalStorageCommandPresentationPersistence from "./components/storage/LocalStorageCommandPresentationPersistence.js";
+import LocalStorageKeyBrowserPersistence from "./components/storage/LocalStorageKeyBrowserPersistence.js";
+import LocalStorageVisitedStatePersistence from "./components/storage/LocalStorageVisitedStatePersistence.js";
+import LocalStorageDevelopmentFlagPersistence from "./components/storage/LocalStorageDevelopmentFlagPersistence.js";
 import {
   createDefaultPreferencesSettings,
   detectPreferencesLanguage,
@@ -135,10 +139,25 @@ const dataService = new DataService({
     settingsDefaults: defaults,
   });
 
+  const visitedState = new LocalStorageVisitedStatePersistence({
+    storage: settingsStorage,
+  });
+  const commandPresentationPersistence =
+    new LocalStorageCommandPresentationPersistence({
+      storage: settingsStorage,
+    });
+  const keyBrowserPersistence = new LocalStorageKeyBrowserPersistence({
+    storage: settingsStorage,
+  });
+  const developmentFlag = new LocalStorageDevelopmentFlagPersistence({
+    storage: settingsStorage,
+  });
+
   // DataCoordinator owns the accepted project root and its repository writer.
   const dataCoordinator = new DataCoordinator({
     eventBus,
     projectRepository,
+    visitedState,
     i18n: i18next,
   });
   try {
@@ -172,6 +191,7 @@ const dataService = new DataService({
     // Give DevMonitor the initialized localization capability without publishing
     // it as application-global state.
     devMonitor.configure(i18next);
+    devMonitor.configureDevelopmentFlag(developmentFlag);
     if (devMonitor.isDevelopment) {
       console.log(
         "🔧 DevMonitor: Development mode detected, monitoring tools available",
@@ -263,6 +283,9 @@ const dataService = new DataService({
     const app = new STOToolsKeybindManager({
       i18n: i18next,
       preferencesService,
+      visitedState,
+      commandPresentationPersistence,
+      keyBrowserPersistence,
       applicationDataResetTransitionRunner:
         dataCoordinator.runApplicationResetTransition.bind(dataCoordinator),
       importedProjectOwnerAction:

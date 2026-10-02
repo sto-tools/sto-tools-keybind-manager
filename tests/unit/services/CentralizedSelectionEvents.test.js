@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createServiceFixture } from "../../fixtures/services/harness.js";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
 import KeyBrowserService from "../../../src/js/components/services/KeyBrowserService.js";
+import LocalStorageKeyBrowserPersistence from "../../../src/js/components/storage/LocalStorageKeyBrowserPersistence.js";
 import AliasBrowserService from "../../../src/js/components/services/AliasBrowserService.js";
 import CommandService from "../../../src/js/components/services/CommandService.js";
 import CommandLibraryService from "../../../src/js/components/services/CommandLibraryService.js";
@@ -28,6 +29,9 @@ describe("Centralized Selection Events", () => {
     // Create all services
     selectionService = new SelectionService({ eventBus: harness.eventBus });
     keyBrowserService = new KeyBrowserService({
+      persistence: new LocalStorageKeyBrowserPersistence({
+        storage: localStorage,
+      }),
       eventBus: harness.eventBus,
       storage: harness.mockStorage,
       ui: harness.mockUI,

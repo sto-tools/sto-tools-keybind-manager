@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -81,6 +82,9 @@ describe("project artifact producer parity", () => {
       applyTranslations: () => {},
     });
     const dataOwner = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       i18n,

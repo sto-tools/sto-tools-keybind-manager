@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import BindsetService from "../../src/js/components/services/BindsetService.js";
@@ -69,6 +70,9 @@ describe("Integration: KeyBrowserUI mutation result ordering", () => {
     confirmDialog = { confirm: vi.fn().mockResolvedValue(true) };
     inputDialog = { prompt: vi.fn() };
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       i18n,

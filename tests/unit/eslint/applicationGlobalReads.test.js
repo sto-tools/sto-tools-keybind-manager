@@ -180,6 +180,7 @@ describe("application-global read guard", () => {
     expect(applicationGlobalAllowlist).not.toHaveProperty("keyBrowserService");
     expect(applicationGlobalAllowlist.devMonitor.consumers).toEqual([
       "development console",
+      "src/js/dev/DevMonitor.js",
       "tests/browser-setup.js",
       "tests/fixtures/ui/applicationRuntime.js",
     ]);
@@ -228,6 +229,7 @@ describe("application-global read guard", () => {
   it.each([
     "tests/browser-setup.js",
     "tests/fixtures/ui/applicationRuntime.js",
+    "src/js/dev/DevMonitor.js",
   ])("accepts the explicit DevMonitor diagnostic read in %s", (file) => {
     expect(
       verifyReads("void window.devMonitor;", file, {

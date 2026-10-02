@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
@@ -58,6 +59,9 @@ describe("DataCoordinator reload publication acknowledgement", () => {
       },
     }));
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus,
       projectRepository,
       i18n: { t: (key) => key },
@@ -94,6 +98,9 @@ describe("DataCoordinator reload publication acknowledgement", () => {
   function replaceCoordinator() {
     coordinator.destroy();
     replacement = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus,
       projectRepository,
       i18n: { t: (key) => key },

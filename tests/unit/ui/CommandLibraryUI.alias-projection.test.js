@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import CommandLibraryUI from "../../../src/js/components/ui/CommandLibraryUI.js";
 import CommandPresentationService from "../../../src/js/components/services/CommandPresentationService.js";
+import LocalStorageCommandPresentationPersistence from "../../../src/js/components/storage/LocalStorageCommandPresentationPersistence.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 import {
@@ -283,7 +284,9 @@ describe("CommandLibraryUI alias projection", () => {
     localStorage.setItem("commandCategory_aliases_collapsed", "true");
     presentationService = new CommandPresentationService({
       eventBus: fixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageCommandPresentationPersistence({
+        storage: localStorage,
+      }),
     });
     presentationService.init();
     ui.cache.commandPresentationState = null;

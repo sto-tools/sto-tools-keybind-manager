@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import CommandPresentationService from "../../src/js/components/services/CommandPresentationService.js";
+import LocalStorageCommandPresentationPersistence from "../../src/js/components/storage/LocalStorageCommandPresentationPersistence.js";
 import CommandChainUI from "../../src/js/components/ui/CommandChainUI.js";
 import CommandLibraryUI from "../../src/js/components/ui/CommandLibraryUI.js";
 import { createCommandGroupSeparator } from "../../src/js/components/ui/commandChainListDom.js";
@@ -123,7 +124,9 @@ describe("Integration: command presentation ownership", () => {
       });
       service = new CommandPresentationService({
         eventBus: eventBusFixture.eventBus,
-        localStorage: storage,
+        persistence: new LocalStorageCommandPresentationPersistence({
+          storage: storage,
+        }),
       });
       libraryUi = createLibraryUi(eventBusFixture.eventBus);
       chainUi = createChainUi(eventBusFixture.eventBus);
@@ -268,7 +271,9 @@ describe("Integration: command presentation ownership", () => {
     const storage = createMemoryStorage();
     service = new CommandPresentationService({
       eventBus: eventBusFixture.eventBus,
-      localStorage: storage,
+      persistence: new LocalStorageCommandPresentationPersistence({
+        storage: storage,
+      }),
     });
     libraryUi = createLibraryUi(eventBusFixture.eventBus);
     chainUi = createChainUi(eventBusFixture.eventBus);
@@ -292,7 +297,9 @@ describe("Integration: command presentation ownership", () => {
     service.destroy();
     replacementService = new CommandPresentationService({
       eventBus: eventBusFixture.eventBus,
-      localStorage: storage,
+      persistence: new LocalStorageCommandPresentationPersistence({
+        storage: storage,
+      }),
     });
     replacementService.init();
 
@@ -356,7 +363,9 @@ describe("Integration: command presentation ownership", () => {
       const storage = createMemoryStorage(initial);
       service = new CommandPresentationService({
         eventBus: eventBusFixture.eventBus,
-        localStorage: storage,
+        persistence: new LocalStorageCommandPresentationPersistence({
+          storage: storage,
+        }),
       });
       service.init();
       const before = service.getCurrentState();

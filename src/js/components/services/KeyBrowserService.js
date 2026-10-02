@@ -7,12 +7,7 @@ import {
   applyNextKeyViewMode,
   cloneKeyBrowserViewState,
   nextKeyBrowserAuthorityEpoch,
-  readNextBindsetCollapse,
-  readNextKeyCategoryCollapse,
   readKeyBrowserViewState,
-  writeBindsetCollapse,
-  writeKeyCategoryCollapse,
-  writeKeyViewMode,
 } from "./keyBrowserViewState.js";
 
 /** @typedef {{ name: string, icon: string, keys: Set<string>, priority: number }} KeyCategory */
@@ -27,14 +22,17 @@ import {
  * in a decoupled, event-driven manner.
  */
 export default class KeyBrowserService extends ComponentBase {
+  /** @type {import('../storage/KeyBrowserPersistencePort.js').KeyBrowserPersistencePort} */
+  #persistence;
+
   /**
    * @param {{
    *   eventBus?: import('./serviceTypes.js').EventBus,
    *   i18n?: import('./serviceTypes.js').I18n,
-   *   localStorage?: import('./keyBrowserViewState.js').KeyBrowserStorage
-   * }} [options]
+   *   persistence: import('../storage/KeyBrowserPersistencePort.js').KeyBrowserPersistencePort
+   * }} options
    */
-  constructor({ eventBus, i18n, localStorage = globalThis.localStorage } = {}) {
+  constructor({ eventBus, i18n, persistence }) {
     super(eventBus);
     this.componentName = "KeyBrowserService";
     this.i18n =
@@ -42,10 +40,10 @@ export default class KeyBrowserService extends ComponentBase {
       /** @type {import('./serviceTypes.js').I18n} */ ({
         t: (key) => key,
       });
-    this.localStorage = localStorage;
+    this.#persistence = persistence;
     // View persistence is required for availability; bootstrap scan
     // failures intentionally abort construction and lifecycle initialization.
-    this.viewState = readKeyBrowserViewState(this.localStorage, {
+    this.viewState = readKeyBrowserViewState(persistence.load(), {
       authorityEpoch: nextKeyBrowserAuthorityEpoch(),
       revision: 0,
     });
@@ -81,7 +79,7 @@ export default class KeyBrowserService extends ComponentBase {
 
   onInit() {
     this.setupRequestHandlers();
-    this.viewState = readKeyBrowserViewState(this.localStorage, {
+    this.viewState = readKeyBrowserViewState(this.#persistence.load(), {
       authorityEpoch: nextKeyBrowserAuthorityEpoch(),
       revision: 0,
     });
@@ -380,8 +378,7 @@ export default class KeyBrowserService extends ComponentBase {
   /** @param {string} categoryId @param {string} [mode] */
   toggleKeyCategory(categoryId, mode = "command") {
     if (!categoryId) return false;
-    const isCollapsed = readNextKeyCategoryCollapse(
-      this.localStorage,
+    const isCollapsed = !this.#persistence.isCategoryCollapsed(
       categoryId,
       mode,
     );
@@ -392,7 +389,7 @@ export default class KeyBrowserService extends ComponentBase {
       isCollapsed,
     );
     const publishedState = cloneKeyBrowserViewState(nextState);
-    writeKeyCategoryCollapse(this.localStorage, categoryId, mode, isCollapsed);
+    this.#persistence.replaceCategory(categoryId, mode, isCollapsed);
     this.viewState = nextState;
     this.publishViewState(publishedState);
     return isCollapsed;
@@ -402,14 +399,14 @@ export default class KeyBrowserService extends ComponentBase {
   /** @param {string | undefined} bindsetName */
   toggleBindsetCollapse(bindsetName) {
     if (!bindsetName) return false;
-    const isCollapsed = readNextBindsetCollapse(this.localStorage, bindsetName);
+    const isCollapsed = !this.#persistence.isBindsetCollapsed(bindsetName);
     const nextState = applyBindsetCollapse(
       this.viewState,
       bindsetName,
       isCollapsed,
     );
     const publishedState = cloneKeyBrowserViewState(nextState);
-    writeBindsetCollapse(this.localStorage, bindsetName, isCollapsed);
+    this.#persistence.replaceBindset(bindsetName, isCollapsed);
     this.viewState = nextState;
     this.publishViewState(publishedState);
 
@@ -420,7 +417,7 @@ export default class KeyBrowserService extends ComponentBase {
   cycleKeyViewMode() {
     const nextState = applyNextKeyViewMode(this.viewState);
     const publishedState = cloneKeyBrowserViewState(nextState);
-    writeKeyViewMode(this.localStorage, nextState.mode);
+    this.#persistence.replaceMode(nextState.mode);
     this.viewState = nextState;
     this.publishViewState(publishedState);
     return nextState.mode;

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ComponentBase from "../../src/js/components/ComponentBase.js";
 import CommandPresentationService from "../../src/js/components/services/CommandPresentationService.js";
+import LocalStorageCommandPresentationPersistence from "../../src/js/components/storage/LocalStorageCommandPresentationPersistence.js";
 import CommandChainUI from "../../src/js/components/ui/CommandChainUI.js";
 import { createSelectionState } from "../fixtures/core/componentState.js";
 import { createEventBusFixture } from "../fixtures/core/eventBus.js";
@@ -73,7 +74,9 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
   function createPresentationOwner() {
     const owner = new CommandPresentationService({
       eventBus: fixture.eventBus,
-      localStorage: createPresentationStorage(),
+      persistence: new LocalStorageCommandPresentationPersistence({
+        storage: createPresentationStorage(),
+      }),
     });
     owners = [...(owners || []), owner];
     return owner;

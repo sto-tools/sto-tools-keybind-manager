@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import KeyBrowserService from "../../../src/js/components/services/KeyBrowserService.js";
+import LocalStorageKeyBrowserPersistence from "../../../src/js/components/storage/LocalStorageKeyBrowserPersistence.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
 const responderTopics = [
@@ -48,6 +49,9 @@ describe("KeyBrowserService projection responder lifecycle", () => {
 
   const createService = () => {
     const service = new KeyBrowserService({
+      persistence: new LocalStorageKeyBrowserPersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       i18n: { t: (key) => key },
     });

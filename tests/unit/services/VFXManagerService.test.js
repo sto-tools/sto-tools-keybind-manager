@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { createServiceFixture } from "../../fixtures/index.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
@@ -140,6 +141,9 @@ describe("VFXManagerService", () => {
       lastModified: "2026-07-16T00:00:00.000Z",
     });
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },

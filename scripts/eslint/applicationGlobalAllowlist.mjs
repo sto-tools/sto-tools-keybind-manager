@@ -14,6 +14,7 @@ export const applicationGlobalAllowlist = deepFreeze({
     purpose: "Explicit development and checked-bundle diagnostics API.",
     consumers: [
       "development console",
+      "src/js/dev/DevMonitor.js",
       "tests/browser-setup.js",
       "tests/fixtures/ui/applicationRuntime.js",
     ],

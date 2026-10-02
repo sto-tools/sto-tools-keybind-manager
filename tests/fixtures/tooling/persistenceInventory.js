@@ -12,25 +12,27 @@ export const storageServiceMethodNames = Object.freeze([
 ]);
 
 export const expectedCallsByFile = Object.freeze({
+  "components/storage/LocalStorageCommandPresentationPersistence.js": 4,
+  "components/storage/LocalStorageDevelopmentFlagPersistence.js": 1,
+  "components/storage/LocalStorageKeyBrowserPersistence.js": 7,
   "components/storage/LocalStorageProjectRepository.js": 12,
   "components/storage/LocalStorageSettingsRepository.js": 5,
-  "components/services/commandPresentationState.js": 6,
-  "components/services/dataCoordinatorInitialState.js": 1,
-  "components/services/keyBrowserViewState.js": 8,
-  "core/welcomeMessage.js": 5,
-  "dev/DevMonitor.js": 1,
+  "components/storage/LocalStorageVisitedStatePersistence.js": 4,
+  "components/storage/scopedLocalStorage.js": 4,
 });
 
 export const expectedScalarWrites = Object.freeze({
-  "components/storage/LocalStorageProjectRepository.js|removeItem": 3,
+  "components/storage/LocalStorageCommandPresentationPersistence.js|setItem": 2,
+  "components/storage/LocalStorageCommandPresentationPersistence.js|removeItem": 1,
+  "components/storage/LocalStorageKeyBrowserPersistence.js|setItem": 3,
   "components/storage/LocalStorageProjectRepository.js|setItem": 3,
-  "components/storage/LocalStorageSettingsRepository.js|removeItem": 1,
+  "components/storage/LocalStorageProjectRepository.js|removeItem": 3,
   "components/storage/LocalStorageSettingsRepository.js|setItem": 1,
-  "components/services/commandPresentationState.js|removeItem": 1,
-  "components/services/commandPresentationState.js|setItem": 2,
-  "components/services/keyBrowserViewState.js|setItem": 3,
-  "core/welcomeMessage.js|removeItem": 1,
-  "core/welcomeMessage.js|setItem": 2,
+  "components/storage/LocalStorageSettingsRepository.js|removeItem": 1,
+  "components/storage/LocalStorageVisitedStatePersistence.js|setItem": 2,
+  "components/storage/LocalStorageVisitedStatePersistence.js|removeItem": 1,
+  "components/storage/scopedLocalStorage.js|setItem": 1,
+  "components/storage/scopedLocalStorage.js|removeItem": 1,
 });
 
 export const unusedRepositoryScalarCallsites = Object.freeze({});
@@ -134,6 +136,10 @@ export const repositoryCandidateNames = Object.freeze([
   "SettingsRepository",
   "LocalStorageProjectRepository",
   "LocalStorageSettingsRepository",
+  "LocalStorageCommandPresentationPersistence",
+  "LocalStorageKeyBrowserPersistence",
+  "LocalStorageVisitedStatePersistence",
+  "LocalStorageDevelopmentFlagPersistence",
 ]);
 
 export const rpcComputationTopics = Object.freeze([
@@ -211,6 +217,18 @@ export const rpcActionTopics = Object.freeze([
 ]);
 
 export const expectedScalarCallsites = Object.freeze({
+  "components/storage/LocalStorageCommandPresentationPersistence.js|this.#storage|getItem|key": 1,
+  "components/storage/LocalStorageCommandPresentationPersistence.js|this.#storage|setItem|`${CATEGORY_PREFIX}${categoryId}${SUFFIX}`|String(collapsed)": 1,
+  'components/storage/LocalStorageCommandPresentationPersistence.js|this.#storage|setItem|key|"true"': 1,
+  "components/storage/LocalStorageCommandPresentationPersistence.js|this.#storage|removeItem|key": 1,
+  'components/storage/LocalStorageDevelopmentFlagPersistence.js|this.#storage|getItem|"dev-mode"': 1,
+  "components/storage/LocalStorageKeyBrowserPersistence.js|this.#storage|getItem|key": 1,
+  "components/storage/LocalStorageKeyBrowserPersistence.js|this.#storage|getItem|MODE_KEY": 1,
+  "components/storage/LocalStorageKeyBrowserPersistence.js|this.#storage|setItem|MODE_KEY|mode": 1,
+  "components/storage/LocalStorageKeyBrowserPersistence.js|this.#storage|setItem|this.#categoryKey(categoryId, mode)|String(collapsed)": 1,
+  "components/storage/LocalStorageKeyBrowserPersistence.js|this.#storage|setItem|`bindsetSection_${bindsetName}${SUFFIX}`|String(collapsed)": 1,
+  "components/storage/LocalStorageKeyBrowserPersistence.js|this.#storage|getItem|this.#categoryKey(categoryId, mode)": 1,
+  "components/storage/LocalStorageKeyBrowserPersistence.js|this.#storage|getItem|`bindsetSection_${bindsetName}${SUFFIX}`": 1,
   "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|ROOT_KEY": 4,
   "components/storage/LocalStorageProjectRepository.js|this.#storage|getItem|RESET_KEY": 2,
   "components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|BACKUP_KEY|backup": 1,
@@ -220,27 +238,16 @@ export const expectedScalarCallsites = Object.freeze({
   "components/storage/LocalStorageProjectRepository.js|this.#storage|removeItem|BACKUP_KEY": 1,
   'components/storage/LocalStorageProjectRepository.js|this.#storage|setItem|RESET_KEY|"true"': 1,
   "components/storage/LocalStorageSettingsRepository.js|this.#storage|getItem|SETTINGS_KEY": 3,
-  "components/storage/LocalStorageSettingsRepository.js|this.#storage|removeItem|SETTINGS_KEY": 1,
   "components/storage/LocalStorageSettingsRepository.js|this.#storage|setItem|SETTINGS_KEY|prepared.json": 1,
-  "components/services/commandPresentationState.js|storage|key|index": 1,
-  "components/services/commandPresentationState.js|storage|getItem|key": 2,
-  "components/services/commandPresentationState.js|storage|setItem|`${commandCategoryPrefix}${categoryId}${collapsedSuffix}`|String(isCollapsed)": 1,
-  'components/services/commandPresentationState.js|storage|setItem|key|"true"': 1,
-  "components/services/commandPresentationState.js|storage|removeItem|key": 1,
-  'components/services/dataCoordinatorInitialState.js|localStorage|getItem|"sto_keybind_manager_visited"': 1,
-  "components/services/keyBrowserViewState.js|storage|key|index": 1,
-  "components/services/keyBrowserViewState.js|storage|getItem|key": 1,
-  "components/services/keyBrowserViewState.js|storage|getItem|keyViewModeStorageKey": 1,
-  "components/services/keyBrowserViewState.js|storage|setItem|keyViewModeStorageKey|mode": 1,
-  "components/services/keyBrowserViewState.js|storage|getItem|categoryStorageKey(categoryId, mode)": 1,
-  "components/services/keyBrowserViewState.js|storage|setItem|categoryStorageKey(categoryId, mode)|String(isCollapsed)": 1,
-  "components/services/keyBrowserViewState.js|storage|getItem|`${bindsetPrefix}${bindsetName}${collapsedSuffix}`": 1,
-  "components/services/keyBrowserViewState.js|storage|setItem|`${bindsetPrefix}${bindsetName}${collapsedSuffix}`|String(isCollapsed)": 1,
-  "core/welcomeMessage.js|storage|getItem|VISITED_KEY": 2,
-  'core/welcomeMessage.js|storage|setItem|VISITED_KEY|"true"': 1,
-  "core/welcomeMessage.js|storage|removeItem|VISITED_KEY": 1,
-  "core/welcomeMessage.js|storage|setItem|VISITED_KEY|previousValue": 1,
-  'dev/DevMonitor.js|localStorage|getItem|"dev-mode"': 1,
+  "components/storage/LocalStorageSettingsRepository.js|this.#storage|removeItem|SETTINGS_KEY": 1,
+  "components/storage/LocalStorageVisitedStatePersistence.js|this.#storage|getItem|VISITED_KEY": 1,
+  'components/storage/LocalStorageVisitedStatePersistence.js|this.#storage|setItem|VISITED_KEY|"true"': 1,
+  "components/storage/LocalStorageVisitedStatePersistence.js|this.#storage|removeItem|VISITED_KEY": 1,
+  "components/storage/LocalStorageVisitedStatePersistence.js|this.#storage|setItem|VISITED_KEY|prior": 1,
+  "components/storage/scopedLocalStorage.js|this.#storage|key|index": 1,
+  "components/storage/scopedLocalStorage.js|this.#storage|getItem|key": 1,
+  "components/storage/scopedLocalStorage.js|this.#storage|setItem|key|value": 1,
+  "components/storage/scopedLocalStorage.js|this.#storage|removeItem|key": 1,
 });
 
 export const expectedIndexedDbCallsites = Object.freeze({

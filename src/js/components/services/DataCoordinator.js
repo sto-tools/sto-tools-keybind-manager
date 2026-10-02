@@ -161,10 +161,14 @@ const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
  * })
  */
 export default class DataCoordinator extends ComponentBase {
+  /** @type {import('../storage/VisitedStatePort.js').VisitedStatePort} */
+  #visitedState;
+
   /**
    * @param {{
    *   eventBus: import('./serviceTypes.js').EventBus,
    *   projectRepository: import('../../types/storage-contracts.js').ProjectRepositoryPort,
+   *   visitedState: import('../storage/VisitedStatePort.js').VisitedStatePort,
    *   i18n: import('./serviceTypes.js').I18n,
    *   defaultProfiles?: Record<string, unknown>
    * }} options
@@ -172,12 +176,14 @@ export default class DataCoordinator extends ComponentBase {
   constructor({
     eventBus,
     projectRepository,
+    visitedState,
     i18n,
     defaultProfiles = builtInDefaultProfiles,
   }) {
     super(eventBus);
     this.componentName = "DataCoordinator";
     this.projectRepository = projectRepository;
+    this.#visitedState = visitedState;
     /** @type {import('./dataCoordinatorProjectPersistence.js').CoordinatorProjectRoot | null} */
     this._projectRoot = null;
     /** @type {string | null} */
@@ -1004,6 +1010,11 @@ export default class DataCoordinator extends ComponentBase {
       console.error(`[${this.componentName}] Failed to reload state:`, error);
       return { success: false, error: errMsg(error) };
     }
+  }
+
+  /** @returns {boolean} */
+  _isFirstVisit() {
+    return !this.#visitedState.loadExact();
   }
 
   onDestroy() {

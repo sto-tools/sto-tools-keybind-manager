@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
@@ -68,6 +69,9 @@ function repository(storage) {
 
 async function start(eventBus, projectRepository) {
   const owner = new DataCoordinator({
+    visitedState: new LocalStorageVisitedStatePersistence({
+      storage: localStorage,
+    }),
     eventBus,
     projectRepository,
     i18n: { t: (key) => key },
@@ -279,6 +283,9 @@ describe("real project repository owner chain", () => {
     const bus = createEventBusFixture();
     buses.push(bus);
     const failedOwner = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: bus.eventBus,
       projectRepository,
       i18n: { t: (key) => key },
@@ -326,6 +333,9 @@ describe("real project repository owner chain", () => {
     bus.eventBus.on("storage:data-changed", () => {
       first.destroy();
       replacement = new DataCoordinator({
+        visitedState: new LocalStorageVisitedStatePersistence({
+          storage: localStorage,
+        }),
         eventBus: bus.eventBus,
         projectRepository,
         i18n: { t: (key) => key },

@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { createProjectSettingsRepository } from "../fixtures/services/projectRestore.js";
 import { createPreferencesState } from "../fixtures/core/componentState.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -83,6 +84,9 @@ describe("application reset settings activation", () => {
     ).toBe("committed");
 
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository,
       i18n,
@@ -269,6 +273,9 @@ describe("application reset settings activation", () => {
     coordinator.destroy();
     fixture.eventBusFixture.clearEventHistory();
     coordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: new LocalStorageProjectRepository({
         storage: localStorage,

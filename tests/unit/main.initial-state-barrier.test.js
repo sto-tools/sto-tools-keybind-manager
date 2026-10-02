@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { expectScalarBootstrap } from "../fixtures/ui/scalarCompositionAssertions.js";
 
 const bootstrap = vi.hoisted(() => {
   class ComponentStub {
@@ -211,6 +212,9 @@ vi.mock("../../src/js/app.js", () => ({
 vi.mock("../../src/js/dev/DevMonitor.js", () => ({
   default: {
     isDevelopment: true,
+    configureDevelopmentFlag(flag) {
+      bootstrap.developmentFlag = flag;
+    },
     configure(i18n) {
       bootstrap.devMonitorI18n = i18n;
       bootstrap.operations.push("dev-monitor:configure");
@@ -339,9 +343,7 @@ describe("main DataCoordinator startup barrier", () => {
         currentArtifactSerializer: bootstrap.currentArtifactSerializer,
       }),
     );
-    expect(bootstrap.dataCoordinator.options).toMatchObject({
-      projectRepository: bootstrap.projectRepository.instance,
-    });
+    expectScalarBootstrap(bootstrap);
     const { options: repositoryOptions } = bootstrap.projectRepository;
     expect(repositoryOptions).toMatchObject({
       version: "test-version",

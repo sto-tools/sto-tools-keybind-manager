@@ -10,7 +10,12 @@
  */
 
 class DevMonitor {
-  constructor() {
+  /** @type {import('../components/storage/DevelopmentFlagPort.js').DevelopmentFlagPort | null} */
+  #developmentFlag = null;
+
+  /** @param {import('../components/storage/DevelopmentFlagPort.js').DevelopmentFlagPort | null} developmentFlag */
+  constructor(developmentFlag = null) {
+    this.#developmentFlag = developmentFlag;
     this.isEnabled = false;
     this.i18nTracking = false;
     this.cssTracking = false;
@@ -51,6 +56,22 @@ class DevMonitor {
 
     // Safety check - only enable in development
     this.isDevelopment = this.checkDevelopmentMode();
+  }
+
+  /**
+   * Receive the read-only diagnostic flag from the composition root.
+   * The capability stays private even when the monitor is console-accessible.
+   *
+   * @param {import('../components/storage/DevelopmentFlagPort.js').DevelopmentFlagPort} developmentFlag
+   */
+  configureDevelopmentFlag(developmentFlag) {
+    this.#developmentFlag = developmentFlag;
+    this.isDevelopment = this.checkDevelopmentMode();
+    if (this.isDevelopment) {
+      window.devMonitor = this;
+    } else if (window.devMonitor === this) {
+      delete window.devMonitor;
+    }
   }
 
   /**
@@ -132,7 +153,7 @@ class DevMonitor {
       window.location.hostname === "127.0.0.1" ||
       window.location.protocol === "file:" ||
       window.location.search.includes("dev=true") ||
-      localStorage.getItem("dev-mode") === "true"
+      (this.#developmentFlag?.isEnabled() ?? false)
     );
   }
 

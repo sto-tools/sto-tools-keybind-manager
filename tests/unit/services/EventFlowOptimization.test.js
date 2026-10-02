@@ -6,6 +6,7 @@ import { createDataCoordinatorState } from "../../fixtures/core/componentState.j
 // Import the services we optimized
 import KeyService from "../../../src/js/components/services/KeyService.js";
 import KeyBrowserService from "../../../src/js/components/services/KeyBrowserService.js";
+import LocalStorageKeyBrowserPersistence from "../../../src/js/components/storage/LocalStorageKeyBrowserPersistence.js";
 
 describe("Phase 2.1: Event Flow Optimization - keys:changed Elimination", () => {
   let harness;
@@ -26,6 +27,9 @@ describe("Phase 2.1: Event Flow Optimization - keys:changed Elimination", () => 
     });
 
     keyBrowserService = new KeyBrowserService({
+      persistence: new LocalStorageKeyBrowserPersistence({
+        storage: localStorage,
+      }),
       storage: harness.storage,
       eventBus: harness.eventBus,
       ui: { showToast: () => {} },

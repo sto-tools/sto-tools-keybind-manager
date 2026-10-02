@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import CommandService from "../../src/js/components/services/CommandService.js";
@@ -54,6 +55,9 @@ describe("profile mutation owner-action cohorts", () => {
     localStorage.setItem("sto_keybind_manager_visited", "true");
     projectRepository = fixture.projectRepository;
     owner = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository,
       i18n,
@@ -256,6 +260,9 @@ describe("profile mutation owner-action cohorts", () => {
     vi.spyOn(projectRepository, "commit").mockImplementationOnce((...args) => {
       previous.destroy();
       owner = new DataCoordinator({
+        visitedState: new LocalStorageVisitedStatePersistence({
+          storage: localStorage,
+        }),
         eventBus: fixture.eventBus,
         projectRepository,
         i18n,
@@ -338,6 +345,9 @@ describe("profile mutation owner-action cohorts", () => {
       ) {
         previous.destroy();
         owner = new DataCoordinator({
+          visitedState: new LocalStorageVisitedStatePersistence({
+            storage: localStorage,
+          }),
           eventBus: fixture.eventBus,
           projectRepository,
           i18n,

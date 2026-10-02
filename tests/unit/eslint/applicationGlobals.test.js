@@ -50,6 +50,7 @@ describe("application-global compatibility metadata", () => {
   it("tracks only the deliberate development and diagnostic consumers", () => {
     expect(applicationGlobalAllowlist.devMonitor.consumers).toEqual([
       "development console",
+      "src/js/dev/DevMonitor.js",
       "tests/browser-setup.js",
       "tests/fixtures/ui/applicationRuntime.js",
     ]);

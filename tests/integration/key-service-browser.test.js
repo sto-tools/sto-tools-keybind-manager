@@ -2,6 +2,7 @@ import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { createRealServiceFixture } from "../fixtures";
 import KeyService from "../../src/js/components/services/KeyService.js";
 import KeyBrowserService from "../../src/js/components/services/KeyBrowserService.js";
+import LocalStorageKeyBrowserPersistence from "../../src/js/components/storage/LocalStorageKeyBrowserPersistence.js";
 import { respond } from "../../src/js/core/requestResponse.js";
 import { createDataCoordinatorState } from "../fixtures/core/componentState.js";
 
@@ -78,7 +79,12 @@ describe("Integration: KeyService ↔ KeyBrowserService", () => {
     // Instantiate services
     keyService = new KeyService({ eventBus, ui: { showToast: vi.fn() } });
     await keyService.init();
-    keyBrowserService = new KeyBrowserService({ eventBus });
+    keyBrowserService = new KeyBrowserService({
+      persistence: new LocalStorageKeyBrowserPersistence({
+        storage: localStorage,
+      }),
+      eventBus,
+    });
     await keyBrowserService.init();
 
     eventBus.emit("data:state-changed", {

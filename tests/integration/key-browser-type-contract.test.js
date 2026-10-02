@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import KeyBrowserService from "../../src/js/components/services/KeyBrowserService.js";
+import LocalStorageKeyBrowserPersistence from "../../src/js/components/storage/LocalStorageKeyBrowserPersistence.js";
 import KeyBrowserUI from "../../src/js/components/ui/KeyBrowserUI.js";
 import { createDataCoordinatorState } from "../fixtures/core/componentState.js";
 import { createServiceFixture } from "../fixtures/index.js";
@@ -31,7 +32,9 @@ describe("Key browser type categorization contract", () => {
     service = new KeyBrowserService({
       eventBus: fixture.eventBus,
       i18n: { t: (key) => key },
-      localStorage,
+      persistence: new LocalStorageKeyBrowserPersistence({
+        storage: localStorage,
+      }),
     });
     service.init();
     ui = new KeyBrowserUI({

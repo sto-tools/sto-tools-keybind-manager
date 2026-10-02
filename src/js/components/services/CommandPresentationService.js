@@ -7,8 +7,6 @@ import {
   isCommandGroupCollapsed,
   nextCommandPresentationAuthorityEpoch,
   readCommandPresentationState,
-  writeCommandCategoryCollapse,
-  writeCommandGroupCollapse,
 } from "./commandPresentationState.js";
 
 /**
@@ -17,17 +15,20 @@ import {
  * snapshot and use RPC only to request state transitions.
  */
 export default class CommandPresentationService extends ComponentBase {
+  /** @type {import('../storage/CommandPresentationPersistencePort.js').CommandPresentationPersistencePort} */
+  #persistence;
+
   /**
    * @param {{
    *   eventBus?: import('./serviceTypes.js').EventBus,
-   *   localStorage?: import('./commandPresentationState.js').CommandPresentationStorage
-   * }} [options]
+   *   persistence: import('../storage/CommandPresentationPersistencePort.js').CommandPresentationPersistencePort
+   * }} options
    */
-  constructor({ eventBus, localStorage = globalThis.localStorage } = {}) {
+  constructor({ eventBus, persistence }) {
     super(eventBus);
     this.componentName = "CommandPresentationService";
-    this.localStorage = localStorage;
-    this.presentationState = readCommandPresentationState(this.localStorage, {
+    this.#persistence = persistence;
+    this.presentationState = readCommandPresentationState(persistence.load(), {
       authorityEpoch: nextCommandPresentationAuthorityEpoch(),
       revision: 0,
     });
@@ -51,10 +52,13 @@ export default class CommandPresentationService extends ComponentBase {
   }
 
   onInit() {
-    this.presentationState = readCommandPresentationState(this.localStorage, {
-      authorityEpoch: nextCommandPresentationAuthorityEpoch(),
-      revision: 0,
-    });
+    this.presentationState = readCommandPresentationState(
+      this.#persistence.load(),
+      {
+        authorityEpoch: nextCommandPresentationAuthorityEpoch(),
+        revision: 0,
+      },
+    );
     this.setupRequestHandlers();
     this.publishState();
   }
@@ -89,7 +93,7 @@ export default class CommandPresentationService extends ComponentBase {
     );
     const publishedState = cloneCommandPresentationState(nextState);
 
-    writeCommandCategoryCollapse(this.localStorage, categoryId, isCollapsed);
+    this.#persistence.replaceCategory(categoryId, isCollapsed);
     this.presentationState = nextState;
     this.publishState(publishedState);
     return isCollapsed;
@@ -108,7 +112,7 @@ export default class CommandPresentationService extends ComponentBase {
     );
     const publishedState = cloneCommandPresentationState(nextState);
 
-    writeCommandGroupCollapse(this.localStorage, groupType, isCollapsed);
+    this.#persistence.replaceGroup(groupType, isCollapsed);
     this.presentationState = nextState;
     this.publishState(publishedState);
     return isCollapsed;

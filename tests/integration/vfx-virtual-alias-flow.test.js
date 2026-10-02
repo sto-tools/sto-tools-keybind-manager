@@ -1,7 +1,9 @@
+import LocalStorageVisitedStatePersistence from "../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import CommandLibraryService from "../../src/js/components/services/CommandLibraryService.js";
 import CommandPresentationService from "../../src/js/components/services/CommandPresentationService.js";
+import LocalStorageCommandPresentationPersistence from "../../src/js/components/storage/LocalStorageCommandPresentationPersistence.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import VFXManagerService from "../../src/js/components/services/VFXManagerService.js";
 import CommandLibraryUI from "../../src/js/components/ui/CommandLibraryUI.js";
@@ -85,7 +87,9 @@ describe("VFX virtual alias projection flow", () => {
   function initApplicationOwners() {
     commandPresentationService = new CommandPresentationService({
       eventBus: fixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageCommandPresentationPersistence({
+        storage: localStorage,
+      }),
     });
     vfxManagerService = new VFXManagerService(fixture.eventBus, i18n);
     commandLibraryService = new CommandLibraryService({
@@ -126,6 +130,9 @@ describe("VFX virtual alias projection flow", () => {
     });
 
     dataCoordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       i18n,
@@ -140,7 +147,9 @@ describe("VFX virtual alias projection flow", () => {
 
     commandPresentationService = new CommandPresentationService({
       eventBus: fixture.eventBus,
-      localStorage,
+      persistence: new LocalStorageCommandPresentationPersistence({
+        storage: localStorage,
+      }),
     });
     vfxManagerService = new VFXManagerService(fixture.eventBus, i18n);
     commandLibraryService = new CommandLibraryService({

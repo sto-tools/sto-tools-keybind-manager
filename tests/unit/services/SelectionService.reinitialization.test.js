@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
@@ -34,6 +35,9 @@ describe("SelectionService same-instance lifecycle on the real owner protocol", 
     });
     localStorage.setItem("sto_keybind_manager_visited", "true");
     owner = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: fixture.eventBus,
       projectRepository: fixture.projectRepository,
       i18n: { t: (key) => key },

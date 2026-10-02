@@ -7,12 +7,35 @@ import {
   isBindsetCollapsed,
   isKeyCategoryCollapsed,
   projectBindsetSections,
-  readNextBindsetCollapse,
-  readNextKeyCategoryCollapse,
   readKeyBrowserViewState,
-  writeBindsetCollapse,
-  writeKeyCategoryCollapse,
 } from "../../../src/js/components/services/keyBrowserViewState.js";
+import LocalStorageKeyBrowserPersistence from "../../../src/js/components/storage/LocalStorageKeyBrowserPersistence.js";
+
+function readNextKeyCategoryCollapse(storage, categoryId, mode = "command") {
+  const persistence = new LocalStorageKeyBrowserPersistence({ storage });
+  return Boolean(
+    categoryId && !persistence.isCategoryCollapsed(categoryId, mode),
+  );
+}
+function readNextBindsetCollapse(storage, name) {
+  const persistence = new LocalStorageKeyBrowserPersistence({ storage });
+  return Boolean(name && !persistence.isBindsetCollapsed(name));
+}
+function writeKeyCategoryCollapse(storage, categoryId, mode, collapsed) {
+  new LocalStorageKeyBrowserPersistence({ storage }).replaceCategory(
+    categoryId,
+    mode,
+    collapsed,
+  );
+  return Boolean(categoryId && collapsed);
+}
+function writeBindsetCollapse(storage, name, collapsed) {
+  new LocalStorageKeyBrowserPersistence({ storage }).replaceBindset(
+    name,
+    collapsed,
+  );
+  return Boolean(name && collapsed);
+}
 
 const createStorage = (initial = {}) => {
   const entries = new Map(
@@ -21,6 +44,7 @@ const createStorage = (initial = {}) => {
   return {
     getItem: vi.fn((key) => entries.get(key) ?? null),
     setItem: vi.fn((key, value) => entries.set(key, String(value))),
+    removeItem: vi.fn((key) => entries.delete(key)),
     key: vi.fn((index) => [...entries.keys()][index] ?? null),
     get length() {
       return entries.size;
@@ -37,7 +61,10 @@ const emptyState = ({ authorityEpoch = 1, revision = 0 } = {}) => ({
 });
 
 const readState = (storage, identity = { authorityEpoch: 7, revision: 0 }) =>
-  readKeyBrowserViewState(storage, identity);
+  readKeyBrowserViewState(
+    new LocalStorageKeyBrowserPersistence({ storage }).load(),
+    identity,
+  );
 
 const persistNextCategory = (storage, categoryId, mode) => {
   const next = readNextKeyCategoryCollapse(storage, categoryId, mode);

@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createServiceFixture } from "../../fixtures/index.js";
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
@@ -53,6 +54,9 @@ describe("DataCoordinator default profiles - selections propagation", () => {
     }));
     localStorage.setItem("sto_keybind_manager_visited", "true");
     dataCoordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus,
       projectRepository,
       defaultProfiles: defaultProfilesData,

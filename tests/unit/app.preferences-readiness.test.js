@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import STOToolsKeybindManager from "../../src/js/app.js";
+import { createScalarPersistence } from "../fixtures/ui/scalarPersistence.js";
 import eventBus from "../../src/js/core/eventBus.js";
 
 function deferred() {
@@ -42,6 +43,7 @@ function createAppHarness(preferencesReady) {
   const applyTranslations = vi.fn();
   const preferencesService = createComponentStub(preferencesReady);
   const app = new STOToolsKeybindManager({
+    ...createScalarPersistence(),
     i18n: { t: (key) => key },
     preferencesService,
     applicationDataResetTransitionRunner: vi.fn(),

@@ -4,8 +4,13 @@ import {
   applyNextKeyViewMode,
   decodeKeyViewMode,
   readKeyBrowserViewState,
-  writeKeyViewMode,
 } from "../../../src/js/components/services/keyBrowserViewState.js";
+import LocalStorageKeyBrowserPersistence from "../../../src/js/components/storage/LocalStorageKeyBrowserPersistence.js";
+
+function writeKeyViewMode(storage, mode) {
+  new LocalStorageKeyBrowserPersistence({ storage }).replaceMode(mode);
+  return mode;
+}
 
 const createStorage = (initial = {}) => {
   const entries = new Map(
@@ -14,6 +19,7 @@ const createStorage = (initial = {}) => {
   return {
     getItem: vi.fn((key) => entries.get(key) ?? null),
     setItem: vi.fn((key, value) => entries.set(key, String(value))),
+    removeItem: vi.fn((key) => entries.delete(key)),
     key: vi.fn((index) => [...entries.keys()][index] ?? null),
     get length() {
       return entries.size;
@@ -60,10 +66,13 @@ describe("keyBrowserViewState mode boundary", () => {
     );
 
     expect(
-      readKeyBrowserViewState(storage, {
-        authorityEpoch: 7,
-        revision: 0,
-      }).mode,
+      readKeyBrowserViewState(
+        new LocalStorageKeyBrowserPersistence({ storage }).load(),
+        {
+          authorityEpoch: 7,
+          revision: 0,
+        },
+      ).mode,
     ).toBe(expected);
     expect(storage.setItem).not.toHaveBeenCalled();
     expect(storage.getItem("keyViewMode")).toBe(raw ?? null);

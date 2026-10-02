@@ -1,3 +1,4 @@
+import LocalStorageVisitedStatePersistence from "../../../src/js/components/storage/LocalStorageVisitedStatePersistence.js";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createServiceFixture } from "../../fixtures/index.js";
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
@@ -50,6 +51,9 @@ describe("DataCoordinator Service", () => {
     };
 
     dataCoordinator = new DataCoordinator({
+      visitedState: new LocalStorageVisitedStatePersistence({
+        storage: localStorage,
+      }),
       eventBus: mockEventBus,
       projectRepository,
       i18n: mockI18n,
