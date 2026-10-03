@@ -18,7 +18,7 @@ import {
   resolveImportBindsetsEnabled,
 } from "./importProfileCommit.js";
 import {
-  importPreparedProject,
+  importPreparedProjectWithSettlement,
   importProjectWithPreferencesTransition,
 } from "./projectImportOrchestrator.js";
 import {
@@ -38,6 +38,7 @@ import {
   planKeybindTextImport,
 } from "./textProfileImportPlanner.js";
 import { getSnapshotProfile } from "./dataState.js";
+import { materializeMutationRequest } from "./mutationRequestBoundary.js";
 
 const VALID_STRATEGIES = ["merge_keep", "merge_overwrite", "overwrite_all"];
 
@@ -56,10 +57,11 @@ const getErrorMessage = (error) =>
   error instanceof Error ? error.message : String(error);
 
 export default class ImportService extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, replaceProjectFromImport?: ((projectData: import('../../types/data-contracts.js').CanonicalProjectData, options?: {persistImportedSettings?: import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences}) => Promise<unknown> | unknown) | null, i18n?: import('./serviceTypes.js').I18n, ui?: import('./serviceTypes.js').ToastUI, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null }} [options] */
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, replaceProjectFromImport?: ((projectData: import('../../types/data-contracts.js').CanonicalProjectData, options?: {persistImportedSettings?: import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences}) => Promise<unknown> | unknown) | null, replaceProjectFromImportWithSettlement?: import('../../types/storage-contracts.js').ImportedProjectOwnerCompletionAction | null, i18n?: import('./serviceTypes.js').I18n, ui?: import('./serviceTypes.js').ToastUI, runPreferencesTransition?: import('./PreferencesService.js').default['runExternalActivationTransition'] | null }} [options] */
   constructor({
     eventBus,
     replaceProjectFromImport = null,
+    replaceProjectFromImportWithSettlement = null,
     i18n,
     ui,
     runPreferencesTransition = null,
@@ -67,6 +69,8 @@ export default class ImportService extends ComponentBase {
     super(eventBus);
     this.componentName = "ImportService";
     this.replaceProjectFromImport = replaceProjectFromImport;
+    this.replaceProjectFromImportWithSettlement =
+      replaceProjectFromImportWithSettlement;
     this.i18n = i18n;
     this.ui = ui;
     this.runPreferencesTransition = runPreferencesTransition;
@@ -95,9 +99,16 @@ export default class ImportService extends ComponentBase {
       this.respond("import:kbf-file", (payload) =>
         dispatchProfileImportRequest(this, "kbf", payload),
       ),
-      this.respond("import:project-file", ({ content, options = {} }) =>
-        this.importProjectFile(content, options),
-      ),
+      this.respond("import:project-file", (payload) => {
+        const request = materializeMutationRequest(payload, [
+          "content",
+          "options",
+        ]);
+        return this.importProjectFile(
+          request.content,
+          request.options === undefined ? {} : request.options,
+        );
+      }),
       this.respond("parse-kbf-file", ({ content, environment }) =>
         this.parseKBFFile(content, environment),
       ),
@@ -504,10 +515,11 @@ export default class ImportService extends ComponentBase {
     prepared,
     persistImportedSettings,
   ) {
-    return importPreparedProject(
-      this.replaceProjectFromImport,
+    return importPreparedProjectWithSettlement(
+      this.replaceProjectFromImportWithSettlement,
       prepared,
       persistImportedSettings,
+      this.replaceProjectFromImport,
     );
   }
 

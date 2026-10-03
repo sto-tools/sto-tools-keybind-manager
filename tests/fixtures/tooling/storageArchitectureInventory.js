@@ -127,6 +127,7 @@ export const concreteAdapters = Object.freeze([
 export const scalarBoundaryFiles = Object.freeze([
   ...concreteAdapters.map((name) => `components/storage/${name}.js`),
   "components/storage/projectSchemaMigrationPersistence.js",
+  "components/storage/projectRepositoryReset.js",
   "components/storage/scopedLocalStorage.js",
 ]);
 
@@ -141,6 +142,11 @@ export const scalarWriterRoutes = Object.freeze({
   projectSchemaMigrationPersistence: Object.freeze({
     ROOT_KEY: ["sto_keybind_manager"],
     BACKUP_KEY: ["sto_keybind_manager_backup"],
+  }),
+  projectRepositoryReset: Object.freeze({
+    '"sto_keybind_manager"': ["sto_keybind_manager"],
+    '"sto_keybind_manager_backup"': ["sto_keybind_manager_backup"],
+    '"sto_app_reset"': ["sto_app_reset"],
   }),
   LocalStorageSettingsRepository: Object.freeze({
     SETTINGS_KEY: ["sto_keybind_settings"],

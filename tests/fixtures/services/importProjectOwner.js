@@ -1,5 +1,13 @@
 import { vi } from "vitest";
 
+/** Explicit completion capability for owner doubles with no publications. */
+export function createProjectImportOwnerCompletionAction(ownerAction) {
+  return vi.fn(async (...args) => ({
+    result: await ownerAction(...args),
+    settlement: Promise.resolve(),
+  }));
+}
+
 /**
  * Complete-root owner-action double for focused ImportService tests.
  * Validation precedes the optional settings stage and the single root write.

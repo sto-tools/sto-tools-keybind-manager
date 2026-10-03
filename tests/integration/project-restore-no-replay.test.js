@@ -86,6 +86,8 @@ describe("project restore no-replay boundary", () => {
       eventBus: eventBusFixture.eventBus,
       replaceProjectFromImport: (...args) =>
         coordinator.replaceProjectFromImport(...args),
+      replaceProjectFromImportWithSettlement: (...args) =>
+        coordinator.replaceProjectFromImportWithSettlement(...args),
     });
     projectManager = new ProjectManagementService({
       importProjectWithinPreferencesTransition: (...args) =>
@@ -173,7 +175,10 @@ describe("project restore no-replay boundary", () => {
       importer,
       "importProjectWithinPreferencesTransition",
     );
-    const ownerReplace = vi.spyOn(coordinator, "replaceProjectFromImport");
+    const ownerReplace = vi.spyOn(
+      coordinator,
+      "replaceProjectFromImportWithSettlement",
+    );
     const projectWrites = vi.spyOn(projectRepository, "commit");
 
     sync.stagePendingSyncDecision("import", null);

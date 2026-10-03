@@ -1,4 +1,10 @@
 import ComponentBase from "../ComponentBase.js";
+import { ScalarOwnerProtocol } from "./scalarOwnerProtocol.js";
+import {
+  materializeBindsetCollapseRequest,
+  materializeKeyCategoryRequest,
+  materializeScalarEmptyRequest,
+} from "./scalarMutationBoundary.js";
 import commandCategories from "../../data/commandCatalog.js";
 import { compareKeyNames, sortKeyNames } from "./keySorting.js";
 import {
@@ -24,6 +30,10 @@ import {
 export default class KeyBrowserService extends ComponentBase {
   /** @type {import('../storage/KeyBrowserPersistencePort.js').KeyBrowserPersistencePort} */
   #persistence;
+  /** @type {ScalarOwnerProtocol} */
+  #protocol;
+  /** @type {Promise<void>} */
+  initialStateReady = Promise.resolve();
 
   /**
    * @param {{
@@ -43,24 +53,44 @@ export default class KeyBrowserService extends ComponentBase {
     this.#persistence = persistence;
     // View persistence is required for availability; bootstrap scan
     // failures intentionally abort construction and lifecycle initialization.
-    this.viewState = readKeyBrowserViewState(persistence.load(), {
-      authorityEpoch: nextKeyBrowserAuthorityEpoch(),
-      revision: 0,
-    });
+    this.viewState = readKeyBrowserViewState(
+      {
+        mode: "grid",
+        collapsedCategories: { command: [], keyType: [] },
+        collapsedBindsets: [],
+      },
+      {
+        authorityEpoch: 0,
+        revision: 0,
+      },
+    );
 
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
 
-    this.setupRequestHandlers();
+    this.#protocol = new ScalarOwnerProtocol(
+      this,
+      this.componentName,
+      eventBus ?? persistence,
+    );
+    this.#hydrate();
   }
 
   setupRequestHandlers() {
-    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+    if (
+      !this.eventBus ||
+      !this.#protocol.ready ||
+      this._responseDetachFunctions.length > 0
+    )
+      return;
 
     this._responseDetachFunctions.push(
-      this.respond("bindset:toggle-collapse", ({ bindsetName }) =>
-        this.toggleBindsetCollapse(bindsetName),
-      ),
+      this.respond("bindset:toggle-collapse", (payload) => {
+        const bindsetName = materializeBindsetCollapseRequest(payload);
+        return this.#protocol.enqueue((assertCurrent) =>
+          this.#toggleBindsetCollapse(bindsetName, assertCurrent),
+        );
+      }),
       this.respond(
         "key:categorize-by-command",
         ({ keysWithCommands, allKeys }) =>
@@ -69,32 +99,61 @@ export default class KeyBrowserService extends ComponentBase {
       this.respond("key:categorize-by-type", ({ keysWithCommands, allKeys }) =>
         this.categorizeKeysByType(keysWithCommands, allKeys),
       ),
-      this.respond("key:cycle-view-mode", () => this.cycleKeyViewMode()),
-      this.respond("key:sort", ({ keys }) => this.sortKeys(keys)),
-      this.respond("key:toggle-category", ({ categoryId, mode }) =>
-        this.toggleKeyCategory(categoryId, mode),
+      this.respond(
+        "key:cycle-view-mode",
+        (/** @type {unknown} */ payload = undefined) => {
+          materializeScalarEmptyRequest(payload);
+          return this.#protocol.enqueue((assertCurrent) =>
+            this.#cycleKeyViewMode(assertCurrent),
+          );
+        },
       ),
+      this.respond("key:sort", ({ keys }) => this.sortKeys(keys)),
+      this.respond("key:toggle-category", (payload) => {
+        const { categoryId, mode } = materializeKeyCategoryRequest(payload);
+        return this.#protocol.enqueue((assertCurrent) =>
+          this.#toggleKeyCategory(categoryId, mode, assertCurrent),
+        );
+      }),
     );
   }
 
   onInit() {
-    this.setupRequestHandlers();
-    this.viewState = readKeyBrowserViewState(this.#persistence.load(), {
-      authorityEpoch: nextKeyBrowserAuthorityEpoch(),
-      revision: 0,
+    this.#hydrate(() => {
+      this.setupRequestHandlers();
+      this.setupEventListeners();
+      this.publishViewState();
     });
-    this.setupEventListeners();
-    this.publishViewState();
   }
 
   onDestroy() {
-    for (const detach of this._responseDetachFunctions) detach();
-    this._responseDetachFunctions = [];
+    this.#protocol.cancel();
+  }
+
+  /** @param {() => void} [afterLoad] */
+  #hydrate(afterLoad) {
+    const loading = this.#protocol.activate((assertCurrent) => {
+      const data = this.#persistence.load();
+      assertCurrent();
+      const nextState = readKeyBrowserViewState(data, {
+        authorityEpoch: nextKeyBrowserAuthorityEpoch(),
+        revision: 0,
+      });
+      assertCurrent();
+      this.viewState = nextState;
+    }, afterLoad);
+    this.initialStateReady = Promise.resolve(loading);
+    void this.initialStateReady.catch(() => undefined);
+  }
+
+  /** @param {{name?: string, replyTopic?: import('../../types/events/dynamic.js').ComponentReplyTopic}} registration */
+  _onComponentRegister(registration) {
+    if (this.#protocol.ready) super._onComponentRegister(registration);
   }
 
   /** @param {import('../../types/events/component-state.js').KeyBrowserViewStateSnapshot} [state] */
   publishViewState(state = this.getCurrentState()) {
-    this.emit("key-browser:state-changed", state);
+    return this.emit("key-browser:state-changed", state, { synchronous: true });
   }
 
   /** @returns {import('../../types/events/component-state.js').ComponentState<'KeyBrowserService'>} */
@@ -377,11 +436,20 @@ export default class KeyBrowserService extends ComponentBase {
   // Toggle category collapsed state
   /** @param {string} categoryId @param {string} [mode] */
   toggleKeyCategory(categoryId, mode = "command") {
-    if (!categoryId) return false;
+    const request = materializeKeyCategoryRequest({ categoryId, mode });
+    return this.#protocol.runDirect((assertCurrent) =>
+      this.#toggleKeyCategory(request.categoryId, request.mode, assertCurrent),
+    );
+  }
+
+  /** @param {string} categoryId @param {string} mode @param {() => void} assertCurrent */
+  #toggleKeyCategory(categoryId, mode, assertCurrent) {
+    if (!categoryId) return { result: false, settlement: null };
     const isCollapsed = !this.#persistence.isCategoryCollapsed(
       categoryId,
       mode,
     );
+    assertCurrent();
     const nextState = applyKeyCategoryCollapse(
       this.viewState,
       categoryId,
@@ -390,16 +458,28 @@ export default class KeyBrowserService extends ComponentBase {
     );
     const publishedState = cloneKeyBrowserViewState(nextState);
     this.#persistence.replaceCategory(categoryId, mode, isCollapsed);
+    assertCurrent();
     this.viewState = nextState;
-    this.publishViewState(publishedState);
-    return isCollapsed;
+    return {
+      result: isCollapsed,
+      settlement: this.publishViewState(publishedState),
+    };
   }
 
   // Toggle bindset collapsed state
   /** @param {string | undefined} bindsetName */
   toggleBindsetCollapse(bindsetName) {
-    if (!bindsetName) return false;
+    const safeName = materializeBindsetCollapseRequest({ bindsetName });
+    return this.#protocol.runDirect((assertCurrent) =>
+      this.#toggleBindsetCollapse(safeName, assertCurrent),
+    );
+  }
+
+  /** @param {string | undefined} bindsetName @param {() => void} assertCurrent */
+  #toggleBindsetCollapse(bindsetName, assertCurrent) {
+    if (!bindsetName) return { result: false, settlement: null };
     const isCollapsed = !this.#persistence.isBindsetCollapsed(bindsetName);
+    assertCurrent();
     const nextState = applyBindsetCollapse(
       this.viewState,
       bindsetName,
@@ -407,19 +487,31 @@ export default class KeyBrowserService extends ComponentBase {
     );
     const publishedState = cloneKeyBrowserViewState(nextState);
     this.#persistence.replaceBindset(bindsetName, isCollapsed);
+    assertCurrent();
     this.viewState = nextState;
-    this.publishViewState(publishedState);
-
-    return isCollapsed;
+    return {
+      result: isCollapsed,
+      settlement: this.publishViewState(publishedState),
+    };
   }
 
   /** @returns {import('../../types/events/base.js').KeyViewMode} */
   cycleKeyViewMode() {
+    return this.#protocol.runDirect((assertCurrent) =>
+      this.#cycleKeyViewMode(assertCurrent),
+    );
+  }
+
+  /** @param {() => void} assertCurrent */
+  #cycleKeyViewMode(assertCurrent) {
     const nextState = applyNextKeyViewMode(this.viewState);
     const publishedState = cloneKeyBrowserViewState(nextState);
     this.#persistence.replaceMode(nextState.mode);
+    assertCurrent();
     this.viewState = nextState;
-    this.publishViewState(publishedState);
-    return nextState.mode;
+    return {
+      result: nextState.mode,
+      settlement: this.publishViewState(publishedState),
+    };
   }
 }

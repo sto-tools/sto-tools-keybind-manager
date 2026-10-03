@@ -6,7 +6,10 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import ProjectManagementService from "../../../src/js/components/services/ProjectManagementService.js";
-import { createProjectImportOwnerAction } from "../../fixtures/services/importProjectOwner.js";
+import {
+  createProjectImportOwnerAction,
+  createProjectImportOwnerCompletionAction,
+} from "../../fixtures/services/importProjectOwner.js";
 import {
   createCurrentArtifactSerializerFixture,
   createServiceFixture,
@@ -97,6 +100,10 @@ describe("project backup and import profile contract", () => {
         preferences.runExternalActivationTransition(source, operation),
       eventBus: destination.eventBus,
       replaceProjectFromImport: createProjectImportOwnerAction(destination),
+      replaceProjectFromImportWithSettlement:
+        createProjectImportOwnerCompletionAction(
+          createProjectImportOwnerAction(destination),
+        ),
     });
     services.push(producer, consumer);
     producer.init();

@@ -1,5 +1,9 @@
 import ComponentBase from "../ComponentBase.js";
 import { getSnapshotUserAliases } from "./dataState.js";
+import {
+  materializeMutationRequest,
+  requireMutationString,
+} from "./mutationRequestBoundary.js";
 
 /**
  * AliasBrowserService – source-of-truth for alias CRUD & selection.
@@ -21,15 +25,19 @@ export default class AliasBrowserService extends ComponentBase {
     if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
 
     this._responseDetachFunctions.push(
-      this.respond(
-        "alias-browser:create",
-        (
-          {
-            name,
-            description = "",
-          } = /** @type {{ name?: string, description?: string }} */ ({}),
-        ) => this.createAlias(name, description),
-      ),
+      this.respond("alias-browser:create", (payload) => {
+        const request = materializeMutationRequest(
+          payload === undefined ? {} : payload,
+          ["name", "description"],
+        );
+        return this.createAlias(
+          requireMutationString(request.name, { optional: true }),
+          requireMutationString(
+            request.description === undefined ? "" : request.description,
+            { allowEmpty: true },
+          ),
+        );
+      }),
     );
   }
 

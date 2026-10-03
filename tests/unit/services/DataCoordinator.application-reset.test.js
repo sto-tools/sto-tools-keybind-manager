@@ -155,6 +155,7 @@ describe("DataCoordinator application reset owner action", () => {
   it.each([
     {
       stage: "rootClear",
+      expectedDurability: "indeterminate",
       repositoryResult: {
         status: "reset_failed",
         rootRemoval: indeterminate(),
@@ -173,6 +174,7 @@ describe("DataCoordinator application reset owner action", () => {
     },
     {
       stage: "backupClear",
+      expectedDurability: true,
       repositoryResult: {
         status: "reset_failed",
         rootRemoval: acknowledged(),
@@ -191,6 +193,7 @@ describe("DataCoordinator application reset owner action", () => {
     },
     {
       stage: "resetSentinel",
+      expectedDurability: true,
       repositoryResult: {
         status: "reset_failed",
         rootRemoval: acknowledged(),
@@ -209,7 +212,12 @@ describe("DataCoordinator application reset owner action", () => {
     },
   ])(
     "translates an exact $stage repository failure receipt",
-    async ({ stage, repositoryResult, expectedReceipt }) => {
+    async ({
+      stage,
+      repositoryResult,
+      expectedReceipt,
+      expectedDurability,
+    }) => {
       projectRepository.reset.mockReturnValueOnce(repositoryResult);
       const stateBefore = coordinator.getCurrentState();
 
@@ -219,7 +227,7 @@ describe("DataCoordinator application reset owner action", () => {
         success: false,
         error: "storage_write_failed",
         stage,
-        durable: "indeterminate",
+        durable: expectedDurability,
         params: { reason: "storage_write_failed" },
         receipt: {
           ...expectedReceipt,

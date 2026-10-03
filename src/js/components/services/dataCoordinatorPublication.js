@@ -51,7 +51,7 @@ export function publishCurrentCoordinatorProfile(
     coordinator.state.profiles[profileId],
     coordinator.state.currentEnvironment,
   );
-  return coordinator.emit(
+  const settled = coordinator.emit(
     "profile:switched",
     {
       fromProfile,
@@ -63,6 +63,8 @@ export function publishCurrentCoordinatorProfile(
     },
     { synchronous: true },
   );
+  recordDataCoordinatorPublication(coordinator, settled);
+  return settled;
 }
 
 /**
@@ -94,18 +96,18 @@ export function publishReloadedCoordinatorState(coordinator, operation) {
     coordinator._assertCurrentOperation(operation);
   }
 
-  publications.push(
-    coordinator.emit(
-      "environment:changed",
-      {
-        fromEnvironment: null,
-        toEnvironment: coordinator.state.currentEnvironment,
-        environment: coordinator.state.currentEnvironment,
-        timestamp: Date.now(),
-      },
-      { synchronous: true },
-    ),
+  const environmentPublication = coordinator.emit(
+    "environment:changed",
+    {
+      fromEnvironment: null,
+      toEnvironment: coordinator.state.currentEnvironment,
+      environment: coordinator.state.currentEnvironment,
+      timestamp: Date.now(),
+    },
+    { synchronous: true },
   );
+  publications.push(environmentPublication);
+  recordDataCoordinatorPublication(coordinator, environmentPublication);
 
   return Promise.all(publications);
 }

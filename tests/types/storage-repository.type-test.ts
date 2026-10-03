@@ -129,3 +129,72 @@ const contradictory: SettingsWriteResult = {
   verification: { status: "not_attempted" },
 };
 void contradictory;
+
+// Imported project split completion is private owner wiring, not an RPC payload.
+declare const ordinaryImport: import("../../src/js/types/storage-contracts.js").ImportedProjectOwnerAction;
+declare const completedImport: import("../../src/js/types/storage-contracts.js").ImportedProjectOwnerCompletionAction;
+declare const importedOwnerResult: import("../../src/js/types/storage-contracts.js").ImportedProjectOwnerResult;
+completedImport({}).then((completion) => {
+  completion.result satisfies import("../../src/js/types/storage-contracts.js").ImportedProjectOwnerResult;
+  completion.settlement satisfies Promise<void>;
+});
+// @ts-expect-error Ordinary listener-settled owner replies cannot enter a leased completion slot.
+const missingCompletionCapability: typeof completedImport = ordinaryImport;
+// @ts-expect-error A completion must carry its independently awaited settlement.
+const missingSettlement: import("../../src/js/types/storage-contracts.js").OwnerActionCompletion<
+  typeof importedOwnerResult
+> = { result: importedOwnerResult };
+const invalidSettlement: import("../../src/js/types/storage-contracts.js").OwnerActionCompletion<
+  typeof importedOwnerResult
+> = {
+  result: importedOwnerResult,
+  // @ts-expect-error Settlement is asynchronous completion, not a boolean acknowledgement.
+  settlement: true,
+};
+void missingCompletionCapability;
+void missingSettlement;
+void invalidSettlement;
+declare const publicProjectImport: import("../../src/js/types/rpc/import-export.js").ProjectImportResult;
+// @ts-expect-error Private listener completion is not a public import reply field.
+publicProjectImport.settlement;
+declare const publicProjectRestore: import("../../src/js/types/rpc/application.js").ProjectRestoreResult;
+// @ts-expect-error Private listener completion is not a public restore reply field.
+publicProjectRestore.settlement;
+
+// Reset checkpoints are opaque internal identities, never caller receipts.
+declare const projectResetCheckpoint: import("../../src/js/types/storage-contracts.js").ProjectResetCheckpoint;
+declare const applicationResetCheckpoint: import("../../src/js/types/storage-contracts.js").ApplicationResetCheckpoint;
+project.reset(projectResetCheckpoint);
+// @ts-expect-error Empty caller objects are not repository reset identities.
+project.reset({});
+project.reset({
+  // @ts-expect-error A claimed durable receipt cannot forge a reset identity.
+  rootRemoval: { status: "acknowledged" },
+  backupRemoval: { status: "acknowledged" },
+  sentinelWrite: { status: "acknowledged" },
+});
+// @ts-expect-error Empty caller objects are not application reset identities.
+const forgedApplicationReset: typeof applicationResetCheckpoint = {};
+// @ts-expect-error A repository token cannot enter the application saga slot.
+const wrongResetDomain: typeof applicationResetCheckpoint =
+  projectResetCheckpoint;
+void forgedApplicationReset;
+void wrongResetDomain;
+// @ts-expect-error Later stages cannot be acknowledged before root removal is attempted.
+const unorderedReset: import("../../src/js/types/storage-contracts.js").ProjectResetResult =
+  {
+    status: "reset_failed",
+    rootRemoval: { status: "not_attempted" },
+    backupRemoval: { status: "acknowledged" },
+    sentinelWrite: { status: "not_attempted" },
+  };
+// @ts-expect-error An all-complete failed reset requires explicit retry verification/read failure.
+const unexplainedCompletedReset: import("../../src/js/types/storage-contracts.js").ProjectResetResult =
+  {
+    status: "reset_failed",
+    rootRemoval: { status: "acknowledged" },
+    backupRemoval: { status: "acknowledged" },
+    sentinelWrite: { status: "verified" },
+  };
+void unorderedReset;
+void unexplainedCompletedReset;

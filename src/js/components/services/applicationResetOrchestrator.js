@@ -1,21 +1,25 @@
 import { isDataRecord } from "./jsonDataBoundary.js";
 import { materializeMutationRequest } from "./mutationRequestBoundary.js";
 import { durableStage } from "./storageWorkflowReceipt.js";
+import { applicationResetCheckpointState } from "./applicationResetCheckpoint.js";
 
 /** @typedef {Extract<import('../../types/rpc/application.js').ApplicationResetResult, {success: false}>} ApplicationResetFailure */
 /** @typedef {ApplicationResetFailure['stage']} ApplicationResetStage */
 
-const PROJECT_PERSISTENCE_FIELDS = Object.freeze([
-  "rootClear",
-  "backupClear",
-  "resetSentinel",
-]);
-const DATA_ADOPTION_FIELDS = Object.freeze(["dataOwnerAdoption"]);
-const PREFERENCES_RECEIPT_FIELDS = Object.freeze([
-  "settingsClear",
-  "settingsDefaults",
-  "preferencesOwnerAdoption",
-]);
+const PROJECT_PERSISTENCE_FIELDS = Object.freeze(
+  /** @type {const} */ (["rootClear", "backupClear", "resetSentinel"]),
+);
+const DATA_ADOPTION_FIELDS = Object.freeze(
+  /** @type {const} */ (["dataOwnerAdoption"]),
+);
+const PREFERENCES_RECEIPT_FIELDS = Object.freeze(
+  /** @type {const} */ ([
+    "settingsClear",
+    "settingsDefaults",
+    "preferencesOwnerAdoption",
+  ]),
+);
+/** @type {readonly (keyof import('../../types/rpc/application.js').ApplicationResetReceipt)[]} */
 const RESET_RECEIPT_FIELDS = Object.freeze([
   "validation",
   ...PROJECT_PERSISTENCE_FIELDS,
@@ -171,7 +175,7 @@ function invalidReceipt() {
 }
 
 /**
- * @param {Record<string, ReturnType<typeof durableStage>>} receipt
+ * @param {import('../../types/rpc/application.js').ApplicationResetReceipt} receipt
  * @returns {import('../../types/rpc/application.js').ApplicationResetReceipt}
  */
 function freezeReceipt(receipt) {
@@ -186,7 +190,7 @@ function freezeReceipt(receipt) {
   );
 }
 
-/** @param {Record<string, ReturnType<typeof durableStage>>} receipt */
+/** @param {import('../../types/rpc/application.js').ApplicationResetReceipt} receipt */
 function resetDurability(receipt) {
   const stages = RESET_RECEIPT_FIELDS.filter(
     (field) => field !== "validation",
@@ -199,7 +203,7 @@ function resetDurability(receipt) {
 }
 
 /**
- * @param {Record<string, ReturnType<typeof durableStage>>} receipt
+ * @param {import('../../types/rpc/application.js').ApplicationResetReceipt} receipt
  * @param {ApplicationResetStage} stage
  * @param {boolean | 'indeterminate'} durable
  * @param {string} reason
@@ -237,6 +241,9 @@ function safeFailureReason(error) {
  *
  * @param {{
  *   payload: unknown,
+ *   checkpoint?: import('../../types/storage-contracts.js').ApplicationResetCheckpoint,
+ *   recordWorkCompletion?: (result: import('../../types/rpc/application.js').ApplicationResetResult) => void,
+ *   recordWorkFailure?: (error: unknown) => void,
  *   runPreferencesResetTransition: import('../../types/storage-contracts.js').ApplicationPreferencesResetTransitionRunner | null | undefined,
  *   runDataResetTransition: import('../../types/storage-contracts.js').ApplicationDataResetTransitionRunner | null | undefined
  * }} options
@@ -244,6 +251,9 @@ function safeFailureReason(error) {
  */
 export async function orchestrateApplicationReset({
   payload,
+  checkpoint,
+  recordWorkCompletion,
+  recordWorkFailure,
   runPreferencesResetTransition,
   runDataResetTransition,
 }) {
@@ -259,7 +269,10 @@ export async function orchestrateApplicationReset({
     );
   }
 
-  const receipt = createPendingReceipt();
+  const saga = applicationResetCheckpointState(checkpoint);
+  const receipt = saga?.receipt
+    ? structuredClone(saga.receipt)
+    : createPendingReceipt();
   if (
     typeof runPreferencesResetTransition !== "function" ||
     typeof runDataResetTransition !== "function"
@@ -301,10 +314,14 @@ export async function orchestrateApplicationReset({
           preferencesCapabilities,
           "resetPreferences",
         );
-        const assertPreferencesActive = ownDataValue(
+        const assertPreferencesOwnerActive = ownDataValue(
           preferencesCapabilities,
           "assertActive",
         );
+        const assertPreferencesActive = () => {
+          if (saga && !saga.active) throw new Error("operation_cancelled");
+          assertPreferencesOwnerActive();
+        };
 
         assertPreferencesActive();
         const dataTransitionValue = await runDataResetTransition(
@@ -336,10 +353,14 @@ export async function orchestrateApplicationReset({
               dataCapabilities,
               "adoptEmptyProject",
             );
-            const assertDataActive = ownDataValue(
+            const assertDataOwnerActive = ownDataValue(
               dataCapabilities,
               "assertActive",
             );
+            const assertDataActive = () => {
+              if (saga && !saga.active) throw new Error("operation_cancelled");
+              assertDataOwnerActive();
+            };
             const requireDataActiveAfterPersistence = () => {
               try {
                 assertDataActive();
@@ -453,6 +474,7 @@ export async function orchestrateApplicationReset({
             callbackOutcome = { success: true };
             return callbackOutcome;
           },
+          checkpoint,
         );
         const dataTransitionAction = materializeTransitionAction(
           dataTransitionValue,
@@ -473,6 +495,7 @@ export async function orchestrateApplicationReset({
         });
         return callbackOutcome;
       },
+      checkpoint,
     );
 
     if (transitionOutcome !== callbackOutcome || !callbackOutcome) {
@@ -492,12 +515,30 @@ export async function orchestrateApplicationReset({
     );
   }
 
-  // Owner queues are released before consumer settlement is awaited. This
-  // keeps listener latency outside the exclusive cross-domain transition while
-  // still withholding the action acknowledgement until all publications end.
+  // Both owner leases are released and the complete business outcome is fixed.
+  // A coalesced action starts no publications and must not inherit this action's
+  // listener wait: a required listener may itself await that coalesced action.
+  /** @type {{result: import('../../types/rpc/application.js').ApplicationResetResult} | {exceptional: unknown}} */
+  let workOutcome;
+  try {
+    if (saga) saga.receipt = structuredClone(freezeReceipt(receipt));
+    const result = callbackOutcome.success
+      ? Object.freeze({ success: true, receipt: freezeReceipt(receipt) })
+      : callbackOutcome;
+    workOutcome = { result };
+    recordWorkCompletion?.(result);
+  } catch (error) {
+    // Reject joiners now so a listener awaiting one can drain. The initiating
+    // action must still await its own started publications before rethrowing.
+    workOutcome = { exceptional: error };
+    recordWorkFailure?.(error);
+  }
+  // The initiating action still awaits every required publication it started.
   const settlementResults = await Promise.allSettled(
     settlements.map(({ settlement }) => settlement),
   );
+  // Property discrimination preserves even thrown null/undefined values.
+  if ("exceptional" in workOutcome) throw workOutcome.exceptional;
   const rejectedIndex = settlementResults.findIndex(
     ({ status }) => status === "rejected",
   );
@@ -510,6 +551,5 @@ export async function orchestrateApplicationReset({
     );
   }
 
-  if (!callbackOutcome.success) return callbackOutcome;
-  return Object.freeze({ success: true, receipt: freezeReceipt(receipt) });
+  return workOutcome.result;
 }

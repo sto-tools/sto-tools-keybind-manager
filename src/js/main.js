@@ -325,6 +325,14 @@ const dataService = new DataService({
         "restore",
         dataCoordinator.replaceProjectFromImport.bind(dataCoordinator),
       ),
+      importedProjectOwnerCompletionAction:
+        storageDiagnostics.observeWorkflowAction(
+          "project",
+          "restore",
+          dataCoordinator.replaceProjectFromImportWithSettlement.bind(
+            dataCoordinator,
+          ),
+        ),
       importedProjectActivationAction: storageDiagnostics.observeWorkflowAction(
         "project",
         "activation",

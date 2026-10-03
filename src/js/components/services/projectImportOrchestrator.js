@@ -1,6 +1,7 @@
 import { classifyPreferencesActivationResult } from "./preferencesActivationResult.js";
 import { decodeProjectJson } from "./importJsonBoundary.js";
 import { isDataRecord } from "./jsonDataBoundary.js";
+import { settleOwnerPublications } from "./ownerPublicationSettlement.js";
 
 const preparedImports = new WeakSet();
 const projectImportContexts = new WeakMap();
@@ -76,7 +77,9 @@ export function prepareProjectImport(content, options = {}) {
   return prepared;
 }
 
-/** @param {unknown} value */
+/** @param {unknown} value
+ * @returns {value is Extract<ReturnType<typeof prepareProjectImport>, {success: true}>}
+ */
 function isPreparedProjectImport(value) {
   return (
     typeof value === "object" &&
@@ -88,20 +91,25 @@ function isPreparedProjectImport(value) {
 /**
  * @param {'settings' | 'project'} operation
  * @param {boolean} settingsCommitted
+ * @param {boolean} [projectCommitted]
  * @returns {Extract<import('../../types/rpc/import-export.js').ProjectImportResult, { success: false, error: 'storage_write_failed' }>}
  */
-function storageFailure(operation, settingsCommitted) {
+function storageFailure(
+  operation,
+  settingsCommitted,
+  projectCommitted = false,
+) {
   return {
     success: false,
     error: "storage_write_failed",
     params: { operation },
-    partial: settingsCommitted,
+    partial: settingsCommitted || projectCommitted,
     committed: {
       // Imported profiles are now one complete-root owner action. They are
       // never separately acknowledged as durable stages.
       profiles: [],
       settings: settingsCommitted,
-      project: false,
+      project: projectCommitted,
     },
   };
 }
@@ -188,7 +196,7 @@ function ownerFailureStage(result) {
  * @param {import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences} [persistImportedSettings]
  * @returns {Promise<unknown>}
  */
-export async function importPreparedProject(
+async function importPreparedProject(
   replaceProjectFromImport,
   prepared,
   persistImportedSettings,
@@ -302,7 +310,7 @@ export async function importPreparedProject(
             ? /** @type {const} */ ("pending")
             : /** @type {const} */ ("not-required"),
         },
-        publicFailure: storageFailure("project", acknowledgedSettings),
+        publicFailure: storageFailure("project", acknowledgedSettings, true),
       };
       const receipt = Object.getOwnPropertyDescriptor(result, "receipt");
       projectImportContexts.set(marker, {
@@ -373,8 +381,78 @@ export async function importPreparedProject(
 }
 
 /**
+ * Only the explicit completion capability is safe inside a Preferences lease;
+ * an ordinary owner reply may already be waiting for a listener that needs it.
+ * @param {import('../../types/storage-contracts.js').ImportedProjectOwnerCompletionAction | null | undefined} ownerAction
+ * @param {unknown} prepared
+ * @param {import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences} [persistImportedSettings]
+ * @param {Parameters<typeof importPreparedProject>[0]} [ordinaryOwnerAction]
+ * @returns {Promise<{result: unknown, settlement: Promise<void>}>}
+ */
+export async function importPreparedProjectWithSettlement(
+  ownerAction,
+  prepared,
+  persistImportedSettings,
+  ordinaryOwnerAction,
+) {
+  if (
+    isPreparedProjectImport(prepared) &&
+    prepared.importSettings === false &&
+    !ownerAction
+  ) {
+    return {
+      result: await importPreparedProject(ordinaryOwnerAction, prepared),
+      settlement: Promise.resolve(),
+    };
+  }
+  /** @type {PromiseLike<unknown>[]} */
+  const publications = [];
+  const result = await importPreparedProject(
+    ownerAction
+      ? async (project, options) => {
+          const completion = await ownerAction(project, options);
+          const accepted = materializeProjectImportCompletion(completion);
+          publications.push(accepted.settlement);
+          return accepted.result;
+        }
+      : null,
+    prepared,
+    persistImportedSettings,
+  );
+  return { result, settlement: settleOwnerPublications(publications) };
+}
+
+/** Preserve the private projected outcome's identity, including retry markers.
+ * @param {unknown} value
+ * @returns {{result: unknown, settlement: Promise<void>}}
+ */
+export function materializeProjectImportCompletion(value) {
+  if (!isDataRecord(value))
+    throw new TypeError("invalid_project_import_completion");
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const keys = Reflect.ownKeys(descriptors);
+  if (
+    keys.length !== 2 ||
+    !keys.includes("result") ||
+    !keys.includes("settlement") ||
+    !descriptors.result.enumerable ||
+    !descriptors.settlement.enumerable ||
+    !("value" in descriptors.result) ||
+    !("value" in descriptors.settlement) ||
+    !(descriptors.settlement.value instanceof Promise)
+  ) {
+    throw new TypeError("invalid_project_import_completion");
+  }
+  const settlement = /** @type {Promise<void>} */ (
+    descriptors.settlement.value
+  );
+  void settlement.catch(() => undefined);
+  return { result: descriptors.result.value, settlement };
+}
+
+/**
  * Public imports acquire their own Preferences transition only when portable
- * settings are selected. Restore calls `importPreparedProject` from inside its
+ * settings are selected. Restore uses the explicit completion path inside its
  * already-held transition.
  * @param {import("./ImportService.js").default} service
  * @param {unknown} content
@@ -404,6 +482,9 @@ export async function importProjectWithPreferencesTransition(
   if (!service.runPreferencesTransition) {
     return storageFailure("settings", false);
   }
+  if (!service.replaceProjectFromImportWithSettlement) {
+    return { success: false, error: "storage_not_available" };
+  }
 
   /** @type {Extract<import('../../types/rpc/import-export.js').ProjectImportResult, { success: true }> | undefined} */
   let persisted;
@@ -422,8 +503,10 @@ export async function importProjectWithPreferencesTransition(
         }
       : storageFailure("settings", false);
 
+  /** @type {PromiseLike<unknown>[]} */
+  const publications = [];
   try {
-    return await service.runPreferencesTransition(
+    const outcome = await service.runPreferencesTransition(
       "project-restore",
       async (
         activatePersistedSettings,
@@ -431,10 +514,14 @@ export async function importProjectWithPreferencesTransition(
         persistImportedSettings,
       ) => {
         assertActive?.();
-        const result = await service.importProjectWithinPreferencesTransition(
-          prepared,
-          persistImportedSettings,
+        const completion = materializeProjectImportCompletion(
+          await service.importProjectWithinPreferencesTransition(
+            prepared,
+            persistImportedSettings,
+          ),
         );
+        publications.push(completion.settlement);
+        const result = completion.result;
         const pendingActivation = materializePendingProjectActivation(result);
         if (pendingActivation) return pendingActivation.publicFailure;
         const publicResult =
@@ -460,7 +547,10 @@ export async function importProjectWithPreferencesTransition(
         return publicResult;
       },
     );
+    await settleOwnerPublications(publications);
+    return outcome;
   } catch (error) {
+    await settleOwnerPublications(publications);
     if (importOutcome?.success === false) return importOutcome;
     return activationFailure(
       error instanceof Error ? error.message : String(error),

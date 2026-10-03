@@ -288,6 +288,7 @@ export const expectedProfileMutationDependencies = Object.freeze({
   "components/services/ImportService.js|static|./kbfDataBoundary.js": 1,
   "components/services/ImportService.js|static|./kbfImportPlanner.js": 1,
   "components/services/ImportService.js|static|./kbfPreviewProjection.js": 1,
+  "components/services/ImportService.js|static|./mutationRequestBoundary.js": 1,
   "components/services/ImportService.js|static|./textImportMaterializer.js": 1,
   "components/services/ImportService.js|static|./textProfileImportPlanner.js": 1,
   "components/services/InterfaceModeService.js|static|../ComponentBase.js": 1,

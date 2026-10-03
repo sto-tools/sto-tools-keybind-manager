@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createImportPreferencesOwner } from "../../fixtures/services/projectRestore.js";
-import { createProjectImportOwnerAction } from "../../fixtures/services/importProjectOwner.js";
+import {
+  createProjectImportOwnerAction,
+  createProjectImportOwnerCompletionAction,
+} from "../../fixtures/services/importProjectOwner.js";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { createImportServiceFixture } from "../../fixtures/index.js";
 
@@ -33,6 +36,8 @@ describe("ImportService complete-root project import persistence", () => {
         preferences.runExternalActivationTransition(source, operation),
       eventBus: fixture.eventBus,
       replaceProjectFromImport,
+      replaceProjectFromImportWithSettlement:
+        createProjectImportOwnerCompletionAction(replaceProjectFromImport),
     });
     service.init();
   });

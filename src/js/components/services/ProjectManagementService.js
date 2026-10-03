@@ -1,11 +1,15 @@
 import ComponentBase from "../ComponentBase.js";
+import { MAX_PROJECT_JSON_BYTES } from "./jsonDataBoundary.js";
 import {
-  hasOwnDataField,
-  isDataRecord,
-  MAX_PROJECT_JSON_BYTES,
-} from "./jsonDataBoundary.js";
+  decodeRestoreRequest,
+  invalidRestoreRequest,
+} from "./projectRestoreRequestBoundary.js";
 import { classifyProjectRestoreResult } from "./projectRestoreResult.js";
-import { prepareProjectImport } from "./projectImportOrchestrator.js";
+import {
+  prepareProjectImport,
+  materializeProjectImportCompletion,
+} from "./projectImportOrchestrator.js";
+import { settleOwnerPublications } from "./ownerPublicationSettlement.js";
 import {
   materializeProjectRestoreOutcome,
   resumeProjectRestoreActivation,
@@ -22,64 +26,6 @@ function getMalformedRestoreReason(i18n) {
   const error =
     i18n?.t("failed_to_load_profile_data") ?? "failed_to_load_profile_data";
   return i18n?.t("import_failed", { error }) ?? "import_failed";
-}
-
-/**
- * @param {string} path
- * @returns {{ success: false, error: 'invalid_project_file', params: { path: string } }}
- */
-function invalidRestoreRequest(path) {
-  return {
-    success: false,
-    error: "invalid_project_file",
-    params: { path },
-  };
-}
-
-/**
- * Decode the public RPC envelope without invoking inherited or accessor code.
- * @param {unknown} payload
- * @returns {{ success: true, content: string, fileName: string | undefined } | ReturnType<typeof invalidRestoreRequest>}
- */
-function decodeRestoreRequest(payload) {
-  /** @type {Record<string, unknown>} */
-  let record;
-  /** @type {string} */
-  let content;
-  try {
-    if (!isDataRecord(payload) || !hasOwnDataField(payload, "content")) {
-      return invalidRestoreRequest("$");
-    }
-    const descriptor = Object.getOwnPropertyDescriptor(payload, "content");
-    if (
-      !descriptor ||
-      !("value" in descriptor) ||
-      typeof descriptor.value !== "string"
-    ) {
-      return invalidRestoreRequest("$");
-    }
-    record = payload;
-    content = descriptor.value;
-  } catch {
-    return invalidRestoreRequest("$");
-  }
-
-  try {
-    if (!hasOwnDataField(record, "fileName")) {
-      return { success: true, content, fileName: undefined };
-    }
-    const descriptor = Object.getOwnPropertyDescriptor(record, "fileName");
-    if (!descriptor || !("value" in descriptor)) {
-      return invalidRestoreRequest("$.fileName");
-    }
-    const fileName = descriptor.value;
-    if (fileName !== undefined && typeof fileName !== "string") {
-      return invalidRestoreRequest("$.fileName");
-    }
-    return { success: true, content, fileName };
-  } catch {
-    return invalidRestoreRequest("$.fileName");
-  }
 }
 
 /**
@@ -336,6 +282,10 @@ export default class ProjectManagementService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'project:restore-from-content'>>}
    */
   async restoreFromProjectContent(text, fileName = "project.json") {
+    const request = decodeRestoreRequest({ content: text, fileName });
+    if (!request.success) return request;
+    const prepared = prepareProjectImport(request.content, {});
+    if (!prepared.success) return prepared;
     if (this._restoreActivationRetry) {
       return {
         success: false,
@@ -349,6 +299,7 @@ export default class ProjectManagementService extends ComponentBase {
       text,
       fileName,
       generation,
+      prepared,
     );
     this._restoreInFlight = restore;
     try {
@@ -362,21 +313,29 @@ export default class ProjectManagementService extends ComponentBase {
    * @param {unknown} text
    * @param {string} fileName
    * @param {number} workflowGeneration
+   * @param {Extract<ReturnType<typeof prepareProjectImport>, {success: true}>} prepared
    * @returns {Promise<import('../../types/rpc/application.js').ProjectRestoreResult>}
    */
-  async _runRestoreFromProjectContent(text, fileName, workflowGeneration) {
+  async _runRestoreFromProjectContent(
+    text,
+    fileName,
+    workflowGeneration,
+    prepared,
+  ) {
     console.log("[ProjectManagementService] restoreFromProjectContent: begin", {
       fileName,
       size: typeof text === "string" ? text.length : undefined,
     });
 
-    const prepared = prepareProjectImport(text, {});
-    if (!prepared.success) return prepared;
     if (workflowGeneration === this._restoreWorkflowGeneration) {
       this._pendingRestoreActivation = null;
     }
 
     let importDispatched = false;
+    /** @type {import('../../types/rpc/application.js').ProjectRestoreResult | undefined} */
+    let acknowledgedOutcome;
+    /** @type {PromiseLike<unknown>[]} */
+    const publications = [];
     const lifecycleGeneration = this._restoreLifecycleGeneration;
     /**
      * @param {() => Promise<import('../../types/rpc/parameters-preferences.js').PreferencesActivationResult>} activatePersistedSettings
@@ -407,17 +366,23 @@ export default class ProjectManagementService extends ComponentBase {
         },
         persistImportedSettings,
         workflowGeneration,
-      );
+        (settlement) => publications.push(settlement),
+      ).then((outcome) => {
+        acknowledgedOutcome = outcome;
+        return outcome;
+      });
     };
     try {
       if (!prepared.importSettings) {
-        return await runPreparedRestore(
+        const result = await runPreparedRestore(
           async () => {
             throw new Error("preferences_activation_not_required");
           },
           undefined,
           undefined,
         );
+        await settleOwnerPublications(publications);
+        return result;
       }
       if (!this.runPreferencesTransition) {
         return {
@@ -427,7 +392,7 @@ export default class ProjectManagementService extends ComponentBase {
           durable: false,
         };
       }
-      return await this.runPreferencesTransition(
+      const result = await this.runPreferencesTransition(
         "project-restore",
         (
           activatePersistedSettings,
@@ -440,7 +405,11 @@ export default class ProjectManagementService extends ComponentBase {
             persistImportedSettings,
           ),
       );
+      await settleOwnerPublications(publications);
+      return result;
     } catch (error) {
+      await settleOwnerPublications(publications);
+      if (acknowledgedOutcome?.success === false) return acknowledgedOutcome;
       return {
         success: false,
         error: "project_restore_import_failed",
@@ -461,6 +430,7 @@ export default class ProjectManagementService extends ComponentBase {
    * @param {() => void} markImportDispatched
    * @param {import('./preferencesOwnerMutationOperations.js').PersistImportedPreferences | undefined} persistImportedSettings
    * @param {number} workflowGeneration
+   * @param {(settlement: Promise<void>) => void} recordSettlement
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'project:restore-from-content'>>}
    */
   async _restoreWithinPreferencesTransition(
@@ -470,6 +440,7 @@ export default class ProjectManagementService extends ComponentBase {
     markImportDispatched,
     persistImportedSettings,
     workflowGeneration,
+    recordSettlement,
   ) {
     assertRestoreActive();
     // ImportService owns parsing/validation and dispatches the owner transition.
@@ -484,10 +455,14 @@ export default class ProjectManagementService extends ComponentBase {
     let result;
     try {
       markImportDispatched();
-      result = await this.importProjectWithinPreferencesTransition(
-        prepared,
-        persistImportedSettings,
+      const completion = materializeProjectImportCompletion(
+        await this.importProjectWithinPreferencesTransition(
+          prepared,
+          persistImportedSettings,
+        ),
       );
+      recordSettlement(completion.settlement);
+      result = completion.result;
     } catch (error) {
       return {
         success: false,

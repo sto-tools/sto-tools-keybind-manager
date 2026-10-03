@@ -10,10 +10,7 @@ import ApplicationResetService from "../../src/js/components/services/Applicatio
 import { request } from "../../src/js/core/requestResponse.js";
 import { MAX_PROJECT_JSON_BYTES } from "../../src/js/components/services/jsonDataBoundary.js";
 import HeaderMenuUI from "../../src/js/components/ui/HeaderMenuUI.js";
-import {
-  createEventBusFixture,
-  createLocalStorageFixture,
-} from "../fixtures/core/index.js";
+import { createLocalStorageFixture } from "../fixtures/core/index.js";
 import { createRealEventBusFixture } from "../fixtures/core/eventBus.js";
 import { rejectFinalProjectRootWrite } from "../fixtures/services/projectRestore.js";
 import {
@@ -21,6 +18,8 @@ import {
   importedProject,
 } from "../fixtures/services/projectImportOwnerChain.js";
 import { createProjectRepository } from "./helpers/projectRepository.js";
+import { registerImportOwnerSettlementCases } from "./helpers/projectImportSettlementCases.js";
+import { registerManualSyncActivationCases } from "./helpers/manualSyncActivationCases.js";
 
 const projectRootKey = "sto_keybind_manager";
 const projectBackupKey = "sto_keybind_manager_backup";
@@ -42,7 +41,7 @@ describe("project import authoritative owner chain", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    eventBusFixture = createEventBusFixture();
+    eventBusFixture = await createRealEventBusFixture();
     localStorageFixture = createLocalStorageFixture({
       initialData: {
         sto_keybind_manager: destinationRoot,
@@ -68,11 +67,15 @@ describe("project import authoritative owner chain", () => {
       defaultProfiles: {},
     });
     importedProjectOwnerAction = vi.fn((...args) =>
-      coordinator.replaceProjectFromImport(...args),
+      coordinator.replaceProjectFromImportWithSettlement(...args),
     );
     importer = new ImportService({
       eventBus: eventBusFixture.eventBus,
-      replaceProjectFromImport: importedProjectOwnerAction,
+      replaceProjectFromImport: (...args) =>
+        coordinator.replaceProjectFromImport(...args),
+      replaceProjectFromImportWithSettlement: importedProjectOwnerAction,
+      runPreferencesTransition: (source, operation) =>
+        preferences.runExternalActivationTransition(source, operation),
     });
     const preferencesI18n = {
       language: "en",
@@ -216,6 +219,25 @@ describe("project import authoritative owner chain", () => {
     });
     expect(projectManager.ui.showToast).not.toHaveBeenCalled();
   });
+
+  registerImportOwnerSettlementCases(() => ({
+    eventBusFixture,
+    coordinator,
+    preferences,
+    projectManager,
+    importer,
+    projectRepository,
+    settingsRepository,
+  }));
+  registerManualSyncActivationCases(() => ({
+    eventBusFixture,
+    preferences,
+    coordinator,
+    projectRepository,
+    settingsRepository,
+    projectManager,
+    importedProjectOwnerAction,
+  }));
 
   it("serializes application reset behind an in-flight project restore", async () => {
     const commit = projectRepository.commit.bind(projectRepository);

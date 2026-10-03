@@ -3,7 +3,11 @@ import ComponentBase from "../ComponentBase.js";
 import FileSystemService, {
   writeFile as fsWriteFile,
 } from "./FileSystemService.js";
-import { applyPendingSyncDecision as applyClaimedSyncDecision } from "./syncDecisionOrchestrator.js";
+import {
+  applyPendingSyncDecision as applyClaimedSyncDecision,
+  resumePendingSyncImport,
+  pendingSyncImportFailure,
+} from "./syncDecisionOrchestrator.js";
 import {
   decodeSyncDirectoryCapability,
   decodeSyncDirectoryPermissionEffects,
@@ -395,6 +399,18 @@ export default class SyncService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/application.js').SyncProjectResult>}
    */
   async syncProject(source = "auto") {
+    const request = decodeSyncProjectRequest({ source });
+    if (!request.success) throw new TypeError("invalid_sync_project_request");
+    const folderGeneration = this._folderSelectionGeneration;
+    const decisionGeneration = this._syncDecisionGeneration;
+    const isCurrentSync = () =>
+      !this.destroyed &&
+      this._folderSelectionGeneration === folderGeneration &&
+      this._syncDecisionGeneration === decisionGeneration &&
+      this.pendingSyncAction !== "import";
+    const pending = await resumePendingSyncImport(this, request.source);
+    if (pending) return pending;
+    if (!isCurrentSync()) return pendingSyncImportFailure(this);
     // Apply the same browser and context detection logic as setSyncFolder
     console.log("[SyncService] syncProject called", { source });
     if (this.isFirefox()) {
@@ -416,6 +432,7 @@ export default class SyncService extends ComponentBase {
     // Secure context: distinguish genuine absence from a failed or corrupt
     // capability load before any permission or export effect occurs.
     const loaded = await this.loadSyncFolderCapability();
+    if (!isCurrentSync()) return pendingSyncImportFailure(this);
     if (!loaded.success) {
       this.ui?.showToast(this.i18n.t(loaded.error), "error");
       return { success: false, error: loaded.error };
@@ -426,6 +443,7 @@ export default class SyncService extends ComponentBase {
     }
 
     const permission = await this.checkSyncFolderPermission(loaded.value.raw);
+    if (!isCurrentSync()) return pendingSyncImportFailure(this);
     if (!permission.success && permission.error === "permission_denied") {
       this.ui?.showToast(this.i18n.t("permission_denied_to_folder"), "error");
       return { success: false, error: "permission_denied_to_folder" };

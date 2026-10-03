@@ -5,6 +5,7 @@ import {
   prepareProjectRepositoryCommit,
 } from "./projectRepositoryBoundary.js";
 import { storageFailureCategory } from "./repositoryResults.js";
+import { resetProjectRepository } from "./projectRepositoryReset.js";
 import {
   createProjectSchemaMigrationPort,
   findMatchingMigrationCheckpoint,
@@ -427,43 +428,8 @@ export default class LocalStorageProjectRepository {
     }
   }
 
-  /** @returns {import('../../types/storage-contracts.js').ProjectResetResult} */
-  reset() {
-    try {
-      this.#storage.removeItem(ROOT_KEY);
-    } catch (error) {
-      return {
-        status: "reset_failed",
-        rootRemoval: writeFailure(error),
-        backupRemoval: { status: "not_attempted" },
-        sentinelWrite: { status: "not_attempted" },
-      };
-    }
-    try {
-      this.#storage.removeItem(BACKUP_KEY);
-    } catch (error) {
-      return {
-        status: "reset_failed",
-        rootRemoval: { status: "acknowledged" },
-        backupRemoval: writeFailure(error),
-        sentinelWrite: { status: "not_attempted" },
-      };
-    }
-    try {
-      this.#storage.setItem(RESET_KEY, "true");
-    } catch (error) {
-      return {
-        status: "reset_failed",
-        rootRemoval: { status: "acknowledged" },
-        backupRemoval: { status: "acknowledged" },
-        sentinelWrite: writeFailure(error),
-      };
-    }
-    return {
-      status: "reset",
-      rootRemoval: { status: "acknowledged" },
-      backupRemoval: { status: "acknowledged" },
-      sentinelWrite: { status: "acknowledged" },
-    };
+  /** @param {import('../../types/storage-contracts.js').ProjectResetCheckpoint} [checkpoint] @returns {import('../../types/storage-contracts.js').ProjectResetResult} */
+  reset(checkpoint) {
+    return resetProjectRepository(this.#storage, checkpoint);
   }
 }

@@ -6,6 +6,7 @@ import {
 import { publishReloadedCoordinatorState } from "./dataCoordinatorPublication.js";
 import {
   enqueueDataCoordinatorMutation,
+  enqueueDataCoordinatorMutationWithSettlement,
   recordDataCoordinatorPublication,
 } from "./dataCoordinatorMutationQueue.js";
 import { isDataRecord } from "./jsonDataBoundary.js";
@@ -113,42 +114,100 @@ function initialReceipt(fingerprint) {
  * @returns {Promise<import('../../types/storage-contracts.js').ImportedProjectOwnerResult>}
  */
 export async function replaceProjectFromImport(owner, projectData, options) {
+  const { result, settlement } = await replaceProjectFromImportWithSettlement(
+    owner,
+    projectData,
+    options,
+  );
+  await settlement;
+  return result;
+}
+
+/**
+ * Leased workflow completion: invoke ordered publications, release the Data
+ * writer, and return listener settlement for the outer owner lease to await
+ * only after it has closed.
+ * @param {import('./DataCoordinator.js').default} owner
+ * @param {unknown} projectData
+ * @param {import('../../types/storage-contracts.js').ImportedProjectOwnerActionOptions} [options]
+ * @returns {Promise<import('../../types/storage-contracts.js').OwnerActionCompletion<import('../../types/storage-contracts.js').ImportedProjectOwnerResult>>}
+ */
+export async function replaceProjectFromImportWithSettlement(
+  owner,
+  projectData,
+  options,
+) {
   const { persistImportedSettings } = materializeProjectImportOptions(options);
   const imported = materializeImportedProjectData(projectData);
   const validationFingerprint = fingerprintWorkflowValue(imported);
   await owner._initialStateCommitted;
 
   try {
-    return await enqueueDataCoordinatorMutation(owner, async () => {
-      const operation = owner._captureOperationGeneration();
-      const receipt = initialReceipt(validationFingerprint);
-      owner._assertCurrentOperation(operation);
-      const destination = cloneCoordinatorProjectRoot(owner);
-      const importedProfiles = imported.profiles ?? {};
-      const profiles = {
-        ...(destination.profiles || {}),
-        ...importedProfiles,
-      };
-      const topLevelSelection = Object.hasOwn(imported, "currentProfile");
-      const legacySelection =
-        imported.settings !== undefined &&
-        Object.hasOwn(imported.settings, "currentProfile");
-      /** @type {Array<[string, string]>} */
-      const references = [];
-      if (topLevelSelection && typeof imported.currentProfile === "string") {
-        references.push([imported.currentProfile, "$.data.currentProfile"]);
-      }
-      if (
-        legacySelection &&
-        typeof imported.settings?.currentProfile === "string"
-      ) {
-        references.push([
-          imported.settings.currentProfile,
-          "$.data.settings.currentProfile",
-        ]);
-      }
-      for (const [profileId, path] of references) {
-        if (!Object.hasOwn(profiles, profileId)) {
+    return await enqueueDataCoordinatorMutationWithSettlement(
+      owner,
+      async () => {
+        const operation = owner._captureOperationGeneration();
+        const receipt = initialReceipt(validationFingerprint);
+        owner._assertCurrentOperation(operation);
+        const destination = cloneCoordinatorProjectRoot(owner);
+        const importedProfiles = imported.profiles ?? {};
+        const profiles = {
+          ...(destination.profiles || {}),
+          ...importedProfiles,
+        };
+        const topLevelSelection = Object.hasOwn(imported, "currentProfile");
+        const legacySelection =
+          imported.settings !== undefined &&
+          Object.hasOwn(imported.settings, "currentProfile");
+        /** @type {Array<[string, string]>} */
+        const references = [];
+        if (topLevelSelection && typeof imported.currentProfile === "string") {
+          references.push([imported.currentProfile, "$.data.currentProfile"]);
+        }
+        if (
+          legacySelection &&
+          typeof imported.settings?.currentProfile === "string"
+        ) {
+          references.push([
+            imported.settings.currentProfile,
+            "$.data.settings.currentProfile",
+          ]);
+        }
+        for (const [profileId, path] of references) {
+          if (!Object.hasOwn(profiles, profileId)) {
+            receipt.project = durableStage("failed", false, {
+              error: "invalid_data",
+            });
+            receipt.dataActivation = skipped();
+            return {
+              success: /** @type {const} */ (false),
+              error: /** @type {const} */ ("invalid_project_file"),
+              params: { path },
+              durable: /** @type {const} */ (false),
+              receipt: cloneReceipt(receipt),
+            };
+          }
+        }
+
+        const requestedProfile = topLevelSelection
+          ? imported.currentProfile
+          : legacySelection
+            ? imported.settings?.currentProfile
+            : destination.currentProfile;
+        const selectedProfile =
+          typeof requestedProfile === "string"
+            ? requestedProfile
+            : Object.keys(profiles)[0] || null;
+        const nextRoot = {
+          ...destination,
+          profiles,
+          currentProfile: selectedProfile,
+        };
+        try {
+          validatePlannedProjectRoot(nextRoot, {
+            version: coordinatorProjectVersion(owner),
+          });
+        } catch {
           receipt.project = durableStage("failed", false, {
             error: "invalid_data",
           });
@@ -156,195 +215,179 @@ export async function replaceProjectFromImport(owner, projectData, options) {
           return {
             success: /** @type {const} */ (false),
             error: /** @type {const} */ ("invalid_project_file"),
-            params: { path },
+            params: { path: "$.data" },
             durable: /** @type {const} */ (false),
             receipt: cloneReceipt(receipt),
           };
         }
-      }
-
-      const requestedProfile = topLevelSelection
-        ? imported.currentProfile
-        : legacySelection
-          ? imported.settings?.currentProfile
-          : destination.currentProfile;
-      const selectedProfile =
-        typeof requestedProfile === "string"
-          ? requestedProfile
-          : Object.keys(profiles)[0] || null;
-      const nextRoot = {
-        ...destination,
-        profiles,
-        currentProfile: selectedProfile,
-      };
-      try {
-        validatePlannedProjectRoot(nextRoot, {
-          version: coordinatorProjectVersion(owner),
-        });
-      } catch {
-        receipt.project = durableStage("failed", false, {
-          error: "invalid_data",
-        });
-        receipt.dataActivation = skipped();
-        return {
-          success: /** @type {const} */ (false),
-          error: /** @type {const} */ ("invalid_project_file"),
-          params: { path: "$.data" },
-          durable: /** @type {const} */ (false),
-          receipt: cloneReceipt(receipt),
-        };
-      }
-      const projectProjection =
-        /** @type {import('../../types/data-contracts.js').ArtifactProjectProjection} */ (
-          /** @type {unknown} */ ({
-            profiles: structuredClone(profiles),
-            currentProfile: nextRoot.currentProfile,
-          })
-        );
-      const projectFingerprint = fingerprintWorkflowValue(projectProjection);
-
-      /** @type {import('../../types/data-contracts.js').CanonicalSettings | undefined} */
-      let stagedSettings;
-      if (imported.settings !== undefined && persistImportedSettings) {
-        let settingsResult;
-        try {
-          settingsResult = await persistImportedSettings(imported.settings);
-        } catch {
-          receipt.settings = durableStage("failed", "indeterminate", {
-            error: "storage_write_failed",
-          });
-          receipt.project = skipped();
-          receipt.dataActivation = skipped();
-          return {
-            success: /** @type {const} */ (false),
-            error: /** @type {const} */ ("storage_write_failed"),
-            stage: /** @type {const} */ ("settings"),
-            durable: /** @type {const} */ ("indeterminate"),
-            receipt: cloneReceipt(receipt),
-          };
-        }
-        if (settingsResult?.status !== "committed") {
-          const indeterminate =
-            settingsResult?.status === "write_failed" ||
-            settingsResult?.status === "verification_failed";
-          receipt.settings = durableStage(
-            "failed",
-            indeterminate ? "indeterminate" : false,
-            {
-              error:
-                settingsResult?.status === "verification_failed"
-                  ? "verification_failed"
-                  : settingsResult?.status === "rejected"
-                    ? "invalid_data"
-                    : "storage_write_failed",
-            },
+        const projectProjection =
+          /** @type {import('../../types/data-contracts.js').ArtifactProjectProjection} */ (
+            /** @type {unknown} */ ({
+              profiles: structuredClone(profiles),
+              currentProfile: nextRoot.currentProfile,
+            })
           );
-          receipt.project = skipped();
-          receipt.dataActivation = skipped();
-          return {
-            success: /** @type {const} */ (false),
-            error: /** @type {const} */ ("storage_write_failed"),
-            stage: /** @type {const} */ ("settings"),
-            durable: indeterminate
-              ? /** @type {const} */ ("indeterminate")
-              : /** @type {const} */ (false),
-            receipt: cloneReceipt(receipt),
-          };
-        }
-        const materializedSettings = materializeCanonicalPreferences(
-          settingsResult.value,
-        );
-        if (!materializedSettings) {
-          receipt.settings = durableStage("failed", "indeterminate", {
-            error: "verification_failed",
+        const projectFingerprint = fingerprintWorkflowValue(projectProjection);
+
+        /** @type {import('../../types/data-contracts.js').CanonicalSettings | undefined} */
+        let stagedSettings;
+        if (imported.settings !== undefined && persistImportedSettings) {
+          let settingsResult;
+          try {
+            settingsResult = await persistImportedSettings(imported.settings);
+          } catch {
+            receipt.settings = durableStage("failed", "indeterminate", {
+              error: "storage_write_failed",
+            });
+            receipt.project = skipped();
+            receipt.dataActivation = skipped();
+            return {
+              success: /** @type {const} */ (false),
+              error: /** @type {const} */ ("storage_write_failed"),
+              stage: /** @type {const} */ ("settings"),
+              durable: /** @type {const} */ ("indeterminate"),
+              receipt: cloneReceipt(receipt),
+            };
+          }
+          if (settingsResult?.status !== "committed") {
+            const indeterminate =
+              settingsResult?.status === "write_failed" ||
+              settingsResult?.status === "verification_failed";
+            receipt.settings = durableStage(
+              "failed",
+              indeterminate ? "indeterminate" : false,
+              {
+                error:
+                  settingsResult?.status === "verification_failed"
+                    ? "verification_failed"
+                    : settingsResult?.status === "rejected"
+                      ? "invalid_data"
+                      : "storage_write_failed",
+              },
+            );
+            receipt.project = skipped();
+            receipt.dataActivation = skipped();
+            return {
+              success: /** @type {const} */ (false),
+              error: /** @type {const} */ ("storage_write_failed"),
+              stage: /** @type {const} */ ("settings"),
+              durable: indeterminate
+                ? /** @type {const} */ ("indeterminate")
+                : /** @type {const} */ (false),
+              receipt: cloneReceipt(receipt),
+            };
+          }
+          const materializedSettings = materializeCanonicalPreferences(
+            settingsResult.value,
+          );
+          if (!materializedSettings) {
+            receipt.settings = durableStage("failed", "indeterminate", {
+              error: "verification_failed",
+            });
+            receipt.project = skipped();
+            receipt.dataActivation = skipped();
+            return {
+              success: /** @type {const} */ (false),
+              error: /** @type {const} */ ("storage_write_failed"),
+              stage: /** @type {const} */ ("settings"),
+              durable: /** @type {const} */ ("indeterminate"),
+              receipt: cloneReceipt(receipt),
+            };
+          }
+          stagedSettings = materializedSettings;
+          receipt.settings = durableStage("complete", true, {
+            fingerprint: fingerprintWorkflowValue(stagedSettings),
           });
-          receipt.project = skipped();
-          receipt.dataActivation = skipped();
-          return {
-            success: /** @type {const} */ (false),
-            error: /** @type {const} */ ("storage_write_failed"),
-            stage: /** @type {const} */ ("settings"),
-            durable: /** @type {const} */ ("indeterminate"),
-            receipt: cloneReceipt(receipt),
-          };
+          receipt.preferencesActivation = pending();
+          try {
+            owner._assertCurrentOperation(operation);
+          } catch {
+            receipt.project = skipped();
+            receipt.dataActivation = skipped();
+            return {
+              success: /** @type {const} */ (false),
+              error: /** @type {const} */ ("operation_cancelled"),
+              stage: /** @type {const} */ ("project"),
+              durable: /** @type {const} */ (true),
+              receipt: cloneReceipt(receipt),
+              activationMaterial: {
+                project: projectProjection,
+                settings: structuredClone(stagedSettings),
+              },
+            };
+          }
         }
-        stagedSettings = materializedSettings;
-        receipt.settings = durableStage("complete", true, {
-          fingerprint: fingerprintWorkflowValue(stagedSettings),
-        });
-        receipt.preferencesActivation = pending();
+
+        /** @type {import('./dataCoordinatorProjectPersistence.js').CoordinatorProjectRoot | null} */
+        let durableRoot = null;
         try {
           owner._assertCurrentOperation(operation);
+          durableRoot = commitCoordinatorProjectRoot(owner, nextRoot);
         } catch {
-          receipt.project = skipped();
+          durableRoot = null;
+        }
+        if (!durableRoot) {
+          receipt.project = durableStage("failed", "indeterminate", {
+            fingerprint: projectFingerprint,
+            error: "storage_write_failed",
+          });
           receipt.dataActivation = skipped();
+          return {
+            success: /** @type {const} */ (false),
+            error: /** @type {const} */ ("storage_write_failed"),
+            stage: /** @type {const} */ ("project"),
+            durable: /** @type {const} */ ("indeterminate"),
+            receipt: cloneReceipt(receipt),
+            ...(stagedSettings
+              ? {
+                  activationMaterial: {
+                    project: projectProjection,
+                    settings: structuredClone(stagedSettings),
+                  },
+                }
+              : {}),
+          };
+        }
+        receipt.project = durableStage("complete", true, {
+          fingerprint: projectFingerprint,
+        });
+
+        try {
+          owner._assertCurrentOperation(operation);
+          adoptCoordinatorProjectRoot(owner, durableRoot, operation);
+          const publications = publishReloadedCoordinatorState(
+            owner,
+            operation,
+          );
+          recordDataCoordinatorPublication(owner, publications);
+          owner._assertCurrentOperation(operation);
+          receipt.dataActivation = durableStage("complete", true, {
+            fingerprint: projectFingerprint,
+          });
+        } catch {
+          receipt.dataActivation = durableStage("failed", false, {
+            fingerprint: projectFingerprint,
+            error: "operation_cancelled",
+          });
           return {
             success: /** @type {const} */ (false),
             error: /** @type {const} */ ("operation_cancelled"),
-            stage: /** @type {const} */ ("project"),
+            stage: /** @type {const} */ ("dataActivation"),
             durable: /** @type {const} */ (true),
             receipt: cloneReceipt(receipt),
             activationMaterial: {
               project: projectProjection,
-              settings: structuredClone(stagedSettings),
+              ...(stagedSettings
+                ? { settings: structuredClone(stagedSettings) }
+                : {}),
             },
           };
         }
-      }
 
-      /** @type {import('./dataCoordinatorProjectPersistence.js').CoordinatorProjectRoot | null} */
-      let durableRoot = null;
-      try {
-        owner._assertCurrentOperation(operation);
-        durableRoot = commitCoordinatorProjectRoot(owner, nextRoot);
-      } catch {
-        durableRoot = null;
-      }
-      if (!durableRoot) {
-        receipt.project = durableStage("failed", "indeterminate", {
-          fingerprint: projectFingerprint,
-          error: "storage_write_failed",
-        });
-        receipt.dataActivation = skipped();
         return {
-          success: /** @type {const} */ (false),
-          error: /** @type {const} */ ("storage_write_failed"),
-          stage: /** @type {const} */ ("project"),
-          durable: /** @type {const} */ ("indeterminate"),
-          receipt: cloneReceipt(receipt),
-          ...(stagedSettings
-            ? {
-                activationMaterial: {
-                  project: projectProjection,
-                  settings: structuredClone(stagedSettings),
-                },
-              }
-            : {}),
-        };
-      }
-      receipt.project = durableStage("complete", true, {
-        fingerprint: projectFingerprint,
-      });
-
-      try {
-        owner._assertCurrentOperation(operation);
-        adoptCoordinatorProjectRoot(owner, durableRoot, operation);
-        const publications = publishReloadedCoordinatorState(owner, operation);
-        recordDataCoordinatorPublication(owner, publications);
-        owner._assertCurrentOperation(operation);
-        receipt.dataActivation = durableStage("complete", true, {
-          fingerprint: projectFingerprint,
-        });
-      } catch {
-        receipt.dataActivation = durableStage("failed", false, {
-          fingerprint: projectFingerprint,
-          error: "operation_cancelled",
-        });
-        return {
-          success: /** @type {const} */ (false),
-          error: /** @type {const} */ ("operation_cancelled"),
-          stage: /** @type {const} */ ("dataActivation"),
-          durable: /** @type {const} */ (true),
+          success: /** @type {const} */ (true),
+          currentProfile: owner.state.currentProfile,
+          importedProfiles: Object.keys(importedProfiles).length,
           receipt: cloneReceipt(receipt),
           activationMaterial: {
             project: projectProjection,
@@ -353,21 +396,8 @@ export async function replaceProjectFromImport(owner, projectData, options) {
               : {}),
           },
         };
-      }
-
-      return {
-        success: /** @type {const} */ (true),
-        currentProfile: owner.state.currentProfile,
-        importedProfiles: Object.keys(importedProfiles).length,
-        receipt: cloneReceipt(receipt),
-        activationMaterial: {
-          project: projectProjection,
-          ...(stagedSettings
-            ? { settings: structuredClone(stagedSettings) }
-            : {}),
-        },
-      };
-    });
+      },
+    );
   } catch {
     const receipt = initialReceipt(validationFingerprint);
     receipt.project = durableStage("failed", false, {
@@ -375,11 +405,14 @@ export async function replaceProjectFromImport(owner, projectData, options) {
     });
     receipt.dataActivation = skipped();
     return {
-      success: false,
-      error: "operation_cancelled",
-      stage: "project",
-      durable: false,
-      receipt: cloneReceipt(receipt),
+      result: {
+        success: false,
+        error: "operation_cancelled",
+        stage: "project",
+        durable: false,
+        receipt: cloneReceipt(receipt),
+      },
+      settlement: Promise.resolve(),
     };
   }
 }

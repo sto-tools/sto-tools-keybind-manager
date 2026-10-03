@@ -1,4 +1,9 @@
 import ComponentBase from "../ComponentBase.js";
+import { ScalarOwnerProtocol } from "./scalarOwnerProtocol.js";
+import {
+  materializeCommandCategoryRequest,
+  materializeCommandGroupRequest,
+} from "./scalarMutationBoundary.js";
 import {
   applyCommandCategoryCollapse,
   applyCommandGroupCollapse,
@@ -17,6 +22,10 @@ import {
 export default class CommandPresentationService extends ComponentBase {
   /** @type {import('../storage/CommandPresentationPersistencePort.js').CommandPresentationPersistencePort} */
   #persistence;
+  /** @type {ScalarOwnerProtocol} */
+  #protocol;
+  /** @type {Promise<void>} */
+  initialStateReady = Promise.resolve();
 
   /**
    * @param {{
@@ -28,51 +37,87 @@ export default class CommandPresentationService extends ComponentBase {
     super(eventBus);
     this.componentName = "CommandPresentationService";
     this.#persistence = persistence;
-    this.presentationState = readCommandPresentationState(persistence.load(), {
-      authorityEpoch: nextCommandPresentationAuthorityEpoch(),
-      revision: 0,
-    });
+    this.presentationState = readCommandPresentationState(
+      { collapsedCategories: [], collapsedGroups: [] },
+      {
+        authorityEpoch: 0,
+        revision: 0,
+      },
+    );
 
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
-    this.setupRequestHandlers();
+    this.#protocol = new ScalarOwnerProtocol(
+      this,
+      this.componentName,
+      eventBus ?? persistence,
+    );
+    this.#hydrate();
   }
 
   setupRequestHandlers() {
-    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+    if (
+      !this.eventBus ||
+      !this.#protocol.ready ||
+      this._responseDetachFunctions.length > 0
+    )
+      return;
 
     this._responseDetachFunctions.push(
-      this.respond("command-presentation:toggle-category", ({ categoryId }) =>
-        this.toggleCategory(categoryId),
-      ),
-      this.respond("command-presentation:toggle-group", ({ groupType }) =>
-        this.toggleGroup(groupType),
-      ),
+      this.respond("command-presentation:toggle-category", (payload) => {
+        const categoryId = materializeCommandCategoryRequest(payload);
+        return this.#protocol.enqueue((assertCurrent) =>
+          this.#toggleCategory(categoryId, assertCurrent),
+        );
+      }),
+      this.respond("command-presentation:toggle-group", (payload) => {
+        const groupType = materializeCommandGroupRequest(payload);
+        return this.#protocol.enqueue((assertCurrent) =>
+          this.#toggleGroup(groupType, assertCurrent),
+        );
+      }),
     );
   }
 
   onInit() {
-    this.presentationState = readCommandPresentationState(
-      this.#persistence.load(),
-      {
-        authorityEpoch: nextCommandPresentationAuthorityEpoch(),
-        revision: 0,
-      },
-    );
-    this.setupRequestHandlers();
-    this.publishState();
+    this.#hydrate(() => {
+      this.setupRequestHandlers();
+      this.publishState();
+    });
   }
 
   onDestroy() {
-    for (const detach of this._responseDetachFunctions) detach();
-    this._responseDetachFunctions = [];
+    this.#protocol.cancel();
+  }
+
+  /** @param {() => void} [afterLoad] */
+  #hydrate(afterLoad) {
+    const loading = this.#protocol.activate((assertCurrent) => {
+      const data = this.#persistence.load();
+      assertCurrent();
+      const nextState = readCommandPresentationState(data, {
+        authorityEpoch: nextCommandPresentationAuthorityEpoch(),
+        revision: 0,
+      });
+      assertCurrent();
+      this.presentationState = nextState;
+    }, afterLoad);
+    this.initialStateReady = Promise.resolve(loading);
+    void this.initialStateReady.catch(() => undefined);
+  }
+
+  /** @param {{name?: string, replyTopic?: import('../../types/events/dynamic.js').ComponentReplyTopic}} registration */
+  _onComponentRegister(registration) {
+    if (this.#protocol.ready) super._onComponentRegister(registration);
   }
 
   /**
    * @param {import('../../types/events/component-state.js').CommandPresentationStateSnapshot} [state]
    */
   publishState(state = this.getCurrentState()) {
-    this.emit("command-presentation:state-changed", state);
+    return this.emit("command-presentation:state-changed", state, {
+      synchronous: true,
+    });
   }
 
   /** @returns {import('../../types/events/component-state.js').ComponentState<'CommandPresentationService'>} */
@@ -82,6 +127,14 @@ export default class CommandPresentationService extends ComponentBase {
 
   /** @param {string} categoryId */
   toggleCategory(categoryId) {
+    const safeCategory = materializeCommandCategoryRequest({ categoryId });
+    return this.#protocol.runDirect((assertCurrent) =>
+      this.#toggleCategory(safeCategory, assertCurrent),
+    );
+  }
+
+  /** @param {string} categoryId @param {() => void} assertCurrent */
+  #toggleCategory(categoryId, assertCurrent) {
     const isCollapsed = !isCommandCategoryCollapsed(
       this.presentationState,
       categoryId,
@@ -94,13 +147,24 @@ export default class CommandPresentationService extends ComponentBase {
     const publishedState = cloneCommandPresentationState(nextState);
 
     this.#persistence.replaceCategory(categoryId, isCollapsed);
+    assertCurrent();
     this.presentationState = nextState;
-    this.publishState(publishedState);
-    return isCollapsed;
+    return {
+      result: isCollapsed,
+      settlement: this.publishState(publishedState),
+    };
   }
 
   /** @param {import('../../types/events/base.js').CommandGroupType} groupType */
   toggleGroup(groupType) {
+    const safeGroup = materializeCommandGroupRequest({ groupType });
+    return this.#protocol.runDirect((assertCurrent) =>
+      this.#toggleGroup(safeGroup, assertCurrent),
+    );
+  }
+
+  /** @param {import('../../types/events/base.js').CommandGroupType} groupType @param {() => void} assertCurrent */
+  #toggleGroup(groupType, assertCurrent) {
     const isCollapsed = !isCommandGroupCollapsed(
       this.presentationState,
       groupType,
@@ -113,8 +177,11 @@ export default class CommandPresentationService extends ComponentBase {
     const publishedState = cloneCommandPresentationState(nextState);
 
     this.#persistence.replaceGroup(groupType, isCollapsed);
+    assertCurrent();
     this.presentationState = nextState;
-    this.publishState(publishedState);
-    return isCollapsed;
+    return {
+      result: isCollapsed,
+      settlement: this.publishState(publishedState),
+    };
   }
 }

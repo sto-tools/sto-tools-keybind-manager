@@ -38,7 +38,7 @@ function createComponentStub(initialStateReady = Promise.resolve()) {
   });
 }
 
-function createAppHarness(preferencesReady) {
+function createAppHarness(preferencesReady, readinessByComponent = {}) {
   const ui = { showToast: vi.fn() };
   const applyTranslations = vi.fn();
   const preferencesService = createComponentStub(preferencesReady);
@@ -54,7 +54,9 @@ function createAppHarness(preferencesReady) {
   const constructed = [];
   app.ownedComponents.create = /** @type {any} */ (
     (Component, ...args) => {
-      const component = createComponentStub();
+      const component = createComponentStub(
+        readinessByComponent[Component.name],
+      );
       component.type = Component.name;
       component.options = args[0];
       component.args = args;
@@ -71,6 +73,66 @@ describe("application Preferences readiness barrier", () => {
     localStorage.clear();
     vi.restoreAllMocks();
   });
+
+  it("waits for both scalar owners before enabling their consumers and announcing readiness", async () => {
+    localStorage.setItem("sto_keybind_manager_visited", "true");
+    const commandReady = deferred();
+    const keyReady = deferred();
+    const ready = vi.fn();
+    eventBus.on("sto-app-ready", ready);
+    const { app } = createAppHarness(Promise.resolve(), {
+      CommandPresentationService: commandReady.promise,
+      KeyBrowserService: keyReady.promise,
+    });
+    const initialization = app.init();
+    await vi.waitFor(() =>
+      expect(app.commandPresentationService.init).toHaveBeenCalledOnce(),
+    );
+    expect(app.commandLibraryUI.init).not.toHaveBeenCalled();
+    expect(app.keyBrowserUI.init).not.toHaveBeenCalled();
+    expect(ready).not.toHaveBeenCalled();
+    commandReady.resolve();
+    await vi.waitFor(() =>
+      expect(app.keyBrowserService.init).toHaveBeenCalledOnce(),
+    );
+    expect(app.commandLibraryUI.init).toHaveBeenCalledOnce();
+    expect(app.keyBrowserUI.init).not.toHaveBeenCalled();
+    expect(ready).not.toHaveBeenCalled();
+    keyReady.resolve();
+    await initialization;
+    expect(app.keyBrowserUI.init).toHaveBeenCalledOnce();
+    expect(ready).toHaveBeenCalledOnce();
+    await app.ownedComponents.destroyAll();
+  });
+
+  it.each(["CommandPresentationService", "KeyBrowserService"])(
+    "fails closed and tears down consumers when %s hydration rejects",
+    async (componentName) => {
+      const readiness = deferred();
+      const error = new Error("scalar hydration failed");
+      const ready = vi.fn();
+      eventBus.on("sto-app-ready", ready);
+      const { app, constructed, ui } = createAppHarness(Promise.resolve(), {
+        [componentName]: readiness.promise,
+      });
+      const initialization = app.init();
+      await vi.waitFor(() =>
+        expect(
+          constructed.find((component) => component.type === componentName)
+            ?.init,
+        ).toHaveBeenCalledOnce(),
+      );
+      readiness.reject(error);
+      await expect(initialization).rejects.toBe(error);
+      expect(ready).not.toHaveBeenCalled();
+      expect(app.ownedComponents.entries).toEqual([]);
+      expect(constructed.every((component) => component.destroyed)).toBe(true);
+      expect(ui.showToast).toHaveBeenCalledWith(
+        "failed_to_load_application",
+        "error",
+      );
+    },
+  );
 
   it("does not compose downstream components until Preferences state is ready", async () => {
     localStorage.setItem("sto_keybind_manager_visited", "true");

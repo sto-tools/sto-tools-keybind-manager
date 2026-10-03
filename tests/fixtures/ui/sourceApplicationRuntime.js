@@ -215,6 +215,10 @@ export async function initializeSourceApplication() {
       dataCoordinator.runApplicationResetTransition.bind(dataCoordinator),
     importedProjectOwnerAction:
       dataCoordinator.replaceProjectFromImport.bind(dataCoordinator),
+    importedProjectOwnerCompletionAction:
+      dataCoordinator.replaceProjectFromImportWithSettlement.bind(
+        dataCoordinator,
+      ),
     importedProjectActivationAction:
       dataCoordinator.activateProjectFromImport.bind(dataCoordinator),
     importedSettingsActivationAction:

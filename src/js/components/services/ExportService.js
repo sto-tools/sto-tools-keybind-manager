@@ -4,6 +4,7 @@ import { normalizeToOptimizedString } from "../../lib/commandDisplayAdapter.js";
 import { projectVirtualVFXAliases } from "./vfxAliasProjection.js";
 import { getSnapshotProfile, getSnapshotProfiles } from "./dataState.js";
 import { materializeSyncProject } from "./syncProjectMaterializer.js";
+import { requireCapabilityRequest } from "./capabilityRequestBoundary.js";
 import { planMirroredCommandSequence } from "./commandTransformationPlanner.js";
 import {
   renderAliasFileHeader,
@@ -82,7 +83,8 @@ export default class ExportService extends ComponentBase {
           );
         return await this.generateAliasFile(exportProfile);
       }),
-      this.respond("export:sync-to-folder", async ({ dirHandle }) => {
+      this.respond("export:sync-to-folder", async (payload) => {
+        const dirHandle = requireCapabilityRequest(payload, "dirHandle");
         return this.syncToFolder(dirHandle).then(() => undefined);
       }),
     );

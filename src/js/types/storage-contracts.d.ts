@@ -35,6 +35,7 @@ export type DurableStageStatus = "complete" | "pending" | "skipped" | "failed";
 export type StorageWorkflowErrorCode =
   | "invalid_data"
   | "storage_write_failed"
+  | "storage_read_failed"
   | "verification_failed"
   | "preferences_activation_failed"
   | "operation_cancelled";
@@ -68,6 +69,18 @@ export interface ApplicationPreferencesResetReceipt {
   preferencesOwnerAdoption: DurableStageReceipt;
 }
 
+declare const applicationResetCheckpointBrand: unique symbol;
+/** Composition-private workflow checkpoint; never an RPC payload/receipt. */
+export interface ApplicationResetCheckpoint {
+  readonly [applicationResetCheckpointBrand]: true;
+}
+
+declare const projectResetCheckpointBrand: unique symbol;
+/** Adapter-private checkpoint, resolved only through its WeakMap brand. */
+export interface ProjectResetCheckpoint {
+  readonly [projectResetCheckpointBrand]: true;
+}
+
 export type ApplicationProjectResetPersistenceResult =
   | {
       success: true;
@@ -75,7 +88,11 @@ export type ApplicationProjectResetPersistenceResult =
     }
   | {
       success: false;
-      error: "storage_write_failed" | "operation_cancelled";
+      error:
+        | "storage_write_failed"
+        | "storage_read_failed"
+        | "verification_failed"
+        | "operation_cancelled";
       stage: "rootClear" | "backupClear" | "resetSentinel";
       durable: false | "indeterminate" | true;
       params: { reason: string };
@@ -109,6 +126,7 @@ export type ApplicationPreferencesResetResult =
       success: false;
       error:
         | "storage_write_failed"
+        | "storage_read_failed"
         | "verification_failed"
         | "preferences_activation_failed"
         | "operation_cancelled";
@@ -143,6 +161,7 @@ export type ApplicationDataResetTransitionRunner = <Result>(
   operation: (
     capabilities: ApplicationDataResetCapabilities,
   ) => Result | Promise<Result>,
+  checkpoint?: ApplicationResetCheckpoint,
 ) => Promise<OwnerActionCompletion<Result>>;
 
 export type ApplicationPreferencesResetTransitionRunner = <Result>(
@@ -150,6 +169,7 @@ export type ApplicationPreferencesResetTransitionRunner = <Result>(
     resetPreferences: ApplicationPreferencesResetAction;
     assertActive: () => void;
   }) => Result | Promise<Result>,
+  checkpoint?: ApplicationResetCheckpoint,
 ) => Promise<Result>;
 
 export interface ProjectRestoreReceipt {
@@ -198,6 +218,11 @@ export type ImportedProjectOwnerAction = (
   projectData: unknown,
   options?: ImportedProjectOwnerActionOptions,
 ) => Promise<ImportedProjectOwnerResult>;
+
+export type ImportedProjectOwnerCompletionAction = (
+  projectData: unknown,
+  options?: ImportedProjectOwnerActionOptions,
+) => Promise<OwnerActionCompletion<ImportedProjectOwnerResult>>;
 
 export type ImportedProjectActivationResult =
   | {
@@ -347,31 +372,65 @@ export type ProjectCommitResult =
       resetSentinel: SentinelFailure;
     };
 
-export type ProjectResetResult =
+export type ResetStageAccepted = Acknowledged | { status: "verified" };
+export type ResetStageFailure =
+  | IndeterminateWrite
+  | ReadFailure
+  | VerificationFailure;
+type ProjectResetFailedPrefix =
   | {
-      status: "reset";
-      rootRemoval: Acknowledged;
-      backupRemoval: Acknowledged;
-      sentinelWrite: Acknowledged;
-    }
-  | {
-      status: "reset_failed";
-      rootRemoval: IndeterminateWrite;
+      rootRemoval: ResetStageFailure;
       backupRemoval: NotAttempted;
       sentinelWrite: NotAttempted;
     }
   | {
-      status: "reset_failed";
-      rootRemoval: Acknowledged;
-      backupRemoval: IndeterminateWrite;
+      rootRemoval: ResetStageAccepted;
+      backupRemoval: ResetStageFailure;
       sentinelWrite: NotAttempted;
     }
   | {
-      status: "reset_failed";
-      rootRemoval: Acknowledged;
-      backupRemoval: Acknowledged;
-      sentinelWrite: IndeterminateWrite;
+      rootRemoval: ResetStageAccepted;
+      backupRemoval: ResetStageAccepted;
+      sentinelWrite: ResetStageFailure;
     };
+type ProjectResetAcceptedPrefix =
+  | {
+      rootRemoval: NotAttempted;
+      backupRemoval: NotAttempted;
+      sentinelWrite: NotAttempted;
+    }
+  | {
+      rootRemoval: ResetStageAccepted;
+      backupRemoval: NotAttempted;
+      sentinelWrite: NotAttempted;
+    }
+  | {
+      rootRemoval: ResetStageAccepted;
+      backupRemoval: ResetStageAccepted;
+      sentinelWrite: NotAttempted;
+    }
+  | {
+      rootRemoval: ResetStageAccepted;
+      backupRemoval: ResetStageAccepted;
+      sentinelWrite: ResetStageAccepted;
+    };
+export type ProjectResetResult =
+  | {
+      status: "reset";
+      rootRemoval: ResetStageAccepted;
+      backupRemoval: ResetStageAccepted;
+      sentinelWrite: ResetStageAccepted;
+    }
+  | ({
+      status: "reset_failed";
+      error?: "storage_read_failed" | "verification_failed";
+      stage?: "rootClear" | "backupClear" | "resetSentinel";
+    } & ProjectResetFailedPrefix)
+  | ({
+      status: "reset_failed";
+      error: "storage_read_failed" | "verification_failed";
+      stage: "rootClear" | "backupClear" | "resetSentinel";
+    } & ProjectResetAcceptedPrefix);
 
 export type SettingsLoadResult =
   | { status: "current"; value: CanonicalSettings }
@@ -462,7 +521,7 @@ export interface ProjectRepositoryPort {
     root: StoredApplicationData,
     options?: ProjectWriteOptions,
   ): ProjectCommitResult;
-  reset(): ProjectResetResult;
+  reset(checkpoint?: ProjectResetCheckpoint): ProjectResetResult;
 }
 
 export interface SettingsRepositoryPort {

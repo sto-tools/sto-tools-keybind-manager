@@ -386,6 +386,12 @@ describe("R13 registered runtime diagnostics over actual owner persistence ports
         "restore",
         data.replaceProjectFromImport.bind(data),
       ),
+      replaceProjectFromImportWithSettlement:
+        f.diagnostics.observeWorkflowAction(
+          "project",
+          "restore",
+          data.replaceProjectFromImportWithSettlement.bind(data),
+        ),
     });
     const manager = new ProjectManagementService({
       eventBus: bus,

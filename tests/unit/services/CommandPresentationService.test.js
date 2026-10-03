@@ -250,12 +250,12 @@ describe("CommandPresentationService owned state", () => {
       service.request("command-presentation:toggle-category", {
         categoryId: "",
       }),
-    ).rejects.toThrow("non-empty");
+    ).rejects.toThrow("invalid_mutation_request");
     await expect(
       service.request("command-presentation:toggle-group", {
         groupType: "unknown",
       }),
-    ).rejects.toThrow("not supported");
+    ).rejects.toThrow("invalid_mutation_request");
     expect(localStorage.setItem).not.toHaveBeenCalled();
     expect(localStorage.removeItem).not.toHaveBeenCalled();
     expect(states).toEqual([]);

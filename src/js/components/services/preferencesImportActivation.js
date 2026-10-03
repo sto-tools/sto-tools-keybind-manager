@@ -5,6 +5,7 @@ import {
   materializeSettingsLoadResult,
 } from "./preferencesRepositoryBoundary.js";
 import { fingerprintWorkflowValue } from "./storageWorkflowReceipt.js";
+import { settleOwnerPublications } from "./ownerPublicationSettlement.js";
 
 /**
  * Adopt retained settings after an acknowledged import write without reading
@@ -33,8 +34,10 @@ export async function activateImportedPreferences(
   } catch (error) {
     return preferencesActivationFailure(error);
   }
+  /** @type {PromiseLike<unknown>[]} */
+  const publications = [];
   try {
-    return await owner._enqueueMutation(() => {
+    const result = await owner._enqueueMutation(() => {
       const loaded = materializeSettingsLoadResult(
         owner.settingsRepository?.load(),
       );
@@ -54,9 +57,13 @@ export async function activateImportedPreferences(
         "project-restore",
         generation,
         durable,
+        publications,
       );
     });
+    await settleOwnerPublications(publications);
+    return result;
   } catch (error) {
+    await settleOwnerPublications(publications);
     return preferencesActivationFailure(error);
   }
 }

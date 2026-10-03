@@ -41,6 +41,10 @@ import {
   nextPreferencesStateAuthorityEpoch,
 } from "./preferencesState.js";
 import { preparePreferencesTransition } from "./preferencesTransitionState.js";
+import {
+  materializeMutationRequest,
+  requireMutationString,
+} from "./mutationRequestBoundary.js";
 
 /** @typedef {import('../../types/events/base.js').KnownPreferenceKey} KnownPreferenceKey */
 /** @typedef {import('../../types/events/base.js').KnownPreferencesSettings} KnownPreferencesSettings */
@@ -164,7 +168,13 @@ export default class PreferencesService extends ComponentBase {
       this.respond("preferences:persist-sync-folder-settings", (mutation) =>
         this.persistSyncFolderSettings(mutation),
       ),
-      this.respond("preferences:save-settings", () => this.saveSettings()),
+      this.respond(
+        "preferences:save-settings",
+        (/** @type {unknown} */ payload = undefined) => {
+          materializeMutationRequest(payload === undefined ? {} : payload, []);
+          return this.saveSettings();
+        },
+      ),
       this.respond("preferences:set-setting", (mutation) => {
         const request = requirePreferenceMutation(mutation);
         return request.extension === true
@@ -181,8 +191,9 @@ export default class PreferencesService extends ComponentBase {
     if (!this.eventBus) return;
 
     // Listen for theme toggle events from HeaderMenuUI
-    this.addEventListener("theme:toggle", () => {
+    this.addEventListener("theme:toggle", (payload) => {
       try {
+        materializeMutationRequest(payload ?? {}, []);
         void this.toggleTheme().catch((error) => {
           console.error("[PreferencesService] Failed to toggle theme", error);
         });
@@ -192,14 +203,18 @@ export default class PreferencesService extends ComponentBase {
     });
 
     // Listen for language change events from HeaderMenuUI
-    this.addEventListener("language:change", ({ language }) => {
-      if (language) {
+    this.addEventListener("language:change", (payload) => {
+      try {
+        const request = materializeMutationRequest(payload, ["language"]);
+        const language = requireMutationString(request.language);
         void this.changeLanguage(language).catch((error) => {
           console.error(
             "[PreferencesService] Failed to change language",
             error,
           );
         });
+      } catch (error) {
+        console.error("[PreferencesService] Failed to change language", error);
       }
     });
   }
@@ -409,10 +424,11 @@ export default class PreferencesService extends ComponentBase {
    *
    * @template Result
    * @param {(capabilities: import('./preferencesApplicationReset.js').PreferencesResetCapabilities) => Result | Promise<Result>} operation
+   * @param {import('../../types/storage-contracts.js').ApplicationResetCheckpoint} [checkpoint]
    * @returns {Promise<Result>}
    */
-  runApplicationResetTransition(operation) {
-    return runApplicationPreferencesReset(this, operation);
+  runApplicationResetTransition(operation, checkpoint) {
+    return runApplicationPreferencesReset(this, operation, checkpoint);
   }
 
   /**
@@ -501,7 +517,7 @@ export default class PreferencesService extends ComponentBase {
    * normal saved/changed receipts continue after logging the effect failure.
    * @param {import('../../types/events/component-state.js').PreferencesStateSnapshot} state
    * @param {import('../../types/events/preferences.js').PreferencesStateChangeReason} reason
-   * @param {{ generation: number, localizeCommands: boolean, synchronousPublication?: boolean }} application
+   * @param {{ generation: number, localizeCommands: boolean, synchronousPublication?: boolean, recordPublication?: (settlement: import('../../types/events/protocol.js').EventEmitResult) => void, assertActive?: () => void }} application
    */
   async _applyAndPublishTransition(state, reason, application) {
     /** @type {unknown} */
@@ -514,11 +530,14 @@ export default class PreferencesService extends ComponentBase {
       effectsDegraded = true;
     }
     this._assertCurrentLifecycle(application.generation);
+    application.assertActive?.();
     this._currentStateSnapshot = state;
     const stateSettlement = application.synchronousPublication
       ? this._publishStateReceipt(reason, state, { synchronous: true })
       : this._publishStateReceipt(reason, state);
+    application.recordPublication?.(stateSettlement);
     this._assertCurrentLifecycle(application.generation);
+    application.assertActive?.();
     reportPreferencesActivationError(applicationError);
     return {
       effectsDegraded,

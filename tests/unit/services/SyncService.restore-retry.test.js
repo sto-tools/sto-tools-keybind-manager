@@ -257,7 +257,10 @@ describe("SyncService restore retry ownership", () => {
       const projectManager = new ProjectManagementService({
         eventBus: fixture.eventBus,
         i18n: service.i18n,
-        importProjectWithinPreferencesTransition: importProject,
+        importProjectWithinPreferencesTransition: async (...args) => ({
+          result: await importProject(...args),
+          settlement: Promise.resolve(),
+        }),
         runPreferencesTransition: createRequestBackedPreferencesTransition(
           () => projectManager,
         ),

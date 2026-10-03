@@ -31,6 +31,7 @@ import { profileStateChange } from "./dataStateChange.js";
 import {
   activateImportedProject,
   replaceProjectFromImport as replaceImportedProject,
+  replaceProjectFromImportWithSettlement as replaceImportedProjectWithSettlement,
 } from "./dataCoordinatorProjectImport.js";
 import { runApplicationDataReset } from "./dataCoordinatorApplicationReset.js";
 import {
@@ -302,6 +303,11 @@ export default class DataCoordinator extends ComponentBase {
     return replaceImportedProject(this, projectData, options);
   }
 
+  /** @param {unknown} projectData @param {import('../../types/storage-contracts.js').ImportedProjectOwnerActionOptions} [options] @returns {Promise<import('../../types/storage-contracts.js').OwnerActionCompletion<import('../../types/storage-contracts.js').ImportedProjectOwnerResult>>} */
+  replaceProjectFromImportWithSettlement(projectData, options) {
+    return replaceImportedProjectWithSettlement(this, projectData, options);
+  }
+
   /** @param {unknown} project @param {{fingerprint: string}} options @returns {Promise<import('../../types/storage-contracts.js').ImportedProjectActivationResult>} */
   activateProjectFromImport(project, options) {
     return activateImportedProject(this, project, options);
@@ -311,9 +317,10 @@ export default class DataCoordinator extends ComponentBase {
    * Hold the Data mutation queue for the nested application-reset workflow.
    * @template Result
    * @param {(capabilities: import('../../types/storage-contracts.js').ApplicationDataResetCapabilities) => Result | Promise<Result>} operation
+   * @param {import('../../types/storage-contracts.js').ApplicationResetCheckpoint} [checkpoint]
    */
-  runApplicationResetTransition(operation) {
-    return runApplicationDataReset(this, operation);
+  runApplicationResetTransition(operation, checkpoint) {
+    return runApplicationDataReset(this, operation, checkpoint);
   }
 
   /**

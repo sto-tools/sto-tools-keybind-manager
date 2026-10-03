@@ -274,10 +274,12 @@ export function representationWriterRoutes(entries) {
     routes.push({
       callsite,
       count,
-      adapter:
-        module === "projectSchemaMigrationPersistence"
-          ? "LocalStorageProjectRepository"
-          : module,
+      adapter: [
+        "projectSchemaMigrationPersistence",
+        "projectRepositoryReset",
+      ].includes(module)
+        ? "LocalStorageProjectRepository"
+        : module,
       representations,
     });
   }

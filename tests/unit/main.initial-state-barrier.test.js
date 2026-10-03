@@ -135,6 +135,8 @@ vi.mock("../../src/js/components/services/index.js", () => {
 
     replaceProjectFromImport() {}
 
+    replaceProjectFromImportWithSettlement() {}
+
     activateProjectFromImport() {}
 
     runApplicationResetTransition() {}
@@ -265,6 +267,12 @@ describe("main DataCoordinator startup barrier", () => {
     bootstrap.resolveInitialState();
     await vi.waitFor(() => expect(bootstrap.operations).toContain("app:init"));
     expect(bootstrap.appDependencies.preferencesService).toBeDefined();
+    expect(bootstrap.appDependencies.importedProjectOwnerAction).toBeTypeOf(
+      "function",
+    );
+    expect(
+      bootstrap.appDependencies.importedProjectOwnerCompletionAction,
+    ).toBeTypeOf("function");
     expect(
       bootstrap.operations.filter(
         (operation) => operation === "preferences:init",

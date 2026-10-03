@@ -59,8 +59,8 @@ describe("CommandPresentationService lifecycle", () => {
   it("owns exactly one responder set across destroy and reinitialize", async () => {
     const service = createService();
     const constructionEpoch = service.getCurrentState().authorityEpoch;
-    expect(service._responseDetachFunctions).toHaveLength(2);
-    expectResponders(fixture.eventBus, true);
+    expect(service._responseDetachFunctions).toHaveLength(0);
+    expectResponders(fixture.eventBus, false);
 
     service.init();
     const firstInitEpoch = service.getCurrentState().authorityEpoch;
@@ -91,12 +91,12 @@ describe("CommandPresentationService lifecycle", () => {
 
   it("transfers responder ownership to a replacement instance", async () => {
     const predecessor = createService();
-    const predecessorToggle = vi.spyOn(predecessor, "toggleGroup");
+    const predecessorWrite = vi.spyOn(predecessor, "publishState");
     predecessor.init();
     predecessor.destroy();
 
     const replacement = createService();
-    const replacementToggle = vi.spyOn(replacement, "toggleGroup");
+    const replacementWrite = vi.spyOn(replacement, "publishState");
     replacement.init();
 
     expect(predecessor._responseDetachFunctions).toEqual([]);
@@ -105,7 +105,10 @@ describe("CommandPresentationService lifecycle", () => {
     await replacement.request("command-presentation:toggle-group", {
       groupType: "palindromic",
     });
-    expect(predecessorToggle).not.toHaveBeenCalled();
-    expect(replacementToggle).toHaveBeenCalledExactlyOnceWith("palindromic");
+    expect(predecessorWrite).toHaveBeenCalledTimes(1);
+    expect(replacementWrite).toHaveBeenCalledTimes(2);
+    expect(replacement.getCurrentState().collapsedGroups).toEqual([
+      "palindromic",
+    ]);
   });
 });

@@ -1,5 +1,7 @@
 import { needsLanguageActivation } from "./preferencesApplicationEffects.js";
 import { collectPreferenceChanges } from "./preferencesMutationBoundary.js";
+import { applicationResetCheckpointState } from "./applicationResetCheckpoint.js";
+import { verifyPreferencesResetCheckpoint } from "./preferencesResetCheckpoint.js";
 import {
   materializeCanonicalPreferences,
   materializeSettingsClearResult,
@@ -31,12 +33,12 @@ function preferencesResetCompletion(result, settlements = []) {
   };
 }
 
-/** @param {PreferencesResetReceipt} receipt @param {unknown} error */
-function resetAdoptionFailure(receipt, error) {
+/** @param {PreferencesResetReceipt} receipt @param {unknown} error @param {boolean} [committed] */
+function resetAdoptionFailure(receipt, error, committed = false) {
   const code = resetFailureCode(error);
   receipt.preferencesOwnerAdoption = {
     status: "failed",
-    committed: false,
+    committed,
     error: code,
   };
   return preferencesResetCompletion({
@@ -57,20 +59,24 @@ function resetAdoptionFailure(receipt, error) {
  * @param {import('./PreferencesService.js').default} owner
  * @param {number} generation
  * @param {PreferencesSettings} defaults
+ * @param {import('./applicationResetCheckpoint.js').PreferencesCheckpoint | null} checkpoint
+ * @param {() => void} assertActive
  * @returns {Promise<PreferencesResetOwnerCompletion>}
  */
 async function resetPersistedPreferencesWithinMutation(
   owner,
   generation,
   defaults,
+  checkpoint,
+  assertActive,
 ) {
   /** @type {PreferencesResetReceipt} */
-  const receipt = {
+  const receipt = checkpoint?.receipt ?? {
     settingsClear: resetStageSkipped(),
     settingsDefaults: resetStageSkipped(),
     preferencesOwnerAdoption: resetStageSkipped(),
   };
-  owner._assertCurrentLifecycle(generation);
+  assertActive();
   if (!owner.settingsRepository) {
     receipt.settingsClear = {
       status: "failed",
@@ -88,102 +94,146 @@ async function resetPersistedPreferencesWithinMutation(
     });
   }
 
-  let removal;
-  try {
-    removal = materializeSettingsClearResult(owner.settingsRepository.clear());
-  } catch {
-    removal = null;
+  let acceptedSettings = null;
+  if (checkpoint) {
+    try {
+      acceptedSettings = verifyPreferencesResetCheckpoint(owner, checkpoint);
+    } catch (error) {
+      const reason =
+        error instanceof Error && error.message === "storage_read_failed"
+          ? "storage_read_failed"
+          : "verification_failed";
+      return preferencesResetCompletion({
+        success: false,
+        error: reason,
+        stage:
+          receipt.settingsDefaults.status === "complete"
+            ? "settingsDefaults"
+            : "settingsClear",
+        durable: Object.values(receipt).some(
+          (stage) => stage.committed === true,
+        ),
+        params: { reason },
+        receipt: cloneResetReceipt(receipt),
+      });
+    }
+    if (checkpoint.adopted) {
+      if (!checkpoint.result || !checkpoint.settlement)
+        return resetAdoptionFailure(
+          receipt,
+          new Error("operation_cancelled"),
+          true,
+        );
+      return {
+        result: structuredClone(checkpoint.result),
+        settlement: checkpoint.settlement,
+      };
+    }
   }
-  if (
-    removal?.status !== "cleared" ||
-    removal.removal?.status !== "acknowledged"
-  ) {
-    receipt.settingsClear = {
-      status: "failed",
-      committed: "indeterminate",
-      error: "storage_write_failed",
-      removal: removal?.removal ?? {
-        status: "indeterminate",
+
+  if (receipt.settingsClear.status !== "complete") {
+    let removal;
+    try {
+      removal = materializeSettingsClearResult(
+        owner.settingsRepository.clear(),
+      );
+    } catch {
+      removal = null;
+    }
+    if (
+      removal?.status !== "cleared" ||
+      removal.removal?.status !== "acknowledged"
+    ) {
+      receipt.settingsClear = {
+        status: "failed",
+        committed: "indeterminate",
         error: "storage_write_failed",
-        category: "unknown",
-      },
-    };
-    return preferencesResetCompletion({
-      success: false,
-      error: "storage_write_failed",
-      stage: "settingsClear",
-      durable: "indeterminate",
-      params: { reason: "storage_write_failed" },
-      receipt: cloneResetReceipt(receipt),
-    });
-  }
-  receipt.settingsClear = {
-    status: "complete",
-    committed: true,
-    removal: structuredClone(removal.removal),
-  };
-
-  try {
-    owner._assertCurrentLifecycle(generation);
-  } catch (error) {
-    return resetAdoptionFailure(receipt, error);
-  }
-
-  let persisted;
-  try {
-    persisted = owner.persistSettings(defaults);
-  } catch {
-    persisted = null;
-  }
-  if (persisted?.status !== "committed") {
-    const error =
-      persisted?.status === "verification_failed"
-        ? /** @type {const} */ ("verification_failed")
-        : persisted?.status === "write_failed"
-          ? /** @type {const} */ ("storage_write_failed")
-          : /** @type {const} */ ("verification_failed");
-    const indeterminate =
-      persisted?.status === "write_failed" ||
-      persisted?.status === "verification_failed" ||
-      persisted == null;
-    receipt.settingsDefaults = {
-      status: "failed",
-      committed: indeterminate ? "indeterminate" : false,
-      error,
-      write: structuredClone(
-        persisted?.write ?? {
+        removal: removal?.removal ?? {
           status: "indeterminate",
           error: "storage_write_failed",
           category: "unknown",
         },
-      ),
-      verification: structuredClone(
-        persisted?.verification ?? { status: "not_attempted" },
-      ),
+      };
+      return preferencesResetCompletion({
+        success: false,
+        error: "storage_write_failed",
+        stage: "settingsClear",
+        durable: "indeterminate",
+        params: { reason: "storage_write_failed" },
+        receipt: cloneResetReceipt(receipt),
+      });
+    }
+    receipt.settingsClear = {
+      status: "complete",
+      committed: true,
+      removal: structuredClone(removal.removal),
     };
-    return preferencesResetCompletion({
-      success: false,
-      error,
-      stage: "settingsDefaults",
-      // The acknowledged clear is already a durable reset even if eager
-      // default materialization cannot be verified in this lifecycle.
-      durable: true,
-      params: { reason: error },
-      receipt: cloneResetReceipt(receipt),
-    });
   }
-  receipt.settingsDefaults = {
-    status: "complete",
-    committed: true,
-    write: structuredClone(persisted.write),
-    verification: structuredClone(persisted.verification),
-  };
+
+  try {
+    assertActive();
+  } catch (error) {
+    return resetAdoptionFailure(receipt, error);
+  }
+
+  if (receipt.settingsDefaults.status !== "complete") {
+    let persisted;
+    try {
+      persisted = owner.persistSettings(defaults);
+    } catch {
+      persisted = null;
+    }
+    if (persisted?.status !== "committed") {
+      const error =
+        persisted?.status === "verification_failed"
+          ? /** @type {const} */ ("verification_failed")
+          : persisted?.status === "write_failed"
+            ? /** @type {const} */ ("storage_write_failed")
+            : /** @type {const} */ ("verification_failed");
+      const indeterminate =
+        persisted?.status === "write_failed" ||
+        persisted?.status === "verification_failed" ||
+        persisted == null;
+      receipt.settingsDefaults = {
+        status: "failed",
+        committed: indeterminate ? "indeterminate" : false,
+        error,
+        write: structuredClone(
+          persisted?.write ?? {
+            status: "indeterminate",
+            error: "storage_write_failed",
+            category: "unknown",
+          },
+        ),
+        verification: structuredClone(
+          persisted?.verification ?? { status: "not_attempted" },
+        ),
+      };
+      return preferencesResetCompletion({
+        success: false,
+        error,
+        stage: "settingsDefaults",
+        // The acknowledged clear is already a durable reset even if eager
+        // default materialization cannot be verified in this lifecycle.
+        durable: true,
+        params: { reason: error },
+        receipt: cloneResetReceipt(receipt),
+      });
+    }
+    receipt.settingsDefaults = {
+      status: "complete",
+      committed: true,
+      write: structuredClone(persisted.write),
+      verification: structuredClone(persisted.verification),
+    };
+    acceptedSettings = persisted.value;
+  }
 
   /** @type {PromiseLike<unknown>[]} */
   const settlements = [];
   try {
-    owner._assertCurrentLifecycle(generation);
-    const nextSettings = materializeCanonicalPreferences(persisted.value);
+    assertActive();
+    const nextSettings = materializeCanonicalPreferences(acceptedSettings);
     if (!nextSettings)
       throw new Error("preferences_settings_verification_failed");
     const oldSettings = owner.getSettings();
@@ -196,8 +246,12 @@ async function resetPersistedPreferencesWithinMutation(
       nextSettings.language,
     );
     const prepared = owner._prepareSettingsTransition(nextSettings);
-    owner._assertCurrentLifecycle(generation);
+    assertActive();
     const nextState = owner._adoptPreparedTransition(prepared);
+    if (checkpoint) {
+      checkpoint.adopted = true;
+      checkpoint.revision = owner._stateRevision;
+    }
     const activation = await owner._applyAndPublishTransition(
       nextState,
       "settings-reset",
@@ -205,9 +259,11 @@ async function resetPersistedPreferencesWithinMutation(
         generation,
         localizeCommands: activateLanguage,
         synchronousPublication: true,
+        recordPublication: (settlement) => settlements.push(settlement),
+        assertActive,
       },
     );
-    settlements.push(activation.stateSettlement);
+    assertActive();
     owner._languageActivationDirty = activation.languageActivationFailed;
 
     if (changed) {
@@ -221,7 +277,7 @@ async function resetPersistedPreferencesWithinMutation(
           { synchronous: true },
         ),
       );
-      owner._assertCurrentLifecycle(generation);
+      assertActive();
     }
     if (activateLanguage && !activation.languageActivationFailed) {
       settlements.push(
@@ -231,7 +287,7 @@ async function resetPersistedPreferencesWithinMutation(
           { synchronous: true },
         ),
       );
-      owner._assertCurrentLifecycle(generation);
+      assertActive();
     }
 
     receipt.preferencesOwnerAdoption = {
@@ -251,7 +307,11 @@ async function resetPersistedPreferencesWithinMutation(
       settlements,
     );
   } catch (error) {
-    const failed = resetAdoptionFailure(receipt, error);
+    const failed = resetAdoptionFailure(
+      receipt,
+      error,
+      Boolean(checkpoint?.adopted),
+    );
     return preferencesResetCompletion(failed.result, settlements);
   }
 }
@@ -268,19 +328,47 @@ async function resetPersistedPreferencesWithinMutation(
  * @template Result
  * @param {import('./PreferencesService.js').default} owner
  * @param {(capabilities: PreferencesResetCapabilities) => Result | Promise<Result>} operation
+ * @param {import('../../types/storage-contracts.js').ApplicationResetCheckpoint} [checkpoint]
  * @returns {Promise<Result>}
  */
-export function runApplicationPreferencesReset(owner, operation) {
+export function runApplicationPreferencesReset(owner, operation, checkpoint) {
   if (typeof operation !== "function") {
     throw new TypeError("invalid_preferences_reset_transaction");
   }
+  const saga = applicationResetCheckpointState(checkpoint);
   const defaults = materializeCanonicalPreferences(owner.defaultSettings);
   if (!defaults) throw new TypeError("invalid_preferences_defaults");
   const generation = owner._readyMutationGeneration();
   return owner._enqueueMutation(async () => {
+    if (saga && !saga.active) throw new Error("operation_cancelled");
+    const expected = saga?.preferences;
+    if (
+      expected &&
+      (expected.authorityEpoch !== owner._stateAuthorityEpoch ||
+        expected.revision !== owner._stateRevision ||
+        expected.generation !== generation)
+    )
+      throw new Error("operation_cancelled");
+    if (saga && !expected)
+      saga.preferences = {
+        authorityEpoch: owner._stateAuthorityEpoch,
+        revision: owner._stateRevision,
+        generation,
+        receipt: {
+          settingsClear: resetStageSkipped(),
+          settingsDefaults: resetStageSkipped(),
+          preferencesOwnerAdoption: resetStageSkipped(),
+        },
+        defaultsJson: JSON.stringify(defaults),
+        priorJson: undefined,
+        adopted: false,
+        result: null,
+        settlement: null,
+      };
     let transactionActive = true;
     let acceptingCapabilities = true;
     const assertActive = () => {
+      if (saga && !saga.active) throw new Error("operation_cancelled");
       if (!transactionActive || !acceptingCapabilities) {
         throw new Error("operation_cancelled");
       }
@@ -299,7 +387,15 @@ export function runApplicationPreferencesReset(owner, operation) {
           owner,
           generation,
           defaults,
-        );
+          saga?.preferences ?? null,
+          assertActive,
+        ).then((completion) => {
+          if (saga?.preferences) {
+            saga.preferences.result = structuredClone(completion.result);
+            saga.preferences.settlement = completion.settlement;
+          }
+          return completion;
+        });
         void resetPromise.catch(() => undefined);
         return resetPromise;
       } catch (error) {

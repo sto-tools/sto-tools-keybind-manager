@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import ProjectManagementService from "../../../src/js/components/services/ProjectManagementService.js";
 import { createEventBusFixture } from "../../fixtures/core/index.js";
+import { createProjectImportOwnerCompletionAction } from "../../fixtures/services/importProjectOwner.js";
 
 const projectText = (settings = true) =>
   JSON.stringify({
@@ -125,6 +126,8 @@ describe("ProjectManagementService restore owner workflow", () => {
     importer = new ImportService({
       eventBus: bus.eventBus,
       replaceProjectFromImport,
+      replaceProjectFromImportWithSettlement:
+        createProjectImportOwnerCompletionAction(replaceProjectFromImport),
       runPreferencesTransition,
     });
     manager = new ProjectManagementService({

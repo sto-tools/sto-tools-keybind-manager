@@ -97,6 +97,8 @@ describe("settings-only project restore owner chain", () => {
       eventBus: eventBusFixture.eventBus,
       replaceProjectFromImport: (...args) =>
         coordinator.replaceProjectFromImport(...args),
+      replaceProjectFromImportWithSettlement: (...args) =>
+        coordinator.replaceProjectFromImportWithSettlement(...args),
     });
     preferencesI18n = {
       language: "en",

@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import en from "../../../src/i18n/en.json";
 import { createImportPreferencesOwner } from "../../fixtures/services/projectRestore.js";
-import { createProjectImportOwnerAction } from "../../fixtures/services/importProjectOwner.js";
+import {
+  createProjectImportOwnerAction,
+  createProjectImportOwnerCompletionAction,
+} from "../../fixtures/services/importProjectOwner.js";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createImportServiceFixture } from "../../fixtures/index.js";
@@ -20,6 +23,8 @@ describe("ImportService project import", () => {
         preferences.runExternalActivationTransition(source, operation),
       eventBus: fixture.eventBus,
       replaceProjectFromImport,
+      replaceProjectFromImportWithSettlement:
+        createProjectImportOwnerCompletionAction(replaceProjectFromImport),
     });
     service.init();
 
@@ -37,6 +42,24 @@ describe("ImportService project import", () => {
   });
 
   describe("importProjectFile", () => {
+    it("fails closed before acquiring a settings lease when completion capability is missing", async () => {
+      service.replaceProjectFromImportWithSettlement = null;
+      service.runPreferencesTransition = vi.fn(
+        service.runPreferencesTransition,
+      );
+      await expect(
+        service.importProjectFile(
+          JSON.stringify({
+            type: "project",
+            data: { settings: { theme: "light" } },
+          }),
+        ),
+      ).resolves.toEqual({ success: false, error: "storage_not_available" });
+      expect(service.runPreferencesTransition).not.toHaveBeenCalled();
+      expect(service.replaceProjectFromImport).not.toHaveBeenCalled();
+      expect(fixture.settingsRepository.replace).not.toHaveBeenCalled();
+    });
+
     it("keeps an explicitly settings-free import independent of the Preferences queue", async () => {
       service.runPreferencesTransition = vi.fn(() => {
         throw new Error("preferences blocked");

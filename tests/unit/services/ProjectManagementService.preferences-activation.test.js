@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import ProjectManagementService from "../../../src/js/components/services/ProjectManagementService.js";
 import { createServiceFixture } from "../../fixtures/index.js";
-import { createProjectImportOwnerAction } from "../../fixtures/services/importProjectOwner.js";
+import {
+  createProjectImportOwnerAction,
+  createProjectImportOwnerCompletionAction,
+} from "../../fixtures/services/importProjectOwner.js";
 
 const projectText = (settings = true) =>
   JSON.stringify({
@@ -48,6 +51,8 @@ describe("ProjectManagementService Preferences activation", () => {
     importer = new ImportService({
       eventBus: fixture.eventBus,
       replaceProjectFromImport,
+      replaceProjectFromImportWithSettlement:
+        createProjectImportOwnerCompletionAction(replaceProjectFromImport),
     });
     service = new ProjectManagementService({
       eventBus: fixture.eventBus,

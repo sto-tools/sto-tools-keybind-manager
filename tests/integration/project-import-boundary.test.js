@@ -78,6 +78,8 @@ describe("project import boundary", () => {
       eventBus: eventBusFixture.eventBus,
       replaceProjectFromImport: (...args) =>
         coordinator.replaceProjectFromImport(...args),
+      replaceProjectFromImportWithSettlement: (...args) =>
+        coordinator.replaceProjectFromImportWithSettlement(...args),
     });
     service.init();
   });

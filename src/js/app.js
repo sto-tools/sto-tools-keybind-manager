@@ -75,6 +75,7 @@ export default class STOToolsKeybindManager {
    *   keyBrowserPersistence?: import('./components/storage/KeyBrowserPersistencePort.js').KeyBrowserPersistencePort,
    *   applicationDataResetTransitionRunner?: import('./types/storage-contracts.js').ApplicationDataResetTransitionRunner,
    *   importedProjectOwnerAction?: import('./types/storage-contracts.js').ImportedProjectOwnerAction,
+   *   importedProjectOwnerCompletionAction?: import('./types/storage-contracts.js').ImportedProjectOwnerCompletionAction,
    *   importedProjectActivationAction?: import('./types/storage-contracts.js').ImportedProjectActivationAction,
    *   importedSettingsActivationAction?: import('./components/services/PreferencesService.js').default['activateImportedSettings'],
    *   currentArtifactSerializer?: import('./types/storage-contracts.js').CurrentProjectArtifactSerializerPort,
@@ -91,6 +92,7 @@ export default class STOToolsKeybindManager {
     keyBrowserPersistence,
     applicationDataResetTransitionRunner,
     importedProjectOwnerAction,
+    importedProjectOwnerCompletionAction,
     importedProjectActivationAction,
     importedSettingsActivationAction,
     currentArtifactSerializer,
@@ -106,6 +108,8 @@ export default class STOToolsKeybindManager {
     this.applicationDataResetTransitionRunner =
       applicationDataResetTransitionRunner;
     this.importedProjectOwnerAction = importedProjectOwnerAction;
+    this.importedProjectOwnerCompletionAction =
+      importedProjectOwnerCompletionAction;
     this.importedProjectActivationAction = importedProjectActivationAction;
     this.importedSettingsActivationAction = importedSettingsActivationAction;
     this.currentArtifactSerializer = currentArtifactSerializer;
@@ -219,8 +223,8 @@ export default class STOToolsKeybindManager {
       const runPreferencesTransition = (source, operation) =>
         preferencesService.runExternalActivationTransition(source, operation);
       /** @type {import('./types/storage-contracts.js').ApplicationPreferencesResetTransitionRunner} */
-      const runPreferencesResetTransition = (operation) =>
-        preferencesService.runApplicationResetTransition(operation);
+      const runPreferencesResetTransition = (operation, checkpoint) =>
+        preferencesService.runApplicationResetTransition(operation, checkpoint);
 
       this.applicationResetService = create(ApplicationResetService, {
         eventBus,
@@ -320,6 +324,8 @@ export default class STOToolsKeybindManager {
         ui: stoUI,
         runPreferencesTransition,
         replaceProjectFromImport: this.importedProjectOwnerAction,
+        replaceProjectFromImportWithSettlement:
+          this.importedProjectOwnerCompletionAction,
       });
 
       this.importService.init();
@@ -472,11 +478,13 @@ export default class STOToolsKeybindManager {
       this.aliasBrowserService.init();
       this.aliasBrowserUI.init();
       this.commandPresentationService.init();
+      await this.commandPresentationService.initialStateReady;
       this.commandLibraryService.init();
       this.commandLibraryUI.init();
       this.commandChainService.init();
       this.commandChainUI.init();
       this.keyBrowserService.init();
+      await this.keyBrowserService.initialStateReady;
       this.keyBrowserUI.init();
       this.parameterCommandService.init();
       this.commandUI.init();

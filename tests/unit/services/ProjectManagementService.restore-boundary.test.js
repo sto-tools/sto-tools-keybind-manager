@@ -52,7 +52,10 @@ describe("ProjectManagementService restore RPC boundary", () => {
             : key,
       },
       runPreferencesTransition,
-      importProjectWithinPreferencesTransition: importProject,
+      importProjectWithinPreferencesTransition: async (...args) => ({
+        result: await importProject(...args),
+        settlement: Promise.resolve(),
+      }),
     });
     service.ui = { showToast: vi.fn() };
     service.init();

@@ -104,10 +104,10 @@ describe("application reset settings activation", () => {
     await preferences.initialStateReady;
     resetService = new ApplicationResetService({
       eventBus: fixture.eventBus,
-      runPreferencesResetTransition: (operation) =>
-        preferences.runApplicationResetTransition(operation),
-      runDataResetTransition: (operation) =>
-        coordinator.runApplicationResetTransition(operation),
+      runPreferencesResetTransition: (operation, checkpoint) =>
+        preferences.runApplicationResetTransition(operation, checkpoint),
+      runDataResetTransition: (operation, checkpoint) =>
+        coordinator.runApplicationResetTransition(operation, checkpoint),
     });
     resetService.init();
 

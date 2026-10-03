@@ -9,7 +9,10 @@ import ImportService from "../../../src/js/components/services/ImportService.js"
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 import { createCurrentArtifactSerializerFixture } from "../../fixtures/services/projectArtifact.js";
-import { createProjectImportOwnerAction } from "../../fixtures/services/importProjectOwner.js";
+import {
+  createProjectImportOwnerAction,
+  createProjectImportOwnerCompletionAction,
+} from "../../fixtures/services/importProjectOwner.js";
 import {
   createDataCoordinatorState,
   createPreferencesStateChange,
@@ -404,6 +407,10 @@ describe("ExportService sync project fidelity", () => {
         preferences.runExternalActivationTransition(source, operation),
       eventBus: destination.eventBus,
       replaceProjectFromImport: createProjectImportOwnerAction(destination),
+      replaceProjectFromImportWithSettlement:
+        createProjectImportOwnerCompletionAction(
+          createProjectImportOwnerAction(destination),
+        ),
     });
     services.push(importer);
     importer.init();
