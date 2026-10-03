@@ -4,7 +4,7 @@
  *
  * @typedef {typeof import('../../core/eventBus.js').default} EventBus
  * @typedef {typeof import('i18next').default} I18n
- * @typedef {import('./FileSystemService.js').default} FileSystem
+ * @typedef {Pick<import('./FileSystemService.js').default, 'getSyncDirectoryState' | 'beginSyncDirectoryTransition' | 'completeSyncDirectoryTransition' | 'restoreSyncDirectoryState'>} FileSystem
  *
  * @typedef {Object} RichCommand
  * @property {string} [command]

@@ -20,6 +20,8 @@ import LocalStorageKeyBrowserPersistence from "./components/storage/LocalStorage
 import LocalStorageVisitedStatePersistence from "./components/storage/LocalStorageVisitedStatePersistence.js";
 import LocalStorageDevelopmentFlagPersistence from "./components/storage/LocalStorageDevelopmentFlagPersistence.js";
 import { runStorageSchemaMigration } from "./components/storage/storageSchemaMigration.js";
+import { createStorageRuntimeDiagnostics } from "./components/storage/storageRuntimeDiagnostics.js";
+import FileSystemService from "./components/services/FileSystemService.js";
 import {
   createDefaultPreferencesSettings,
   detectPreferencesLanguage,
@@ -98,6 +100,10 @@ const dataService = new DataService({
   const defaults = createDefaultPreferencesSettings(
     detectPreferencesLanguage(navigator),
   );
+  // Metadata is recorded without reading storage or publishing capabilities.
+  // Attach before readiness so blocked startup remains inspectable too.
+  const storageDiagnostics = createStorageRuntimeDiagnostics();
+  devMonitor.configureStorageDiagnostics(storageDiagnostics.snapshot);
   let settingsStorage;
   try {
     settingsStorage = localStorage;
@@ -113,23 +119,28 @@ const dataService = new DataService({
       removeItem: unavailable,
     };
   }
-  const settingsRepository = new LocalStorageSettingsRepository({
+  const settingsAdapter = new LocalStorageSettingsRepository({
     storage: settingsStorage,
     defaults,
   });
-  const projectRepository = new LocalStorageProjectRepository({
+  const settingsRepository =
+    storageDiagnostics.observeSettingsRepository(settingsAdapter);
+  const projectAdapter = new LocalStorageProjectRepository({
     storage: settingsStorage,
     version: stoData.settings.version,
     now: () => new Date().toISOString(),
   });
+  const projectRepository =
+    storageDiagnostics.observeProjectRepository(projectAdapter);
   const startupMigration = runStorageSchemaMigration({
     settingsRepository,
-    settingsInspection: settingsRepository.createMigrationInspectionPort(),
-    projectMigration: projectRepository.createSchemaMigrationPort(),
+    settingsInspection: settingsAdapter.createMigrationInspectionPort(),
+    projectMigration: projectAdapter.createSchemaMigrationPort(),
     defaults,
     version: stoData.settings.version,
     now: () => new Date().toISOString(),
   });
+  storageDiagnostics.recordMigrationReceipt(startupMigration);
   const preferencesService = new PreferencesService({
     settingsRepository,
     startupMigration,
@@ -147,19 +158,21 @@ const dataService = new DataService({
     return;
   }
 
-  const visitedState = new LocalStorageVisitedStatePersistence({
-    storage: settingsStorage,
-  });
+  const visitedState = storageDiagnostics.observeVisitedState(
+    new LocalStorageVisitedStatePersistence({ storage: settingsStorage }),
+  );
   const commandPresentationPersistence =
-    new LocalStorageCommandPresentationPersistence({
-      storage: settingsStorage,
-    });
-  const keyBrowserPersistence = new LocalStorageKeyBrowserPersistence({
-    storage: settingsStorage,
-  });
-  const developmentFlag = new LocalStorageDevelopmentFlagPersistence({
-    storage: settingsStorage,
-  });
+    storageDiagnostics.observeCommandPresentation(
+      new LocalStorageCommandPresentationPersistence({
+        storage: settingsStorage,
+      }),
+    );
+  const keyBrowserPersistence = storageDiagnostics.observeKeyBrowser(
+    new LocalStorageKeyBrowserPersistence({ storage: settingsStorage }),
+  );
+  const developmentFlag = storageDiagnostics.observeDevelopmentFlag(
+    new LocalStorageDevelopmentFlagPersistence({ storage: settingsStorage }),
+  );
 
   // DataCoordinator owns the accepted project root and its repository writer.
   const dataCoordinator = new DataCoordinator({
@@ -277,6 +290,9 @@ const dataService = new DataService({
     stoFileExplorer.init();
     const stoSync = new SyncService({
       eventBus,
+      fs: storageDiagnostics.observeFileSystem(
+        new FileSystemService({ eventBus }),
+      ),
       ui: stoUI,
       i18n: i18next,
       directoryPicker: Object.freeze({
@@ -299,13 +315,27 @@ const dataService = new DataService({
       commandPresentationPersistence,
       keyBrowserPersistence,
       applicationDataResetTransitionRunner:
-        dataCoordinator.runApplicationResetTransition.bind(dataCoordinator),
-      importedProjectOwnerAction:
+        storageDiagnostics.observeWorkflowAction(
+          "project",
+          "reset",
+          dataCoordinator.runApplicationResetTransition.bind(dataCoordinator),
+        ),
+      importedProjectOwnerAction: storageDiagnostics.observeWorkflowAction(
+        "project",
+        "restore",
         dataCoordinator.replaceProjectFromImport.bind(dataCoordinator),
-      importedProjectActivationAction:
+      ),
+      importedProjectActivationAction: storageDiagnostics.observeWorkflowAction(
+        "project",
+        "activation",
         dataCoordinator.activateProjectFromImport.bind(dataCoordinator),
+      ),
       importedSettingsActivationAction:
-        preferencesService.activateImportedSettings.bind(preferencesService),
+        storageDiagnostics.observeWorkflowAction(
+          "settings",
+          "activation",
+          preferencesService.activateImportedSettings.bind(preferencesService),
+        ),
       currentArtifactSerializer,
       ui: stoUI,
       syncService: stoSync,
@@ -314,15 +344,6 @@ const dataService = new DataService({
 
     // App instance is not exposed globally; components communicate via eventBus.
     await app.init();
-    if (devMonitor.isDevelopment) {
-      devMonitor.registerRuntimeDiagnostics({
-        eventBus,
-        dataCoordinator,
-        commandChainUI: app.commandChainUI,
-        keyBrowserUI: app.keyBrowserUI,
-        keyBrowserService: app.keyBrowserService,
-      });
-    }
   } catch (error) {
     console.error("Application initialization failed:", error);
     preferencesService.destroy();

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createStorageRuntimeDiagnostics } from "../../../src/js/components/storage/storageRuntimeDiagnostics.js";
 
 const originalI18nextDescriptor = Object.getOwnPropertyDescriptor(
   window,
@@ -257,48 +258,84 @@ describe("DevMonitor localization capability", () => {
     monitor.disableAll();
   });
 
-  it("registers a replaceable frozen runtime record in development", async () => {
+  it("projects replaceable deeply frozen detached storage metadata in development", async () => {
     const monitor = await loadMonitor();
-    const firstEventBus = { name: "first" };
-    const first = monitor.registerRuntimeDiagnostics({
-      eventBus: firstEventBus,
-      preferencesService: { name: "preferences" },
-    });
-
-    expect(first).toBe(monitor.getRuntimeDiagnostics());
-    expect(first).toEqual({
-      eventBus: firstEventBus,
-      preferencesService: { name: "preferences" },
-    });
+    const input = structuredClone(createStorageRuntimeDiagnostics().snapshot());
+    const provider = vi.fn(() => input);
+    monitor.configureStorageDiagnostics(provider);
+    const first = monitor.getStorageDiagnostics();
+    expect(first).toEqual(input);
+    expect(first).not.toBe(input);
     expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first.domains)).toBe(true);
+    expect(Object.isFrozen(first.domains[0])).toBe(true);
     expect(() => {
-      first.eventBus = { name: "mutated" };
+      first.domains[0].owner = "consumer mutation";
     }).toThrow(TypeError);
-    expect(monitor.getRuntimeDiagnostics().eventBus).toBe(firstEventBus);
-
-    const replacement = monitor.registerRuntimeDiagnostics({
-      eventBus: { name: "replacement" },
-    });
-
+    input.domains[0].structuralLayout = "settings-free";
+    expect(first.domains[0].structuralLayout).toBe("not-observed");
+    expect(monitor.getStorageDiagnostics().domains[0].structuralLayout).toBe(
+      "settings-free",
+    );
+    monitor.configureStorageDiagnostics(() =>
+      createStorageRuntimeDiagnostics().snapshot(),
+    );
+    const replacement = monitor.getStorageDiagnostics();
     expect(replacement).not.toBe(first);
     expect(Object.isFrozen(replacement)).toBe(true);
-    expect(monitor.getRuntimeDiagnostics()).toBe(replacement);
-    expect(monitor.clearRuntimeDiagnostics()).toBe(true);
-    expect(monitor.getRuntimeDiagnostics()).toBeNull();
+    expect(provider).toHaveBeenCalledTimes(2);
+    monitor.clearStorageDiagnostics();
+    expect(monitor.getStorageDiagnostics()).toBeNull();
   });
 
-  it("refuses runtime diagnostics outside development", async () => {
-    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("does not invoke the private storage metadata provider outside development", async () => {
     const monitor = await loadMonitor();
+    const provider = vi.fn(() => createStorageRuntimeDiagnostics().snapshot());
+    monitor.configureStorageDiagnostics(provider);
     monitor.isDevelopment = false;
+    expect(monitor.getStorageDiagnostics()).toBeNull();
+    expect(provider).not.toHaveBeenCalled();
+    expect(monitor.runtimeDiagnostics).toBeUndefined();
+    monitor.clearStorageDiagnostics();
+    monitor.isDevelopment = true;
+    expect(monitor.getStorageDiagnostics()).toBeNull();
+  });
 
-    expect(
-      monitor.registerRuntimeDiagnostics({ eventBus: { name: "blocked" } }),
-    ).toBeNull();
-    expect(monitor.getRuntimeDiagnostics()).toBeNull();
-    expect(monitor.clearRuntimeDiagnostics()).toBe(false);
-    expect(monitor.runtimeDiagnostics).toBeNull();
-    expect(consoleWarn).toHaveBeenCalledTimes(3);
+  it("rejects service handles, unknown fields, accessor payloads and provider failures without invoking payload getters", async () => {
+    const monitor = await loadMonitor();
+    const getter = vi.fn(() => {
+      throw new Error("sensitive data");
+    });
+    for (const input of [
+      { eventBus: {}, dataCoordinator: {} },
+      {
+        ...createStorageRuntimeDiagnostics().snapshot(),
+        secret: "user content",
+      },
+      Object.defineProperty({}, "domains", { enumerable: true, get: getter }),
+      {
+        domains: [
+          Object.defineProperty({}, "domain", {
+            enumerable: true,
+            get: getter,
+          }),
+        ],
+      },
+    ]) {
+      monitor.configureStorageDiagnostics(() => input);
+      expect(monitor.getStorageDiagnostics()).toBeNull();
+    }
+    expect(getter).not.toHaveBeenCalled();
+    monitor.configureStorageDiagnostics(() => {
+      throw new Error("private user contents");
+    });
+    expect(monitor.getStorageDiagnostics()).toBeNull();
+    expect(() => monitor.configureStorageDiagnostics({})).toThrow(
+      "invalid_storage_diagnostic_provider",
+    );
+    expect(monitor.registerRuntimeDiagnostics).toBeUndefined();
+    expect(monitor.getRuntimeDiagnostics).toBeUndefined();
+    expect(monitor.clearRuntimeDiagnostics).toBeUndefined();
   });
 
   it("does not enable or expose the production singleton before composition supplies its flag", async () => {
@@ -412,7 +449,8 @@ describe("DevMonitor localization capability", () => {
   it("does not expose its read-only capability through the public singleton or runtime diagnostics", async () => {
     const developmentFlag = Object.freeze({ isEnabled: vi.fn(() => true) });
     const monitor = await loadMonitor(developmentFlag);
-    monitor.registerRuntimeDiagnostics({ eventBus: {} });
+    const provider = () => createStorageRuntimeDiagnostics().snapshot();
+    monitor.configureStorageDiagnostics(provider);
 
     expect(window.devMonitor).toBe(monitor);
     expect(monitor.developmentFlag).toBeUndefined();
@@ -421,7 +459,13 @@ describe("DevMonitor localization capability", () => {
       developmentFlag,
     );
     expect(monitor.getStatus()).not.toHaveProperty("developmentFlag");
-    expect(monitor.getRuntimeDiagnostics()).toEqual({ eventBus: {} });
+    expect(Reflect.ownKeys(monitor).map((key) => monitor[key])).not.toContain(
+      provider,
+    );
+    expect(monitor.getStorageDiagnostics()).toEqual(
+      createStorageRuntimeDiagnostics().snapshot(),
+    );
+    expect(monitor.runtimeDiagnostics).toBeUndefined();
     expect(monitor.getItem).toBeUndefined();
     expect(monitor.setItem).toBeUndefined();
     expect(monitor.removeItem).toBeUndefined();

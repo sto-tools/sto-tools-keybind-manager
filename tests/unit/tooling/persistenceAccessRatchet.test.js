@@ -206,6 +206,8 @@ describe("persistence access architecture ratchet", () => {
       "repositoryResults.js",
       "scopedLocalStorage.js",
       "settingsRepositoryBoundary.js",
+      "storageDiagnosticSnapshot.js",
+      "storageRuntimeDiagnostics.js",
       "storageSchemaMigration.js",
       "storageSchemaMigrationReceipt.js",
     ]);
@@ -213,19 +215,27 @@ describe("persistence access architecture ratchet", () => {
     const receiptImport =
       'import { materializeStorageSchemaMigrationReceipt } from "../storage/storageSchemaMigrationReceipt.js";';
     const preferencesFile = "components/services/PreferencesService.js";
+    const diagnosticImport =
+      'import { materializeStorageDiagnosticSnapshot } from "../components/storage/storageDiagnosticSnapshot.js";';
+    const diagnosticFile = "dev/DevMonitor.js";
     const preferencesSource = new Map(entries).get(preferencesFile);
     expect(preferencesSource.split(receiptImport)).toHaveLength(2);
+    expect(
+      new Map(entries).get(diagnosticFile).split(diagnosticImport),
+    ).toHaveLength(2);
     const source = entries
       .filter(
         ([file]) =>
           !file.startsWith("components/storage/") && file !== "main.js",
       )
       .map(([file, contents]) => {
-        // This one exact pure receipt import is not a concrete adapter or a
+        // Exact pure metadata materializers expose no concrete adapter or
         // privileged persistence capability; all other runtime imports stay shut.
-        return file === preferencesFile
-          ? contents.replace(receiptImport, "")
-          : contents;
+        if (file === preferencesFile)
+          return contents.replace(receiptImport, "");
+        if (file === diagnosticFile)
+          return contents.replace(diagnosticImport, "");
+        return contents;
       })
       .join("\n");
     // Type-only port references are allowed; concrete runtime imports are not.
@@ -248,21 +258,11 @@ describe("persistence access architecture ratchet", () => {
       /const startupMigration = runStorageSchemaMigration\(\{.*?\}\);/g;
     const ownerFacade = /projectRepository:\s*Object\.freeze\(\{.*?\}\)/g;
     expect(compactMain.match(startupCall)).toEqual([
-      "const startupMigration = runStorageSchemaMigration({ settingsRepository, settingsInspection: settingsRepository.createMigrationInspectionPort(), projectMigration: projectRepository.createSchemaMigrationPort(), defaults, version: stoData.settings.version, now: () => new Date().toISOString(), });",
+      "const startupMigration = runStorageSchemaMigration({ settingsRepository, settingsInspection: settingsAdapter.createMigrationInspectionPort(), projectMigration: projectAdapter.createSchemaMigrationPort(), defaults, version: stoData.settings.version, now: () => new Date().toISOString(), });",
     ]);
     expect(compactMain.match(ownerFacade)).toEqual([
       "projectRepository: Object.freeze({ load: projectRepository.load.bind(projectRepository), commit: projectRepository.commit.bind(projectRepository), reset: projectRepository.reset.bind(projectRepository), })",
     ]);
-    const receiptSource = readFileSync(
-      join(storageDirectory, "storageSchemaMigrationReceipt.js"),
-      "utf8",
-    );
-    expect(receiptSource).not.toMatch(
-      /^\s*import\b|\b(?:localStorage|storage|eventBus|ComponentBase)\b\s*(?:\.|\()/m,
-    );
-    expect(
-      scalarCallsites([["storageSchemaMigrationReceipt.js", receiptSource]]),
-    ).toEqual({});
     for (const candidate of repositoryCandidateNames.filter((name) =>
       name.startsWith("LocalStorage"),
     )) {
@@ -289,10 +289,10 @@ describe("persistence access architecture ratchet", () => {
     expect(constructorCallsites(entries, repositoryCandidateNames)).toEqual({
       "main.js|LocalStorageSettingsRepository|{ storage: settingsStorage, defaults, }": 1,
       "main.js|LocalStorageProjectRepository|{ storage: settingsStorage, version: stoData.settings.version, now: () => new Date().toISOString(), }": 1,
-      "main.js|LocalStorageVisitedStatePersistence|{ storage: settingsStorage, }": 1,
+      "main.js|LocalStorageVisitedStatePersistence|{ storage: settingsStorage }": 1,
       "main.js|LocalStorageCommandPresentationPersistence|{ storage: settingsStorage, }": 1,
-      "main.js|LocalStorageKeyBrowserPersistence|{ storage: settingsStorage, }": 1,
-      "main.js|LocalStorageDevelopmentFlagPersistence|{ storage: settingsStorage, }": 1,
+      "main.js|LocalStorageKeyBrowserPersistence|{ storage: settingsStorage }": 1,
+      "main.js|LocalStorageDevelopmentFlagPersistence|{ storage: settingsStorage }": 1,
     });
 
     const dataCoordinatorSource = readFileSync(

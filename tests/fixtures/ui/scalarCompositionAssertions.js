@@ -34,9 +34,34 @@ export function expectScalarBootstrap(bootstrap) {
     expect(bootstrap.appDependencies[name]).toBeTruthy();
     expect(bootstrap.appDependencies[name]).not.toHaveProperty("storage");
     expect(bootstrap.appDependencies[name]).not.toHaveProperty("setItem");
-    expect(bootstrap.runtimeDiagnostics).not.toHaveProperty(name);
+    expect(bootstrap.storageDiagnosticProvider()).not.toHaveProperty(name);
     expect(window).not.toHaveProperty(name);
   }
   expect(bootstrap.developmentFlag.isEnabled()).toBe(false);
   expect(bootstrap.developmentFlag).not.toHaveProperty("replace");
+}
+
+export function expectSafeDiagnosticBootstrap(bootstrap) {
+  expect(bootstrap.storageDiagnosticProvider).toBeTypeOf("function");
+  const snapshot = bootstrap.storageDiagnosticProvider();
+  expect(Object.isFrozen(snapshot)).toBe(true);
+  expect(snapshot.domains).toHaveLength(7);
+  for (const forbidden of [
+    "eventBus",
+    "dataCoordinator",
+    "commandChainUI",
+    "keyBrowserUI",
+    "keyBrowserService",
+    "projectRepository",
+    "settingsRepository",
+  ])
+    expect(snapshot).not.toHaveProperty(forbidden);
+  const inspect = (value) => {
+    expect(typeof value).not.toBe("function");
+    if (value && typeof value === "object") {
+      expect(Object.isFrozen(value)).toBe(true);
+      for (const child of Object.values(value)) inspect(child);
+    }
+  };
+  inspect(snapshot);
 }

@@ -82,14 +82,28 @@ devMonitor.clearStats();
 // Disable all monitoring
 devMonitor.disableAll();
 
-// Inspect the successfully composed application runtime
-const runtime = devMonitor.getRuntimeDiagnostics();
+// Inspect closed storage owner/adapter/layout and receipt metadata
+const storage = devMonitor.getStorageDiagnostics();
 
-// Clear the diagnostic registration
-devMonitor.clearRuntimeDiagnostics();
+// Detach the read-only diagnostic provider
+devMonitor.clearStorageDiagnostics();
 ```
 
 ## What Gets Tracked
+
+Storage diagnostics contain only fixed domain/owner/port/adapter identifiers,
+structural-layout codes and the latest safe operation/migration receipt.
+`not-observed` means no relevant operation has been seen, not that storage is
+empty or verified. A failure code does not imply rollback; acknowledged
+receipt stages can still prove a changed layout after partial failure.
+No profile, settings, command, file, directory name, raw
+exception, repository, service, event bus or mutation handle is returned.
+The former live runtime registration is intentionally removed.
+
+Scalar-port throw codes describe failure at the read/write operation boundary,
+not proof that a physical storage call was reached; write durability remains
+indeterminate. Project/settings structured receipts distinguish validation
+rejection and durability more precisely.
 
 ### I18n Tracking
 
@@ -108,8 +122,8 @@ devMonitor.clearRuntimeDiagnostics();
 ## Safety Features
 
 - **Development Only**: Monitoring is automatically disabled in production
-- **Read-only Runtime Record**: Successfully composed runtime handles are
-  available as a frozen registration only in development
+- **Closed Storage Metadata**: Development reads return detached, deeply frozen
+  domain and receipt metadata, never live runtime handles
 - **Performance Safe**: CSS checking is throttled to every 2 seconds
 - **Memory Safe**: Uses Sets and Maps for efficient storage
 - **Restoration**: Original functions are restored when tracking is disabled

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach } from "vitest";
-import { runtime } from "./fixtures/ui/applicationRuntime.js";
+import { storageDiagnostics } from "./fixtures/ui/applicationRuntime.js";
 
 const READY_TIMEOUT_MS = 10000;
 const POLL_INTERVAL_MS = 20;
@@ -43,7 +43,7 @@ async function loadApplicationShell() {
 async function loadApplication() {
   await loadApplicationShell();
 
-  if (window.devMonitor?.getRuntimeDiagnostics) return;
+  if (window.devMonitor?.getStorageDiagnostics) return;
 
   localStorage.clear();
   sessionStorage.clear();
@@ -72,7 +72,7 @@ async function loadApplication() {
 function getApplicationReadiness() {
   let applicationRuntime = null;
   try {
-    applicationRuntime = runtime();
+    applicationRuntime = storageDiagnostics();
   } catch {
     // The bundle registers diagnostics near the end of application startup.
   }
@@ -83,12 +83,7 @@ function getApplicationReadiness() {
   );
 
   return {
-    eventBus: Boolean(applicationRuntime?.eventBus),
-    dataCoordinator: Boolean(applicationRuntime?.dataCoordinator),
-    applicationServices: Boolean(applicationRuntime?.keyBrowserService),
-    keyService: Boolean(
-      applicationRuntime?.eventBus?.hasListeners("rpc:key:add"),
-    ),
+    diagnostics: Boolean(applicationRuntime?.domains?.length === 7),
     title: Boolean(document.title.trim()),
     version: Boolean(document.getElementById("appVersion")?.textContent.trim()),
     profile: hasUsableProfile,

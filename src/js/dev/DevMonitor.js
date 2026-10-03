@@ -9,9 +9,14 @@
  * - window.devMonitor.disableAll()
  */
 
+import { materializeStorageDiagnosticSnapshot } from "../components/storage/storageDiagnosticSnapshot.js";
+
 class DevMonitor {
   /** @type {import('../components/storage/DevelopmentFlagPort.js').DevelopmentFlagPort | null} */
   #developmentFlag = null;
+
+  /** @type {(() => unknown) | null} */
+  #storageDiagnostics = null;
 
   /** @param {import('../components/storage/DevelopmentFlagPort.js').DevelopmentFlagPort | null} developmentFlag */
   constructor(developmentFlag = null) {
@@ -51,8 +56,6 @@ class DevMonitor {
     this.originalI18nExists = null;
     /** @type {ReturnType<typeof setInterval> | null} */
     this.cssCheckInterval = null;
-    /** @type {Readonly<Record<string, unknown>> | null} */
-    this.runtimeDiagnostics = null;
 
     // Safety check - only enable in development
     this.isDevelopment = this.checkDevelopmentMode();
@@ -93,57 +96,31 @@ class DevMonitor {
   }
 
   /**
-   * Register the composed runtime handles exposed to development diagnostics.
-   *
-   * The registration record is copied and frozen so console consumers cannot
-   * replace its handles. The services themselves remain live objects.
-   *
-   * @param {Record<string, unknown>} runtime
-   * @returns {Readonly<Record<string, unknown>> | null}
+   * Inject a read-only metadata provider. Its capability remains private;
+   * every public read validates and detaches the closed diagnostic envelope.
+   * No service, owner state, repository or action handle is exposed.
+   * @param {() => unknown} provider
    */
-  registerRuntimeDiagnostics(runtime) {
-    if (!this.isDevelopment) {
-      console.warn(
-        "DevMonitor: Runtime diagnostics only available in development mode",
-      );
-      return null;
-    }
-
-    this.runtimeDiagnostics = Object.freeze({ ...runtime });
-    return this.runtimeDiagnostics;
+  configureStorageDiagnostics(provider) {
+    if (typeof provider !== "function")
+      throw new TypeError("invalid_storage_diagnostic_provider");
+    this.#storageDiagnostics = provider;
   }
 
   /**
-   * Get the current development runtime registration.
-   *
-   * @returns {Readonly<Record<string, unknown>> | null}
+   * @returns {import('../types/storage-diagnostics.js').StorageDiagnosticSnapshot | null}
    */
-  getRuntimeDiagnostics() {
-    if (!this.isDevelopment) {
-      console.warn(
-        "DevMonitor: Runtime diagnostics only available in development mode",
-      );
+  getStorageDiagnostics() {
+    if (!this.isDevelopment || !this.#storageDiagnostics) return null;
+    try {
+      return materializeStorageDiagnosticSnapshot(this.#storageDiagnostics());
+    } catch {
       return null;
     }
-
-    return this.runtimeDiagnostics;
   }
 
-  /**
-   * Clear the current development runtime registration.
-   *
-   * @returns {boolean}
-   */
-  clearRuntimeDiagnostics() {
-    if (!this.isDevelopment) {
-      console.warn(
-        "DevMonitor: Runtime diagnostics only available in development mode",
-      );
-      return false;
-    }
-
-    this.runtimeDiagnostics = null;
-    return true;
+  clearStorageDiagnostics() {
+    this.#storageDiagnostics = null;
   }
 
   checkDevelopmentMode() {
@@ -607,8 +584,8 @@ if (devMonitor.isDevelopment) {
 - devMonitor.clearStats()            // Clear all tracking data
 - devMonitor.disableAll()            // Disable all tracking
 - devMonitor.getStatus()             // Get current status
-- devMonitor.getRuntimeDiagnostics() // Get composed runtime handles
-- devMonitor.clearRuntimeDiagnostics() // Clear composed runtime handles
+- devMonitor.getStorageDiagnostics() // Read closed storage metadata only
+- devMonitor.clearStorageDiagnostics() // Detach the metadata provider
   `);
 }
 

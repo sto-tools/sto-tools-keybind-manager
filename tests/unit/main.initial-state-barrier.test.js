@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { expectScalarBootstrap } from "../fixtures/ui/scalarCompositionAssertions.js";
+import {
+  expectSafeDiagnosticBootstrap,
+  expectScalarBootstrap,
+} from "../fixtures/ui/scalarCompositionAssertions.js";
 
 const bootstrap = vi.hoisted(() => {
   class ComponentStub {
@@ -19,7 +22,7 @@ const bootstrap = vi.hoisted(() => {
     dataCoordinator: null,
     projectRepository: null,
     devMonitorI18n: null,
-    runtimeDiagnostics: null,
+    storageDiagnosticProvider: null,
     syncOptions: null,
     appInitError: null,
     intermediateInitError: null,
@@ -40,7 +43,7 @@ const bootstrap = vi.hoisted(() => {
       state.dataCoordinator = null;
       state.projectRepository = null;
       state.devMonitorI18n = null;
-      state.runtimeDiagnostics = null;
+      state.storageDiagnosticProvider = null;
       state.syncOptions = null;
       state.appInitError = null;
       state.intermediateInitError = null;
@@ -208,10 +211,9 @@ vi.mock("../../src/js/dev/DevMonitor.js", () => ({
       bootstrap.devMonitorI18n = i18n;
       bootstrap.operations.push("dev-monitor:configure");
     },
-    registerRuntimeDiagnostics(runtime) {
-      bootstrap.runtimeDiagnostics = Object.freeze({ ...runtime });
-      bootstrap.operations.push("dev-monitor:register-runtime");
-      return bootstrap.runtimeDiagnostics;
+    configureStorageDiagnostics(provider) {
+      bootstrap.storageDiagnosticProvider = provider;
+      bootstrap.operations.push("dev-monitor:configure-storage");
     },
   },
 }));
@@ -313,9 +315,9 @@ describe("main DataCoordinator startup barrier", () => {
     expect(bootstrap.operations.indexOf("app:construct")).toBeLessThan(
       bootstrap.operations.indexOf("app:init"),
     );
-    expect(bootstrap.operations.indexOf("app:init")).toBeLessThan(
-      bootstrap.operations.indexOf("dev-monitor:register-runtime"),
-    );
+    expect(
+      bootstrap.operations.indexOf("dev-monitor:configure-storage"),
+    ).toBeLessThan(bootstrap.operations.indexOf("preferences:construct"));
     expect(bootstrap.operations).not.toContain("storage:get-settings");
     expect(bootstrap.operations).not.toContain("i18next:change-language");
     expect(bootstrap.operations).not.toContain("data:localize");
@@ -353,14 +355,7 @@ describe("main DataCoordinator startup barrier", () => {
       capturePort: bootstrap.artifactCapturePort,
       version: "test-version",
     });
-    expect(bootstrap.runtimeDiagnostics).toEqual({
-      eventBus: expect.objectContaining({ emit: expect.any(Function) }),
-      dataCoordinator: expect.anything(),
-      commandChainUI: { name: "command-chain-ui" },
-      keyBrowserUI: { name: "key-browser-ui" },
-      keyBrowserService: { name: "key-browser-service" },
-    });
-    expect(Object.isFrozen(bootstrap.runtimeDiagnostics)).toBe(true);
+    expectSafeDiagnosticBootstrap(bootstrap);
     for (const property of [
       "eventBus",
       "dataCoordinator",
@@ -480,10 +475,10 @@ describe("main DataCoordinator startup barrier", () => {
       "data-service:destroy",
       "preferences:destroy",
     ]);
-    expect(bootstrap.runtimeDiagnostics).toBeNull();
+    expectSafeDiagnosticBootstrap(bootstrap);
   });
 
-  it("does not register runtime diagnostics when app initialization fails", async () => {
+  it("retains only safe storage metadata when app initialization fails", async () => {
     const error = new Error("app initialization failed");
     bootstrap.appInitError = error;
     const consoleError = vi
@@ -503,8 +498,7 @@ describe("main DataCoordinator startup barrier", () => {
       );
     });
     expect(bootstrap.operations).toContain("app:init");
-    expect(bootstrap.operations).not.toContain("dev-monitor:register-runtime");
-    expect(bootstrap.runtimeDiagnostics).toBeNull();
+    expectSafeDiagnosticBootstrap(bootstrap);
   });
 
   it.each([
@@ -540,10 +534,7 @@ describe("main DataCoordinator startup barrier", () => {
         constructsApp,
       );
       expect(bootstrap.operations).not.toContain("app:init");
-      expect(bootstrap.operations).not.toContain(
-        "dev-monitor:register-runtime",
-      );
-      expect(bootstrap.runtimeDiagnostics).toBeNull();
+      expectSafeDiagnosticBootstrap(bootstrap);
     },
   );
 });
